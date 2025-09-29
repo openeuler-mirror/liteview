@@ -1,0 +1,19 @@
+[
+  {
+    "traits_headers": [
+      "third_party/blink/common/mobile_metrics/mobile_friendliness_mojom_traits.h"
+    ],
+    "traits_public_deps": [
+      "//third_party/blink/public/common:headers"
+    ],
+    "traits_sources": [
+      "//third_party/blink/common/mobile_metrics/mobile_friendliness_mojom_traits.cc"
+    ],
+    "types": [
+      {
+        "cpp": "::blink::MobileFriendliness",
+        "mojom": "blink.mojom.MobileFriendliness"
+      }
+    ]
+  }
+]

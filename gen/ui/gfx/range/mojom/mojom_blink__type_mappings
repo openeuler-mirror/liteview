@@ -1,0 +1,32 @@
+{
+  "c++": {
+    "gfx.mojom.Range": {
+      "typename": "::gfx::Range",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/gfx/range/mojom/range_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    },
+    "gfx.mojom.RangeF": {
+      "typename": "::gfx::RangeF",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/gfx/range/mojom/range_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    }
+  }
+}

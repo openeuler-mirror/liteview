@@ -1,0 +1,13 @@
+[
+  {
+    "traits_headers": [
+      "mojo/public/cpp/bindings/tests/default_construct_unittest_mojom_traits.h"
+    ],
+    "types": [
+      {
+        "cpp": "::mojo::test::default_construct::TestStruct",
+        "mojom": "mojo.test.default_construct.mojom.TestStruct"
+      }
+    ]
+  }
+]

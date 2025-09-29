@@ -1,0 +1,12 @@
+sources:
+gen/mojom-webui/services/device/public/mojom/usb_device.mojom-webui.js
+gen/mojom-webui/services/device/public/mojom/usb_enumeration_options.mojom-webui.js
+gen/mojom-webui/services/device/public/mojom/usb_manager.mojom-webui.js
+gen/mojom-webui/services/device/public/mojom/usb_manager_client.mojom-webui.js
+deps:
+gen/mojo/public/js/bindings_uncompiled.js_library
+gen/mojo/public/mojom/base/base_webui_js.js_library
+gen/url/mojom/url_mojom_gurl_webui_js.js_library
+externs:
+../../third_party/closure_compiler/externs/mojo_core.js
+../../third_party/closure_compiler/externs/pending.js

@@ -1,0 +1,9 @@
+{
+  "deps": [
+    "../../../../../../mojo/public/mojom/base/base.build_metadata",
+    "../../../../../../third_party/blink/public/mojom/mojom_platform.build_metadata"
+  ],
+  "sources": [
+    "../../../../../../../../../components/services/storage/shared_storage/public/mojom/shared_storage.mojom"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "deps": [
+    "audio_data.build_metadata",
+    "../../../mojo/public/mojom/base/base.build_metadata",
+    "../../../sandbox/policy/mojom/mojom.build_metadata"
+  ],
+  "sources": [
+    "../../../../../../media/mojo/mojom/speech_recognition.mojom"
+  ]
+}

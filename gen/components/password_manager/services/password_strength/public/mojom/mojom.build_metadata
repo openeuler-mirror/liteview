@@ -1,0 +1,8 @@
+{
+  "deps": [
+    "../../../../../../sandbox/policy/mojom/mojom.build_metadata"
+  ],
+  "sources": [
+    "../../../../../../../../../components/password_manager/services/password_strength/public/mojom/password_strength_calculator.mojom"
+  ]
+}
