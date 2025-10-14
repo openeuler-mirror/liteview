@@ -1,0 +1,39 @@
+//
+// Copyright (c) 2025 Institute of Software, Chinese Academy of Sciences (ISCAS)
+// LiteView is licensed under Mulan PSL v2.
+// You can use this software according to the terms and conditions of the Mulan PSL v2.
+// You may obtain a copy of Mulan PSL v2 at:
+//          http://license.coscl.org.cn/MulanPSL2
+// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+// EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+// MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+// See the Mulan PSL v2 for more details.
+//
+
+#ifndef SRC_PERMISSION_CHILD_PROCESS_PERMISSION_H_
+#define SRC_PERMISSION_CHILD_PROCESS_PERMISSION_H_
+
+#if defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+
+#include <vector>
+#include "permission/permission_base.h"
+
+namespace node {
+
+namespace permission {
+
+class ChildProcessPermission final : public PermissionBase {
+public:
+    void Apply(Environment* env, const std::vector<std::string>& allow, PermissionScope scope) override;
+    bool is_granted(PermissionScope perm, const std::string_view& param = "") const override;
+
+private:
+    bool deny_all_;
+};
+
+} // namespace permission
+
+} // namespace node
+
+#endif // defined(NODE_WANT_INTERNALS) && NODE_WANT_INTERNALS
+#endif // SRC_PERMISSION_CHILD_PROCESS_PERMISSION_H_

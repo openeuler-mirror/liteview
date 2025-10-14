@@ -1,0 +1,9 @@
+sources:
+gen/mojom-webui/gpu/ipc/common/vulkan_info.mojom-webui.js
+gen/mojom-webui/gpu/ipc/common/vulkan_types.mojom-webui.js
+deps:
+gen/mojo/public/js/bindings_uncompiled.js_library
+gen/mojo/public/mojom/base/base_webui_js.js_library
+externs:
+../../third_party/closure_compiler/externs/mojo_core.js
+../../third_party/closure_compiler/externs/pending.js

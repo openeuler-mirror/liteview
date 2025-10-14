@@ -1,0 +1,33 @@
+//
+// Copyright (c) 2025 Institute of Software, Chinese Academy of Sciences (ISCAS)
+// LiteView is licensed under Mulan PSL v2.
+// You can use this software according to the terms and conditions of the Mulan PSL v2.
+// You may obtain a copy of Mulan PSL v2 at:
+//          http://license.coscl.org.cn/MulanPSL2
+// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+// EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+// MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+// See the Mulan PSL v2 for more details.
+//
+
+
+#include "net/StorageMgr.h"
+
+namespace net {
+
+StorageMgr* StorageMgr::m_inst = nullptr;
+
+DOMStorageMap* StorageMgr::createOrGet(const String& fullPath)
+{
+    RELEASE_ASSERT(!fullPath.is8Bit());
+    WebStorageNamespaceImpl* storageArea = nullptr;
+    HashMap<String, DOMStorageMap*>::iterator it = m_pathToStorageNamespace.find(fullPath);
+    if (m_pathToStorageNamespace.end() != it)
+        return it->value;
+    
+    DOMStorageMap* storageMap = new DOMStorageMap();
+    m_pathToStorageNamespace.add(fullPath, storageMap);
+    return storageMap;
+}
+    
+}

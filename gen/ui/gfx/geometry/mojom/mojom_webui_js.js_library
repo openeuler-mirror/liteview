@@ -1,0 +1,7 @@
+sources:
+gen/mojom-webui/ui/gfx/geometry/mojom/geometry.mojom-webui.js
+deps:
+gen/mojo/public/js/bindings_uncompiled.js_library
+externs:
+../../third_party/closure_compiler/externs/mojo_core.js
+../../third_party/closure_compiler/externs/pending.js

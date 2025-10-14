@@ -1,0 +1,32 @@
+{
+  "c++": {
+    "bluetooth.mojom.UUID": {
+      "typename": "::WTF::String",
+      "forward_declaration": null,
+      "public_headers": [],
+      "traits_headers": [
+        "third_party/blink/renderer/platform/mojo/bluetooth_mojom_traits.h"
+      ],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": true,
+      "non_copyable_non_movable": false
+    },
+    "blink.mojom.WebBluetoothDeviceId": {
+      "typename": "::blink::WebBluetoothDeviceId",
+      "forward_declaration": null,
+      "public_headers": [
+        "third_party/blink/public/common/bluetooth/web_bluetooth_device_id_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    }
+  }
+}

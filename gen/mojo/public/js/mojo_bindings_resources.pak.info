@@ -1,0 +1,14 @@
+IDR_MOJO_MOJO_BINDINGS_JS,34570,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_BINDINGS_JS,34571,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_BIG_BUFFER_MOJOM_WEBUI_JS,34575,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_FILE_MOJOM_WEBUI_JS,34576,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_FILE_PATH_MOJOM_WEBUI_JS,34577,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_INT128_MOJOM_WEBUI_JS,34578,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_READ_ONLY_BUFFER_MOJOM_WEBUI_JS,34579,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_SAFE_BASE_NAME_MOJOM_WEBUI_JS,34580,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_STRING16_MOJOM_WEBUI_JS,34582,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_TEXT_DIRECTION_MOJOM_WEBUI_JS,34585,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_TOKEN_MOJOM_WEBUI_JS,34586,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_UNGUESSABLE_TOKEN_MOJOM_WEBUI_JS,34587,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_PROCESS_ID_MOJOM_WEBUI_JS,34588,../../mojo/public/js/mojo_bindings_resources.grd
+IDR_MOJO_TIME_MOJOM_WEBUI_JS,34589,../../mojo/public/js/mojo_bindings_resources.grd

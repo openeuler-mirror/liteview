@@ -1,23 +1,15 @@
 # liteview
 
 #### 介绍
-A web browser running on a domestic operating system
+LiteView是一个轻量级浏览器，采用Livi浏览器内核，具备资源占用低、可快速移植等特性，兼容多种主流和国产GPU。
 
-#### 软件架构
-软件架构说明
+Livi浏览器内核是在Chromium基础上精简的浏览器内核，采用纯C接口调用，适合运行在计算资源比较有限的设备中，用于网页解析和渲染。
+目前，LiteView浏览器可以运行在Linux操作系统的多种发行版中，包括openEuler（openEuler 22.03 LTS、openEuler 24.03 LTS、openEuler 25.03）、麒麟V10(SP1)和Ubuntu(20.04,22.04)等。
 
 
 #### 安装教程
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### 使用说明
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
+1.  构建和安装脚本正在进行调试，源码包中暂不包含，预计将在2025年10月底提供
 
 #### 参与贡献
 

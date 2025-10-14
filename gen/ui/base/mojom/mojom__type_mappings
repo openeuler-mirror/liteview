@@ -1,0 +1,60 @@
+{
+  "c++": {
+    "ui.mojom.DialogButton": {
+      "typename": "::ui::DialogButton",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/base/mojom/ui_base_types_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    },
+    "ui.mojom.MenuSourceType": {
+      "typename": "::ui::MenuSourceType",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/base/mojom/ui_base_types_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    },
+    "ui.mojom.ModalType": {
+      "typename": "::ui::ModalType",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/base/mojom/ui_base_types_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    },
+    "ui.mojom.WindowOpenDisposition": {
+      "typename": "::WindowOpenDisposition",
+      "forward_declaration": null,
+      "public_headers": [
+        "ui/base/mojom/window_open_disposition_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    }
+  }
+}

@@ -1,0 +1,4 @@
+sources:
+gen/mojo/public/js/bindings_uncompiled.js
+deps:
+externs:

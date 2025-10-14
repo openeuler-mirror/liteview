@@ -1,0 +1,47 @@
+// Copyright 2011 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <verrsrc.h>
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 108,0,5359,125
+ PRODUCTVERSION 108,0,5359,125
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "The Chromium Authors"
+            VALUE "FileDescription", "Chromium"
+            VALUE "FileVersion", "108.0.5359.125"
+            VALUE "InternalName", "mojo_core"
+            VALUE "LegalCopyright", "Copyright 2022 The Chromium Authors. All rights reserved."
+            VALUE "OriginalFilename", "mojo_core.dll"
+            VALUE "ProductName", "Chromium"
+            VALUE "ProductVersion", "108.0.5359.125"
+            VALUE "CompanyShortName", "The Chromium Authors"
+            VALUE "ProductShortName", "Chromium"
+            VALUE "LastChange", "04b0d1dbeaf2ace7f88a791efa178fc34bf57eab-refs/branch-heads/5359@{#1180}"
+            VALUE "Official Build", "0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

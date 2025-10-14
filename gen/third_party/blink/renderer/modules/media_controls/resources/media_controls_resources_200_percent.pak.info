@@ -1,0 +1,9 @@
+IDR_UASTYLE_MEDIA_CONTROLS_CSS,34930,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_UASTYLE_MEDIA_INTERSTITIALS_CSS,34931,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_SHADOWSTYLE_MEDIA_CONTROLS_LOADING_CSS,34932,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_UASTYLE_MEDIA_CONTROLS_ANDROID_CSS,34920,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_SHADOWSTYLE_MEDIA_CONTROLS_ANIMATED_ARROW_CSS,34921,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_SHADOWSTYLE_MEDIA_CONTROLS_SCRUBBING_MESSAGE_CSS,34922,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_MEDIA_CONTROLS_JUMP_SVG,34923,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_MEDIA_CONTROLS_ARROW_RIGHT_SVG,34924,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd
+IDR_MEDIA_CONTROLS_ARROW_LEFT_SVG,34925,../../third_party/blink/renderer/modules/media_controls/resources/media_controls_resources.grd

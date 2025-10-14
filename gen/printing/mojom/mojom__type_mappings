@@ -1,0 +1,18 @@
+{
+  "c++": {
+    "printing.mojom.PageRange": {
+      "typename": "::printing::PageRange",
+      "forward_declaration": null,
+      "public_headers": [
+        "printing/mojom/print_mojom_traits.h"
+      ],
+      "traits_headers": [],
+      "copyable_pass_by_value": false,
+      "force_serialize": false,
+      "hashable": false,
+      "move_only": false,
+      "nullable_is_same_type": false,
+      "non_copyable_non_movable": false
+    }
+  }
+}

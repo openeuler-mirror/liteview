@@ -1,0 +1,19 @@
+[
+  {
+    "traits_headers": [
+      "services/viz/public/cpp/compositing/resource_format_mojom_traits.h"
+    ],
+    "traits_public_deps": [
+      "//components/viz/common:resource_format"
+    ],
+    "traits_sources": [
+      "//services/viz/public/cpp/compositing/resource_format_mojom_traits.cc"
+    ],
+    "types": [
+      {
+        "cpp": "::viz::ResourceFormat",
+        "mojom": "viz.mojom.ResourceFormat"
+      }
+    ]
+  }
+]
