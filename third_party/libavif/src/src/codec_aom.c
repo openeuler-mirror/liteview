@@ -1043,7 +1043,8 @@ static avifBool aomCodecEncodeFinish(avifCodec * codec, avifCodecEncodeOutput * 
 
 const char * avifCodecVersionAOM(void)
 {
-    return aom_codec_version_str();
+    //return aom_codec_version_str();
+    return "";
 }
 
 avifCodec * avifCodecCreateAOM(void)

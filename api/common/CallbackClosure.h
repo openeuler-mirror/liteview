@@ -15,7 +15,7 @@
 #define mbvip_common_CallbackClosure_h
 
 #include <functional>
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 
 namespace mb {
 

@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2016, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -17,8 +17,6 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
- *
- * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 
@@ -50,51 +48,53 @@
  * For libcurl static library release builds no overriding takes place.
  */
 
-int Curl_gethostname(char* const name, GETHOSTNAME_TYPE_ARG2 namelen)
+int Curl_gethostname(char *name, GETHOSTNAME_TYPE_ARG2 namelen)
 {
 #ifndef HAVE_GETHOSTNAME
 
-    /* Allow compilation and return failure when unavailable */
-    (void)name;
-    (void)namelen;
-    return -1;
+  /* Allow compilation and return failure when unavailable */
+  (void) name;
+  (void) namelen;
+  return -1;
 
 #else
-    int err;
-    char* dot;
+  int err;
+  char *dot;
 
 #ifdef DEBUGBUILD
 
-    /* Override host name when environment variable CURL_GETHOSTNAME is set */
-    const char* force_hostname = getenv("CURL_GETHOSTNAME");
-    if (force_hostname) {
-        strncpy(name, force_hostname, namelen);
-        err = 0;
-    } else {
-        name[0] = '\0';
-        err = gethostname(name, namelen);
-    }
+  /* Override host name when environment variable CURL_GETHOSTNAME is set */
+  const char *force_hostname = getenv("CURL_GETHOSTNAME");
+  if(force_hostname) {
+    strncpy(name, force_hostname, namelen);
+    err = 0;
+  }
+  else {
+    name[0] = '\0';
+    err = gethostname(name, namelen);
+  }
 
 #else /* DEBUGBUILD */
 
-    /* The call to system's gethostname() might get intercepted by the
+  /* The call to system's gethostname() might get intercepted by the
      libhostname library when libcurl is built as a non-debug shared
      library when running the test suite. */
-    name[0] = '\0';
-    err = gethostname(name, namelen);
+  name[0] = '\0';
+  err = gethostname(name, namelen);
 
 #endif
 
-    name[namelen - 1] = '\0';
+  name[namelen - 1] = '\0';
 
-    if (err)
-        return err;
+  if(err)
+    return err;
 
-    /* Truncate domain, leave only machine name */
-    dot = strchr(name, '.');
-    if (dot)
-        *dot = '\0';
+  /* Truncate domain, leave only machine name */
+  dot = strchr(name, '.');
+  if(dot)
+    *dot = '\0';
 
-    return 0;
+  return 0;
 #endif
+
 }

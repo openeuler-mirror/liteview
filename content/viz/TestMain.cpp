@@ -66,7 +66,7 @@
 #include "content/demo/DemoHost.h"
 #include "content/demo/DemoClient.h"
 #include "content/demo/DemoService.h"
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 #include "mbnet/LoaderFactoryImpl.h"
 #include "mbnet/WebURLLoaderImplCurl.h"
 #include "base/run_loop.h"
@@ -345,13 +345,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
         "https://www.aardio.com/";
         "http://192.168.10.2:8091/aardio.htm";
         "view-source:https://www.baidu.com";
-        u8"view-source:/home/euweb/×ÀÃæ/mini_electron/linux/main4.htm";
+        u8"view-source:/home/euweb/ï¿½ï¿½ï¿½ï¿½/mini_electron/linux/main4.htm";
         "https://www.qidian.com/chapter/1038152211/768723838/";
         "https://www.qidian.com/";
         "https://www.baidu.com/";
         "file:///G:/test/sln_test/QueueByMiniBlink/dist/test_vite.htm";
         "file:///G:/test/web_test/51iwifi/1.htm";
-        "file:///G:/test/web_test/58/svgimage.htm"; // ²âÊÔLoaderFactoryForFrame::LoaderFactoryForFrameÀïµÄsvgimage²úÉúµÄ±ÀÀ£
+        "file:///G:/test/web_test/58/svgimage.htm"; // ï¿½ï¿½ï¿½ï¿½LoaderFactoryForFrame::LoaderFactoryForFrameï¿½ï¿½ï¿½svgimageï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½
     
     ::mbLoadURL(mbView, url);
     ::mbShowWindow(mbView, TRUE);    

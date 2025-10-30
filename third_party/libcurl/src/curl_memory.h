@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -19,8 +19,6 @@
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
- *
- * SPDX-License-Identifier: curl
  *
  ***************************************************************************/
 
@@ -41,7 +39,7 @@
  *
  * File lib/strdup.c is an exception, given that it provides a strdup
  * clone implementation while using malloc. Extra care needed inside
- * this one.
+ * this one. TODO: revisit this paragraph and related code.
  *
  * The need for curl_memory.h inclusion is due to libcurl's feature
  * of allowing library user to provide memory replacement functions,
@@ -52,67 +50,38 @@
  * mentioned above will compile without any indication, but it will
  * trigger weird memory related issues at runtime.
  *
+ * OTOH some source files from 'lib' subdirectory may additionally be
+ * used directly as source code when using some curlx_ functions by
+ * third party programs that don't even use libcurl at all. When using
+ * these source files in this way it is necessary these are compiled
+ * with CURLX_NO_MEMORY_CALLBACKS defined, in order to ensure that no
+ * attempt of calling libcurl's memory callbacks is done from code
+ * which can not use this machinery.
+ *
+ * Notice that libcurl's 'memory tracking' system works chaining into
+ * the memory callback machinery. This implies that when compiling
+ * 'lib' source files with CURLX_NO_MEMORY_CALLBACKS defined this file
+ * disengages usage of libcurl's 'memory tracking' system, defining
+ * MEMDEBUG_NODEFINES and overriding CURLDEBUG purpose.
+ *
+ * CURLX_NO_MEMORY_CALLBACKS takes precedence over CURLDEBUG. This is
+ * done in order to allow building a 'memory tracking' enabled libcurl
+ * and at the same time allow building programs which do not use it.
+ *
+ * Programs and libraries in 'tests' subdirectories have specific
+ * purposes and needs, and as such each one will use whatever fits
+ * best, depending additionally whether it links with libcurl or not.
+ *
+ * Caveat emptor. Proper curlx_* separation is a work in progress
+ * the same as CURLX_NO_MEMORY_CALLBACKS usage, some adjustments may
+ * still be required. IOW don't use them yet, there are sharp edges.
  */
 
 #ifdef HEADER_CURL_MEMDEBUG_H
-/* cleanup after memdebug.h */
-
-#ifdef MEMDEBUG_NODEFINES
-#ifdef CURLDEBUG
-
-#undef strdup
-#undef malloc
-#undef calloc
-#undef realloc
-#undef free
-#undef send
-#undef recv
-
-#ifdef WIN32
-#ifdef UNICODE
-#undef wcsdup
-#undef _wcsdup
-#undef _tcsdup
-#else
-#undef _tcsdup
-#endif
+#error "Header memdebug.h shall not be included before curl_memory.h"
 #endif
 
-#undef socket
-#undef accept
-#ifdef HAVE_SOCKETPAIR
-#undef socketpair
-#endif
-
-#ifdef HAVE_GETADDRINFO
-#if defined(getaddrinfo) && defined(__osf__)
-#undef ogetaddrinfo
-#else
-#undef getaddrinfo
-#endif
-#endif /* HAVE_GETADDRINFO */
-
-#ifdef HAVE_FREEADDRINFO
-#undef freeaddrinfo
-#endif /* HAVE_FREEADDRINFO */
-
-/* sclose is probably already defined, redefine it! */
-#undef sclose
-#undef fopen
-#undef fdopen
-#undef fclose
-
-#endif /* MEMDEBUG_NODEFINES */
-#endif /* CURLDEBUG */
-
-#undef HEADER_CURL_MEMDEBUG_H
-#endif /* HEADER_CURL_MEMDEBUG_H */
-
-/*
-** Following section applies even when CURLDEBUG is not defined.
-*/
-
-#undef fake_sclose
+#ifndef CURLX_NO_MEMORY_CALLBACKS
 
 #ifndef CURL_DID_MEMORY_FUNC_TYPEDEFS /* only if not already done */
 /*
@@ -121,11 +90,11 @@
  * include curl/curl.h here. We avoid that include since it includes stdio.h
  * and other headers that may get messed up with defines done here.
  */
-typedef void* (*curl_malloc_callback)(size_t size);
-typedef void (*curl_free_callback)(void* ptr);
-typedef void* (*curl_realloc_callback)(void* ptr, size_t size);
-typedef char* (*curl_strdup_callback)(const char* str);
-typedef void* (*curl_calloc_callback)(size_t nmemb, size_t size);
+typedef void *(*curl_malloc_callback)(size_t size);
+typedef void (*curl_free_callback)(void *ptr);
+typedef void *(*curl_realloc_callback)(void *ptr, size_t size);
+typedef char *(*curl_strdup_callback)(const char *str);
+typedef void *(*curl_calloc_callback)(size_t nmemb, size_t size);
 #define CURL_DID_MEMORY_FUNC_TYPEDEFS
 #endif
 
@@ -154,25 +123,34 @@ extern curl_wcsdup_callback Curl_cwcsdup;
 #undef malloc
 #define malloc(size) Curl_cmalloc(size)
 #undef calloc
-#define calloc(nbelem, size) Curl_ccalloc(nbelem, size)
+#define calloc(nbelem,size) Curl_ccalloc(nbelem, size)
 #undef realloc
-#define realloc(ptr, size) Curl_crealloc(ptr, size)
+#define realloc(ptr,size) Curl_crealloc(ptr, size)
 #undef free
 #define free(ptr) Curl_cfree(ptr)
 
 #ifdef WIN32
-#ifdef UNICODE
-#undef wcsdup
-#define wcsdup(ptr) Curl_cwcsdup(ptr)
-#undef _wcsdup
-#define _wcsdup(ptr) Curl_cwcsdup(ptr)
-#undef _tcsdup
-#define _tcsdup(ptr) Curl_cwcsdup(ptr)
-#else
-#undef _tcsdup
-#define _tcsdup(ptr) Curl_cstrdup(ptr)
-#endif
+#  ifdef UNICODE
+#    undef wcsdup
+#    define wcsdup(ptr) Curl_cwcsdup(ptr)
+#    undef _wcsdup
+#    define _wcsdup(ptr) Curl_cwcsdup(ptr)
+#    undef _tcsdup
+#    define _tcsdup(ptr) Curl_cwcsdup(ptr)
+#  else
+#    undef _tcsdup
+#    define _tcsdup(ptr) Curl_cstrdup(ptr)
+#  endif
 #endif
 
 #endif /* CURLDEBUG */
+
+#else /* CURLX_NO_MEMORY_CALLBACKS */
+
+#ifndef MEMDEBUG_NODEFINES
+#define MEMDEBUG_NODEFINES
+#endif
+
+#endif /* CURLX_NO_MEMORY_CALLBACKS */
+
 #endif /* HEADER_CURL_MEMORY_H */

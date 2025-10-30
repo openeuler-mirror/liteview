@@ -19,7 +19,7 @@
 //#include "mbnet/WebStorageNamespaceImpl.h"
 #include "mbnet/DefaultLocalStorageDir.h"
 #include "third_party/blink/renderer/platform/wtf/threading_primitives.h"
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 #include <shlwapi.h>
 
 namespace mbnet {
@@ -31,7 +31,7 @@ PageNetExtraData::PageNetExtraData()
 
 PageNetExtraData::~PageNetExtraData()
 {
-    // ²»É¾³ýÁË£¬ÒòÎªÊÇCookieJarMgr¹ÜÀíµÄ
+    // ï¿½ï¿½É¾ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½Îªï¿½ï¿½CookieJarMgrï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //     if (m_cookieJar)
 //         delete m_cookieJar;
 

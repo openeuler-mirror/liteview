@@ -19,8 +19,8 @@
 #include "content/browser/PageNavController.h"
 #include "ui/gfx/native_widget_types.h"
 #include "ui/base/cursor/cursor.h"
-#include "mbvip/core/mb.h"
-#include "mbvip/common/CallbackClosure.h"
+#include "api/core/mb.h"
+#include "api/common/CallbackClosure.h"
 #include "mbnet/PageNetExtraData.h"
 #include "third_party/blink/public/web/web_draggable_region.h"
 #include "third_party/blink/public/mojom/page/widget.mojom-blink.h"
@@ -117,7 +117,7 @@ public:
     bool canGoBack() const;
 
     bool hasDispatchWillCommitProvisionalLoad() const { return m_hasDispatchWillCommitProvisionalLoad; }
-    void resetState() { m_hasDispatchWillCommitProvisionalLoad = false; }  // ÓÐurl loadµÄÊ±ºò»áµ÷ÓÃ
+    void resetState() { m_hasDispatchWillCommitProvisionalLoad = false; }  // ï¿½ï¿½url loadï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     mb::MbJsValue* runJsOnBlinkThreadImpl(mbWebFrameHandle frameId, int worldId, std::string* scriptString, BOOL isInClosure, mbRunJsCallback callback, void* param);
 
@@ -310,7 +310,7 @@ private:
     float m_zoomFactor = 1.0f;
     bool m_hasSetZoomFactor = false;
 
-    bool m_isInNotClient = false; // ÊÇ·ñÔÚ·Ç¿Í»§Çø
+    bool m_isInNotClient = false; // ï¿½Ç·ï¿½ï¿½Ú·Ç¿Í»ï¿½ï¿½ï¿½
 
     long m_navigateIndex = 0;
 

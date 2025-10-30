@@ -1281,11 +1281,11 @@ inline void mbInit(const mbSettings* settings)
 
 #else // defined(WIN32)
 
-inline void mbInit(const mbSettings* settings)
+inline void mbInit(const mbSettings* settings, const char* soPath)
 {
     printf("mbInit\n");
     //void* g_hMiniblinkMod = dlopen("/home/daniel/Desktop/wkexe/miniblink.so", RTLD_LAZY);
-    void* g_hMiniblinkMod = dlopen("./miniblink.so", RTLD_LAZY);
+    void* g_hMiniblinkMod = dlopen(soPath, RTLD_LAZY);
     printf("g_hMiniblinkMod: %p, %s \n", g_hMiniblinkMod, dlerror());
     FN_mbInit mbInitExFunc = (FN_mbInit)dlsym(g_hMiniblinkMod, "mbInit");
     printf("mbInitExFunc: %p\n", mbInitExFunc);

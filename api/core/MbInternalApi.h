@@ -14,7 +14,7 @@
 #ifndef MbInternalApi_h
 #define MbInternalApi_h
 
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 
 // 不知道为啥，如果在mb内部直接调用mbXXX api，在某些linux下会报错，导出表被改了
 void mbDestroyWebViewImpl(mbWebView webviewHandle);

@@ -15,7 +15,7 @@
 #include "content/common/BindJsQuery.h"
 #include "content/common/LiveIdDetect.h"
 #include "content/common/ThreadCall.h"
-#include "mbvip/core/MbJsValue.h"
+#include "api/core/MbJsValue.h"
 #include "base/strings/utf_string_conversions.h"
 #include <string>
 #include <string.h>
@@ -147,7 +147,7 @@ static const char* injectScript =
 "\n"
 "if (!('indexedDB' in window)) {\n"
 "    (function() {\n"
-// Ä£ÄâIDBRequest
+// Ä£ï¿½ï¿½IDBRequest
 "        class MockIDBRequest {\n"
 "            constructor() {\n"
 "                this.readyState = 'pending';\n"
@@ -172,7 +172,7 @@ static const char* injectScript =
 "                if (type === 'error') this.onerror = null;\n"
 "            }\n"
 "\n"
-// ´¥·¢³É¹¦»Øµ÷
+// ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½ï¿½Øµï¿½
 "            _resolve(value) {\n"
 "                this.readyState = 'done';\n"
 "                this.result = value;\n"
@@ -188,7 +188,7 @@ static const char* injectScript =
 "                }\n"
 "            }\n"
 "\n"
-// ´¥·¢´íÎó»Øµ÷
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½
 "            _reject(error) {\n"
 "                this.readyState = 'done';\n"
 "                this.error = error instanceof Error ? error : new Error(error);\n"
@@ -200,7 +200,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBKeyRange
+// Ä£ï¿½ï¿½IDBKeyRange
 "        class MockIDBKeyRange {\n"
 "            constructor(lower, upper, lowerOpen, upperOpen) {\n"
 "                this.lower = lower;\n"
@@ -230,7 +230,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBCursor
+// Ä£ï¿½ï¿½IDBCursor
 "        class MockIDBCursor {\n"
 "            constructor(store, range, direction = 'next') {\n"
 "                this.store = store;\n"
@@ -247,17 +247,17 @@ static const char* injectScript =
 "                alert('MockIDBCursor addEventListener');\n"
 "            }\n"
 "\n"
-// ¸ù¾Ý·¶Î§¹ýÂË¼ÇÂ¼
+// ï¿½ï¿½ï¿½Ý·ï¿½Î§ï¿½ï¿½ï¿½Ë¼ï¿½Â¼
 "            _filterRecords() {\n"
 "                const records = this.store._records.slice();\n"
 "                const filtered = [];\n"
 "\n"
-// Ó¦ÓÃÅÅÐò
+// Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "                if (this.direction === 'prev' || this.direction === 'prevunique') {\n"
 "                    records.reverse();\n"
 "                }\n"
 "\n"
-// Ó¦ÓÃ·¶Î§¹ýÂË
+// Ó¦ï¿½Ã·ï¿½Î§ï¿½ï¿½ï¿½ï¿½
 "                for (const record of records) {\n"
 "                    const key = record.key;\n"
 "                    let inRange = true;\n"
@@ -281,7 +281,7 @@ static const char* injectScript =
 "                    }\n"
 "\n"
 "                    if (inRange) {\n"
-// ´¦Àíunique
+// ï¿½ï¿½ï¿½ï¿½unique
 "                        if (this.direction === 'nextunique' || this.direction === 'prevunique') {\n"
 "                            if (!filtered.some(r => r.key === key)) {\n"
 "                                filtered.push(record);\n"
@@ -295,13 +295,13 @@ static const char* injectScript =
 "                return filtered;\n"
 "            }\n"
 "\n"
-// ÒÆ¶¯µ½ÏÂÒ»¸ö¼ÇÂ¼
+// ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Â¼
 "            continue (key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
 "                setTimeout(() => {\n"
 "                    if (key !== undefined) {\n"
-// ²éÕÒÖ¸¶¨keyµÄÎ»ÖÃ
+// ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½keyï¿½ï¿½Î»ï¿½ï¿½
 "                        this._position = this._filteredRecords.findIndex(r => r.key === key);\n"
 "                        if (this._position === -1) {\n"
 "                            request._resolve(null);\n"
@@ -325,7 +325,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// ¸üÐÂµ±Ç°¼ÇÂ¼
+// ï¿½ï¿½ï¿½Âµï¿½Ç°ï¿½ï¿½Â¼
 "            update(value) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -349,7 +349,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// É¾³ýµ±Ç°¼ÇÂ¼
+// É¾ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Â¼
 "            delete() {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -373,7 +373,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBIndex
+// Ä£ï¿½ï¿½IDBIndex
 "        class MockIDBIndex {\n"
 "            constructor(store, name, keyPath, multiEntry, unique) {\n"
 "                this.name = name;\n"
@@ -389,7 +389,7 @@ static const char* injectScript =
 "                alert('MockIDBIndex addEventListener');\n"
 "            }\n"
 "\n"
-// ¹¹½¨Ë÷Òý
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "            _buildIndex() {\n"
 "                this._indexMap.clear();\n"
 "\n"
@@ -398,7 +398,7 @@ static const char* injectScript =
 "                }\n"
 "            }\n"
 "\n"
-// Ìí¼Ó¼ÇÂ¼µ½Ë÷Òý
+// ï¿½ï¿½ï¿½Ó¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "            _addRecordToIndex(record) {\n"
 "                let keys;\n"
 "\n"
@@ -408,7 +408,7 @@ static const char* injectScript =
 "                    keys = [getNestedValue(record.value, this.keyPath)];\n"
 "                }\n"
 "\n"
-// ´¦ÀímultiEntry
+// ï¿½ï¿½ï¿½ï¿½multiEntry
 "                if (this.multiEntry && Array.isArray(keys[0])) {\n"
 "                    keys = keys[0];\n"
 "                }\n"
@@ -425,14 +425,14 @@ static const char* injectScript =
 "                }\n"
 "            }\n"
 "\n"
-// ¸ù¾ÝË÷Òý»ñÈ¡¼ÇÂ¼
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Â¼
 "            get(key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
 "                setTimeout(() => {\n"
 "                    if (this._indexMap.has(key)) {\n"
 "                        const primaryKeys = this._indexMap.get(key);\n"
-// ¶ÔÓÚ·ÇuniqueË÷Òý£¬·µ»ØµÚÒ»¸öÆ¥ÅäµÄ¼ÇÂ¼
+// ï¿½ï¿½ï¿½Ú·ï¿½uniqueï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½Ò»ï¿½ï¿½Æ¥ï¿½ï¿½Ä¼ï¿½Â¼
 "                        const record = this.store._records.find(r => r.key === primaryKeys[0]);\n"
 "                        request._resolve(record ? record.value : undefined);\n"
 "                    } else {\n"
@@ -443,15 +443,15 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// ´ò¿ªÓÎ±ê 
+// ï¿½ï¿½ï¿½Î±ï¿½ 
 "            openCursor(range, direction) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
 "                setTimeout(() => {\n"
-// ´´½¨»ùÓÚË÷ÒýµÄ·¶Î§ 
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä·ï¿½Î§ 
 "                    let indexRange = range;\n"
 "\n"
-// Èç¹ûÌá¹©ÁËrange£¬Ê¹ÓÃËü£»·ñÔòÊ¹ÓÃÕû¸öË÷Òý·¶Î§ 
+// ï¿½ï¿½ï¿½ï¿½á¹©ï¿½ï¿½rangeï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§ 
 "                    const cursor = new MockIDBCursor(this.store, indexRange, direction);\n"
 "                    request._resolve(cursor);\n"
 "                }, 0);\n"
@@ -460,7 +460,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// ¸¨Öúº¯Êý£º»ñÈ¡Ç¶Ì×ÊôÐÔÖµ 
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡Ç¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ 
 "        function getNestedValue(obj, keyPath) {\n"
 "            if (!obj || !keyPath) return undefined;\n"
 "\n"
@@ -475,7 +475,7 @@ static const char* injectScript =
 "            return value;\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBObjectStore 
+// Ä£ï¿½ï¿½IDBObjectStore 
 "        class MockIDBObjectStore {\n"
 "            constructor(db, name, options) {\n"
 "                this.db = db;\n"
@@ -491,7 +491,7 @@ static const char* injectScript =
 "                alert('MockIDBObjectStore addEventListener');\n"
 "            }\n"
 "\n"
-// ´´½¨Ë÷Òý
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "            createIndex(name, keyPath, options = {}) {\n"
 "                if (this._indexes.has(name)) {\n"
 "                    throw new Error(`Index ${name} already exists`);\n"
@@ -502,17 +502,17 @@ static const char* injectScript =
 "                return index;\n"
 "            }\n"
 "\n"
-// »ñÈ¡Ë÷Òý
+// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½
 "            index(name) {\n"
 "                return this._indexes.get(name);\n"
 "            }\n"
 "\n"
-// É¾³ýË÷Òý
+// É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "            deleteIndex(name) {\n"
 "                this._indexes.delete(name);\n"
 "            }\n"
 "\n"
-// Ìí¼Ó¼ÇÂ¼
+// ï¿½ï¿½ï¿½Ó¼ï¿½Â¼
 "            add(value, key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -520,7 +520,7 @@ static const char* injectScript =
 "                    try {\n"
 "                        let recordKey = key;\n"
 "\n"
-// È·¶¨¼ÇÂ¼¼ü
+// È·ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½
 "                        if (recordKey === undefined && this.keyPath) {\n"
 "                            recordKey = getNestedValue(value, this.keyPath);\n"
 "                        }\n"
@@ -533,19 +533,19 @@ static const char* injectScript =
 "                            throw new Error('Could not determine record key');\n"
 "                        }\n"
 "\n"
-// ¼ì²é¼üÊÇ·ñÒÑ´æÔÚ
+// ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ñ´ï¿½ï¿½ï¿½
 "                        if (this._records.some(r => r.key === recordKey)) {\n"
 "                            throw new Error(`Key ${recordKey} already exists`);\n"
 "                        }\n"
 "\n"
-// ´´½¨¼ÇÂ¼
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼
 "                        const record = {\n"
 "                            key: recordKey,\n"
 "                            value: structuredClone(value)\n"
 "                        };\n"
 "                        this._records.push(record);\n"
 "\n"
-// ¸üÐÂË÷Òý
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "                        this._indexes.forEach(index => index._addRecordToIndex(record));\n"
 "\n"
 "                        request._resolve(recordKey);\n"
@@ -557,7 +557,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// ·ÅÖÃ¼ÇÂ¼£¨Ìí¼Ó»ò¸üÐÂ
+// ï¿½ï¿½ï¿½Ã¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½Ó»ï¿½ï¿½ï¿½ï¿½
 "            put(value, key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -565,7 +565,7 @@ static const char* injectScript =
 "                    try {\n"
 "                        let recordKey = key;\n"
 "\n"
-// È·¶¨¼ÇÂ¼¼ü
+// È·ï¿½ï¿½ï¿½ï¿½Â¼ï¿½ï¿½
 "                        if (recordKey === undefined && this.keyPath) {\n"
 "                            recordKey = getNestedValue(value, this.keyPath);\n"
 "                        }\n"
@@ -578,10 +578,10 @@ static const char* injectScript =
 "                            throw new Error('Could not determine record key');\n"
 "                        }\n"
 "\n"
-// ¼ì²éÊÇ·ñ´æÔÚ¸Ã¼ü
+// ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Ú¸Ã¼ï¿½
 "                        const existingIndex = this._records.findIndex(r => r.key === recordKey);\n"
 "\n"
-// ´´½¨»ò¸üÐÂ¼ÇÂ¼
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â¼ï¿½Â¼
 "                        const record = {\n"
 "                            key: recordKey,\n"
 "                            value: structuredClone(value)\n"
@@ -593,7 +593,7 @@ static const char* injectScript =
 "                            this._records.push(record);\n"
 "                        }\n"
 "\n"
-// ÖØÐÂ¹¹½¨ËùÓÐË÷Òý
+// ï¿½ï¿½ï¿½Â¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "                        this._indexes.forEach(index => index._buildIndex());\n"
 "\n"
 "                        request._resolve(recordKey);\n"
@@ -605,7 +605,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// »ñÈ¡¼ÇÂ¼
+// ï¿½ï¿½È¡ï¿½ï¿½Â¼
 "            get(key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -617,7 +617,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// É¾³ý¼ÇÂ¼
+// É¾ï¿½ï¿½ï¿½ï¿½Â¼
 "            delete(key) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -626,7 +626,7 @@ static const char* injectScript =
 "\n"
 "                    if (index !== -1) {\n"
 "                        this._records.splice(index, 1);\n"
-// ÖØÐÂ¹¹½¨ËùÓÐË÷Òý
+// ï¿½ï¿½ï¿½Â¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "                        this._indexes.forEach(index => index._buildIndex());\n"
 "                        request._resolve(undefined);\n"
 "                    } else {\n"
@@ -637,13 +637,13 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// Çå¿Õ´æ´¢
+// ï¿½ï¿½Õ´æ´¢
 "            clear() {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
 "                setTimeout(() => {\n"
 "                    this._records = [];\n"
-// Çå¿ÕËùÓÐË÷Òý
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 "                    this._indexes.forEach(index => index._buildIndex());\n"
 "                    request._resolve(undefined);\n"
 "                }, 0);\n"
@@ -651,7 +651,7 @@ static const char* injectScript =
 "                return request;\n"
 "            }\n"
 "\n"
-// ´ò¿ªÓÎ±ê
+// ï¿½ï¿½ï¿½Î±ï¿½
 "            openCursor(range, direction) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -664,7 +664,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBTransaction
+// Ä£ï¿½ï¿½IDBTransaction
 "        class MockIDBTransaction {\n"
 "            constructor(db, storeNames, mode = 'readonly') {\n"
 "                this.db = db;\n"
@@ -688,7 +688,7 @@ static const char* injectScript =
 "                if (type === 'abort') this.onabort = null;\n"
 "            }\n"
 "\n"
-// »ñÈ¡¶ÔÏó´æ´¢
+// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½æ´¢
 "            objectStore(name) {\n"
 "                if (!this._active) {\n"
 "                    throw new Error('Transaction is no longer active');\n"
@@ -701,7 +701,7 @@ static const char* injectScript =
 "                return this.db.objectStore(name);\n"
 "            }\n"
 "\n"
-// Ìá½»ÊÂÎñ
+// ï¿½á½»ï¿½ï¿½ï¿½ï¿½
 "            commit() {\n"
 "                if (!this._active) return;\n"
 "\n"
@@ -713,7 +713,7 @@ static const char* injectScript =
 "                }\n"
 "            }\n"
 "\n"
-// ÖÐÖ¹ÊÂÎñ
+// ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½
 "            abort() {\n"
 "                if (!this._active) return;\n"
 "\n"
@@ -726,7 +726,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£ÄâIDBDatabase
+// Ä£ï¿½ï¿½IDBDatabase
 "        class MockIDBDatabase {\n"
 "            constructor(name, version) {\n"
 "                this.name = name;\n"
@@ -747,7 +747,7 @@ static const char* injectScript =
 "                if (type === 'close') this.onclose = null;\n"
 "            }\n"
 "\n"
-// ´´½¨¶ÔÏó´æ´¢
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
 "            createObjectStore(name, options = {}) {\n"
 "                if (this._objectStores.has(name)) {\n"
 "                    throw new Error(`Object store ${name} already exists`);\n"
@@ -759,7 +759,7 @@ static const char* injectScript =
 "                return store;\n"
 "            }\n"
 "\n"
-// É¾³ý¶ÔÏó´æ´¢
+// É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢
 "            deleteObjectStore(name) {\n"
 "                if (!this._objectStores.has(name)) {\n"
 "                    throw new Error(`Object store ${name} does not exist`);\n"
@@ -769,17 +769,17 @@ static const char* injectScript =
 "                this.objectStoreNames.delete(name);\n"
 "            }\n"
 "\n"
-// »ñÈ¡¶ÔÏó´æ´¢
+// ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½æ´¢
 "            objectStore(name) {\n"
 "                return this._objectStores.get(name);\n"
 "            }\n"
 "\n"
-// ¿ªÊ¼ÊÂÎñ
+// ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
 "            transaction(storeNames, mode) {\n"
 "                return new MockIDBTransaction(this, storeNames, mode);\n"
 "            }\n"
 "\n"
-// ¹Ø±ÕÊý¾Ý¿â
+// ï¿½Ø±ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 "            close() {\n"
 "                if (typeof this.onclose === 'function') {\n"
 "                    this.onclose({\n"
@@ -789,7 +789,7 @@ static const char* injectScript =
 "            }\n"
 "        }\n"
 "\n"
-// Ä£Äâ indexedDB È«¾Ö¶ÔÏó
+// Ä£ï¿½ï¿½ indexedDB È«ï¿½Ö¶ï¿½ï¿½ï¿½
 "        const mockIndexedDB = {\n"
 "            databases: new Map(),"
 "            version: 1,\n"
@@ -805,7 +805,7 @@ static const char* injectScript =
 "                if (type === 'error') this.onerror = null;\n"
 "            },\n"
 "\n"
-// ´ò¿ªÊý¾Ý¿â
+// ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 "            open(name, version = 1) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -816,7 +816,7 @@ static const char* injectScript =
 "                        if (this.databases.has(name)) {\n"
 "                            db = this.databases.get(name);\n"
 "\n"
-// Èç¹û°æ±¾ºÅµÍÓÚÏÖÓÐ°æ±¾£¬´¥·¢versionchange
+// ï¿½ï¿½ï¿½ï¿½æ±¾ï¿½Åµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð°æ±¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½versionchange
 "                            if (version < db.version) {\n"
 "                                if (typeof db.onversionchange === 'function') {\n"
 "                                    db.onversionchange({\n"
@@ -829,16 +829,16 @@ static const char* injectScript =
 "                                return;\n"
 "                            }\n"
 "\n"
-// Èç¹û°æ±¾ºÅÏàÍ¬£¬Ö±½Ó·µ»ØÏÖÓÐÊý¾Ý¿â
+// ï¿½ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 "                            if (version === db.version) {\n"
 "                                request._resolve(db);\n"
 "                                return;\n"
 "                            }\n"
 "\n"
-// °æ±¾ºÅ¸ßÓÚÏÖÓÐ°æ±¾£¬ÊÓÎªÉý¼¶
+// ï¿½æ±¾ï¿½Å¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð°æ±¾ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
 "                            db.version = version;\n"
 "                        } else {\n"
-// ´´½¨ÐÂÊý¾Ý¿â
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 "                            db = new MockIDBDatabase(name, version);\n"
 "                            this.databases.set(name, db);\n"
 "                        }\n"
@@ -852,7 +852,7 @@ static const char* injectScript =
 "                return request;\n"
 "            },\n"
 "\n"
-// É¾³ýÊý¾Ý¿â
+// É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½
 "            deleteDatabase(name) {\n"
 "                const request = new MockIDBRequest();\n"
 "\n"
@@ -879,7 +879,7 @@ static const char* injectScript =
 "            }\n"
 "        };\n"
 "\n"
-// ½«Ä£ÄâµÄIndexedDB API±©Â¶µ½È«¾Ö
+// ï¿½ï¿½Ä£ï¿½ï¿½ï¿½IndexedDB APIï¿½ï¿½Â¶ï¿½ï¿½È«ï¿½ï¿½
 "        window.indexedDB = mockIndexedDB;\n"
 "        window.IDBRequest = MockIDBRequest;\n"
 "        window.IDBDatabase = MockIDBDatabase;\n"
@@ -888,10 +888,10 @@ static const char* injectScript =
 "        window.IDBIndex = MockIDBIndex;\n"
 "        window.IDBCursor = MockIDBCursor;\n"
 "        window.IDBKeyRange = MockIDBKeyRange;\n"
-// ÎªÁËÈÃ typeof indexedDB === 'object' ÇÒ·ûºÏ IDBFactory ½Ó¿ÚÏ°¹ß£¬Ò²¿ÉÒÔ¹ÒÔØÎª IDBFactory µÄÊµÀý
-// µ«Ò»°ãÍøÕ¾Ö»¼ì²â window.indexedDB ÊÇ·ñ´æÔÚÒÔ¼°ÊÇ·ñ¾ßÓÐ .open ·½·¨
-// ¿ÉÑ¡£º¶¨ÒåÆäËû¹¹ÔìÆ÷ÔÚÈ«¾Ö£¨ÓÐÐ©ÍøÕ¾¿ÉÄÜ»áÓÃ new IDBDatabase(...) µÈ£¬µ«¼«ÉÙ£©
-// ÕâÀïÎªÁË¼òµ¥£¬²»Ç¿ÖÆÒªÇó£¬ÒòÎª´ó¶àÊýÍøÕ¾Ö»µ÷ÓÃ indexedDB.open()
+// Îªï¿½ï¿½ï¿½ï¿½ typeof indexedDB === 'object' ï¿½Ò·ï¿½ï¿½ï¿½ IDBFactory ï¿½Ó¿ï¿½Ï°ï¿½ß£ï¿½Ò²ï¿½ï¿½ï¿½Ô¹ï¿½ï¿½ï¿½Îª IDBFactory ï¿½ï¿½Êµï¿½ï¿½
+// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Õ¾Ö»ï¿½ï¿½ï¿½ window.indexedDB ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ .open ï¿½ï¿½ï¿½ï¿½
+// ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½Ö£ï¿½ï¿½ï¿½Ð©ï¿½ï¿½Õ¾ï¿½ï¿½ï¿½Ü»ï¿½ï¿½ï¿½ new IDBDatabase(...) ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù£ï¿½
+// ï¿½ï¿½ï¿½ï¿½Îªï¿½Ë¼òµ¥£ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¾Ö»ï¿½ï¿½ï¿½ï¿½ indexedDB.open()
     "    })();\n"
     "} else {\n"
     "}\n"
@@ -1041,7 +1041,7 @@ static void mbConsoleLog(const v8::FunctionCallbackInfo<v8::Value>& info)
     OutputDebugStringW((const WCHAR*)strW.c_str());
 }
 
-// ÐÂÔö¼ÓÒ»¸ö²»¶¨²ÎÊýµÄ°æ±¾
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä°æ±¾
 void BindJsQuery::jsCallback2(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
     v8::Local<v8::External> ext = info.Data().As<v8::External>();
@@ -1238,7 +1238,7 @@ void BindJsQuery::bindFun(v8::Local<v8::Context> context, QueryFn* queryFn, Quer
     if (mbVal)
         mbVal->deref();
 
-    // ¹¹½¨func²ÎÊý
+    // ï¿½ï¿½ï¿½ï¿½funcï¿½ï¿½ï¿½ï¿½
     BindJsQuery* self = new BindJsQuery();
     self->m_webviewId = webviewId;
     self->m_frameToken = frameToken;
@@ -1262,7 +1262,7 @@ void BindJsQuery::bindFun(v8::Local<v8::Context> context, QueryFn* queryFn, Quer
 
     v8::Local<v8::String> setMbQueryStr = v8::String::NewFromUtf8(isolate, "__setMbQuery__", v8::NewStringType::kNormal, -1).ToLocalChecked();
     v8::Local<v8::Value> setMbQueryStrValue = windowObj->Get(context, setMbQueryStr).ToLocalChecked();
-    if (!setMbQueryStrValue->IsFunction())// https://www.hao123.com/?tn=48021271_79_hao_pg ÕâÍøÒ³²»ÖªµÀÎªÉ¶ÓÐÊ±°ó¶¨Ê§°Ü
+    if (!setMbQueryStrValue->IsFunction())// https://www.hao123.com/?tn=48021271_79_hao_pg ï¿½ï¿½ï¿½ï¿½Ò³ï¿½ï¿½Öªï¿½ï¿½ÎªÉ¶ï¿½ï¿½Ê±ï¿½ï¿½Ê§ï¿½ï¿½
         return;
 
     v8::Function* setMbQueryFunc = v8::Function::Cast(*setMbQueryStrValue);

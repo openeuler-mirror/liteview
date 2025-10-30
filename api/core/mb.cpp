@@ -14,11 +14,11 @@
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 
-#include "mbvip/download/SimpleDownload.h"
-#include "mbvip/core/MbJsValue.h"
-#include "mbvip/core/MbInternalApi.h"
+#include "api/download/SimpleDownload.h"
+#include "api/core/MbJsValue.h"
+#include "api/core/MbInternalApi.h"
 #include "content/browser/MbWebview.h"
 #include "content/browser/SharedTimerWin.h"
 #include "content/common/LiveIdDetect.h"
@@ -85,9 +85,9 @@ static bool checkThreadCallIsValidImpl(const char* funcName, bool isBlinkThread)
     return true;
 //     std::u16string textMsg;
 //     if (!g_mbIsInit) {
-//         textMsg = u16("禁止未初始化调用此接口：");
+//         textMsg = u16("锟斤拷止未锟斤拷始锟斤拷锟斤拷锟矫此接口ｏ拷");
 //         textMsg += common::utf8ToUtf16(funcName);
-//         ::MessageBoxW(nullptr, textMsg.c_str(), u16("警告"), MB_OK);
+//         ::MessageBoxW(nullptr, textMsg.c_str(), u16("锟斤拷锟斤拷"), MB_OK);
 //         ::TerminateProcess((HANDLE)-1, 5);
 //         return false;
 //     }
@@ -101,16 +101,16 @@ static bool checkThreadCallIsValidImpl(const char* funcName, bool isBlinkThread)
 //     }
 // 
 // #if defined(OS_WIN) 
-//     textMsg = u16("禁止跨线程调用此接口：");
+//     textMsg = u16("锟斤拷止锟斤拷锟竭程碉拷锟矫此接口ｏ拷");
 //     textMsg += common::utf8ToUtf16(funcName);
-//     textMsg += u16("，");
+//     textMsg += u16("锟斤拷");
 // 
 //     WCHAR* temp = (WCHAR*)malloc(0x200);
-//     wsprintf(temp, u16("当前线程:%d，主线程：%d"), ::GetCurrentThreadId(), common::ThreadCall::getUiThreadId());
+//     wsprintf(temp, u16("锟斤拷前锟竭筹拷:%d锟斤拷锟斤拷锟竭程ｏ拷%d"), ::GetCurrentThreadId(), common::ThreadCall::getUiThreadId());
 //     textMsg += temp;
 //     free(temp);
 // 
-//     ::MessageBoxW(nullptr, textMsg.c_str(), u16("警告"), MB_OK);
+//     ::MessageBoxW(nullptr, textMsg.c_str(), u16("锟斤拷锟斤拷"), MB_OK);
 // #else
 //     printf("function: %s, current thread:%u, main thread:%u", funcName, ::GetCurrentThreadId(), common::ThreadCall::getUiThreadId());
 // #endif
@@ -142,7 +142,7 @@ mbWebView MB_CALL_TYPE mbCreateWebView()
     checkThreadCallIsValid(__FUNCTION__);
     content::MbWebView* result = new content::MbWebView(false);
 
-    // 之所以要嵌套一层，是为了让isTransparent获取到外部接下来可能设置mbSetTransparent的值
+    // 之锟斤拷锟斤拷要嵌锟斤拷一锟姐，锟斤拷为锟斤拷锟斤拷isTransparent锟斤拷取锟斤拷锟解部锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷mbSetTransparent锟斤拷值
     content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [result] {
         content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [result] {
             result->createWebWindowOrViewInBlinkThread(nullptr, nullptr, false, result->isTransparent());
@@ -179,7 +179,7 @@ mbWebView MB_CALL_TYPE mbCreateWebWindow(mbWindowType type, HWND parent, int x, 
 
 #ifndef OS_WIN
     if (type == MB_WINDOW_TYPE_TRANSPARENT)
-        type = MB_WINDOW_TYPE_POPUP; // linux下没有透明窗口
+        type = MB_WINDOW_TYPE_POPUP; // linux锟斤拷没锟斤拷透锟斤拷锟斤拷锟斤拷
 #endif // OS_WIN
 
     if (!s_gtkActivate) {
@@ -192,7 +192,7 @@ mbWebView MB_CALL_TYPE mbCreateWebWindow(mbWindowType type, HWND parent, int x, 
     return (int)result->getId();
 }
 
-// 兼容mbcef版本
+// 锟斤拷锟斤拷mbcef锟芥本
 mbWebView MB_CALL_TYPE mbCreateWebWindowEx(mbWindowType type, HWND parent, int x, int y, int width, int height, const mbViewSettings* settings)
 {
     mbWebView webview = mbCreateWebWindow(type, parent, x, y, width, height);
@@ -239,7 +239,7 @@ void MB_CALL_TYPE mbSetHandle(mbWebView webviewHandle, HWND wnd)
     checkThreadCallIsValid(__FUNCTION__);
 
     content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [wnd](content::MbWebView* webview) {
-        webview->setHostWnd(wnd); // 必须在这设置，不能放闭包外。那样会导致提前设置的mbSetDragDropEnable无效，从而导致RegisterDragDrop被设置
+        webview->setHostWnd(wnd); // 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟矫ｏ拷锟斤拷锟杰放闭帮拷锟解。锟斤拷锟斤拷锟结导锟斤拷锟斤拷前锟斤拷锟矫碉拷mbSetDragDropEnable锟斤拷效锟斤拷锟接讹拷锟斤拷锟斤拷RegisterDragDrop锟斤拷锟斤拷锟斤拷
     });
 }
 
@@ -289,21 +289,21 @@ void gtkSimpleWin()
     GtkWidget* label;
     GtkWidget* grid;
 
-    // 创建一个新窗口，并设置其标题和默认大小
+    // 锟斤拷锟斤拷一锟斤拷锟铰达拷锟节ｏ拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷默锟较达拷小
     //window = gtk_application_window_new(app);
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(window), "Simple GTK3 Window");
     gtk_window_set_default_size(GTK_WINDOW(window), 300, 200);
 
-    // 创建一个网格容器
+    // 锟斤拷锟斤拷一锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷
     grid = gtk_grid_new();
     gtk_container_add(GTK_CONTAINER(window), grid);
 
-    // 创建一个标签，并设置要显示的文字
+    // 锟斤拷锟斤拷一锟斤拷锟斤拷签锟斤拷锟斤拷锟斤拷锟斤拷要锟斤拷示锟斤拷锟斤拷锟斤拷
     label = gtk_label_new("Hello, this is a simple GTK3 window!");
     gtk_grid_attach(GTK_GRID(grid), label, 0, 0, 1, 1);
 
-    // 显示所有的部件
+    // 锟斤拷示锟斤拷锟叫的诧拷锟斤拷
     gtk_widget_show_all(window);
 #endif
 }
@@ -1992,7 +1992,7 @@ void mbSetProxy(mbWebView webviewHandle, const mbProxy* proxy)
 
 void setFullPath(mbWebView webviewHandle, const WCHAR* path, bool isCookiePath);
 
-// 这两api如果在blink线程被调用，必须立刻执行。否则会产生老cookie\storage路径文件
+// 锟斤拷锟斤拷api锟斤拷锟斤拷锟絙link锟竭程憋拷锟斤拷锟矫ｏ拷锟斤拷锟斤拷锟斤拷锟斤拷执锟叫★拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷cookie\storage路锟斤拷锟侥硷拷
 void MB_CALL_TYPE mbSetLocalStorageFullPath(mbWebView webviewHandle, const WCHAR* path)
 {
     setFullPath(webviewHandle, path, false);
