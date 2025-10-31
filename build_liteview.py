@@ -80,32 +80,31 @@ def main():
     result = subprocess.call(gn_cmd, shell = True)
     
     if result == 0:
-      ninja_cmd = '\"{}\" -C \"{}\"'.format(ninja, output)
-      print('ninja command: ' + ninja_cmd)
-      result = subprocess.call(ninja_cmd, shell = True)
+        ninja_cmd = '\"{}\" -C \"{}\"'.format(ninja, output)
+        print('ninja command: ' + ninja_cmd)
+        result = subprocess.call(ninja_cmd, shell = True)
     
+    if result == 0:
+        dst_dir_name = 'livi-browser'
+        dstdir = os.path.join(current_dir, dst_dir_name)
+        shutil.rmtree(dstdir, ignore_errors=True)
+        os.makedirs(dstdir)
 
-    dst_dir_name = 'livi-browser'
-    dstdir = os.path.join(current_dir, dst_dir_name)
-    shutil.rmtree(dstdir, ignore_errors=True)
-    os.makedirs(dstdir)
+        srcdir =  os.path.join(current_dir, args.output)
 
-    srcdir =  os.path.join(current_dir, args.output)
+        srcfile1 = os.path.join(srcdir, "liteview")
+        dstfile1 = os.path.join(dstdir, "liteview")
+        shutil.copy2(srcfile1, dstfile1)
 
-    srcfile1 = os.path.join(srcdir, "liteview")
-    dstfile1 = os.path.join(dstdir, "liteview")
-    shutil.copy2(srcfile1, dstfile1)
+        srcfile2 = os.path.join(srcdir, "livicore")
+        dstfile2 = os.path.join(dstdir, "livicore.so")
+        shutil.copy2(srcfile2, dstfile2)
 
-    srcfile2 = os.path.join(srcdir, "livicore")
-    dstfile2 = os.path.join(dstdir, "livicore.so")
-    shutil.copy2(srcfile2, dstfile2)
+        srcfile3 = os.path.join(sdk_path2, "usr", "lib", "x86_64-linux-gnu/libffmpeg.so")
+        dstfile3 = os.path.join(dstdir, "libffmpeg.so")
+        shutil.copy2(srcfile3, dstfile3)
 
-    srcfile3 = os.path.join(sdk_path2, "usr", "lib", "x86_64-linux-gnu/libffmpeg.so")
-    dstfile3 = os.path.join(dstdir, "libffmpeg.so")
-    shutil.copy2(srcfile3, dstfile3)
-
-
-    return result
+        return result
 
 
 if __name__ == "__main__":
