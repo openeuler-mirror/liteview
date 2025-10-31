@@ -1,0 +1,8 @@
+#sdk path
+declare_args() {
+  sdkPath = "sdk_base/x86_64-unknown-linux-gnu/x86_64-unknown-linux-gnu"
+  sdkPath2 = "sdk_base/debian_sid_arm64_sysroot"
+  ndkIncludePath = "/usr/lib64/clang/17/include"
+  v8dir = "v8"
+  srcPath = "//"
+}  

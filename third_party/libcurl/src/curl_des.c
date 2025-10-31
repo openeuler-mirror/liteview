@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Steve Holme, <steve_holme@hotmail.com>.
+ * Copyright (C) 2015, Steve Holme, <steve_holme@hotmail.com>.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -18,14 +18,11 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * SPDX-License-Identifier: curl
- *
  ***************************************************************************/
 
 #include "curl_setup.h"
 
-#if defined(USE_CURL_NTLM_CORE) && !defined(USE_WOLFSSL)                                                                                                       \
-    && (defined(USE_GNUTLS) || defined(USE_SECTRANSP) || defined(USE_OS400CRYPTO) || defined(USE_WIN32_CRYPTO))
+#if defined(USE_NTLM) && !defined(USE_OPENSSL)
 
 #include "curl_des.h"
 
@@ -37,7 +34,7 @@
  *
  * The function is a port of the Java based oddParity() function over at:
  *
- * https://davenport.sourceforge.net/ntlm.html
+ * https://davenport.sourceforge.io/ntlm.html
  *
  * Parameters:
  *
@@ -45,20 +42,22 @@
  *                        odd parity.
  * len         [out]    - The length of the data.
  */
-void Curl_des_set_odd_parity(unsigned char* bytes, size_t len)
+void Curl_des_set_odd_parity(unsigned char *bytes, size_t len)
 {
-    size_t i;
+  size_t i;
 
-    for (i = 0; i < len; i++) {
-        unsigned char b = bytes[i];
+  for(i = 0; i < len; i++) {
+    unsigned char b = bytes[i];
 
-        bool needs_parity = (((b >> 7) ^ (b >> 6) ^ (b >> 5) ^ (b >> 4) ^ (b >> 3) ^ (b >> 2) ^ (b >> 1)) & 0x01) == 0;
+    bool needs_parity = (((b >> 7) ^ (b >> 6) ^ (b >> 5) ^
+                          (b >> 4) ^ (b >> 3) ^ (b >> 2) ^
+                          (b >> 1)) & 0x01) == 0;
 
-        if (needs_parity)
-            bytes[i] |= 0x01;
-        else
-            bytes[i] &= 0xfe;
-    }
+    if(needs_parity)
+      bytes[i] |= 0x01;
+    else
+      bytes[i] &= 0xfe;
+  }
 }
 
-#endif
+#endif /* USE_NTLM && !USE_OPENSSL */

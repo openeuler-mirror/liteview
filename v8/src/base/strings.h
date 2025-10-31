@@ -8,6 +8,7 @@
 #include "src/base/base-export.h"
 #include "src/base/macros.h"
 #include "src/base/vector.h"
+#include "stdarg.h"
 
 namespace v8 {
 namespace base {

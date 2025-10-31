@@ -28,6 +28,8 @@
 #include <gtk/gtkglarea.h>
 #include <map>
 
+#include "base/strings/utf_string_conversions.h"
+
 namespace {
 gboolean onFocusIn(GtkWidget* widget, GdkEventFocus* event, gpointer data) 
 {

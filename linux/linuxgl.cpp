@@ -19,7 +19,6 @@
 #include "content/common/ThreadCall.h"
 #include "linux/shadergl.h"
 #define STB_IMAGE_IMPLEMENTATION 1
-#include "G:/test/sln_test/LearnOpenGL-master/includes/stb_image.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -593,10 +592,10 @@ void CrossThreadUiStateUpdata();
 // 
 //     float vertices[] = {
 //         // positions          // colors           // texture coords
-//          1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // ÓÒÉÏ
-//          1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // ÓÒÏÂ
-//         -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // ×óÏÂ
-//         -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // ×óÉÏ
+//          1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // ï¿½ï¿½ï¿½ï¿½
+//          1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // ï¿½ï¿½ï¿½ï¿½
+//         -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // ï¿½ï¿½ï¿½ï¿½
+//         -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // ï¿½ï¿½ï¿½ï¿½
 //     };
 // 
 //     glGenBuffers(1, &VBO);
@@ -705,10 +704,10 @@ void onRealizeGlTextures(GtkWidget* widget, gpointer data)
 
     float vertices[] = {
         // positions          // colors           // texture coords
-         1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1 - 1.0f,   // ÓÒÉÏ
-         1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1 - 0.0f,   // ÓÒÏÂ
-        -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1 - 0.0f,   // ×óÏÂ
-        -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1 - 1.0f    // ×óÉÏ
+         1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1 - 1.0f,   // ï¿½ï¿½ï¿½ï¿½
+         1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1 - 0.0f,   // ï¿½ï¿½ï¿½ï¿½
+        -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1 - 0.0f,   // ï¿½ï¿½ï¿½ï¿½
+        -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1 - 1.0f    // ï¿½ï¿½ï¿½ï¿½
     };
 
     glGenVertexArrays(1, &VAO);
@@ -732,7 +731,7 @@ void onRealizeGlTextures(GtkWidget* widget, gpointer data)
 
     //stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
 
-    glGenTextures(1, &self->m_glTexture); //Éú³ÉÎÆÀí
+    glGenTextures(1, &self->m_glTexture); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     gtk_gl_area_queue_render(GTK_GL_AREA(widget));
 }
 
@@ -764,7 +763,7 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
     glBindVertexArray(VAO);
 
     //--
-    glBindTexture(GL_TEXTURE_2D, self->m_glTexture);//°ó¶¨µ½texture[i]Õâ¸öÎÆÀíidÉÏ
+    glBindTexture(GL_TEXTURE_2D, self->m_glTexture);//ï¿½ó¶¨µï¿½texture[i]ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½idï¿½ï¿½
     // set the texture wrapping parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);

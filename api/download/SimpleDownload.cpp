@@ -11,11 +11,11 @@
 //
 
 
-#include "mbvip/download/SimpleDownload.h"
+#include "api/download/SimpleDownload.h"
 
 #include "content/browser/MbWebview.h"
 #include "content/common/LiveIdDetect.h"
-#include "mbvip/download/DownloadUtil.h"
+#include "api/download/DownloadUtil.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/files/file.h"

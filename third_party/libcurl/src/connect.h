@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -20,8 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * SPDX-License-Identifier: curl
- *
  ***************************************************************************/
 #include "curl_setup.h"
 
@@ -29,11 +27,18 @@
 #include "sockaddr.h"
 #include "timeval.h"
 
-struct Curl_dns_entry;
+CURLcode Curl_is_connected(struct connectdata *conn,
+                           int sockindex,
+                           bool *connected);
+
+CURLcode Curl_connecthost(struct connectdata *conn,
+                          const struct Curl_dns_entry *host);
 
 /* generic function that returns how much time there's left to run, according
    to the timeouts set */
-timediff_t Curl_timeleft(struct Curl_easy* data, struct curltime* nowp, bool duringconnect);
+timediff_t Curl_timeleft(struct Curl_easy *data,
+                         struct curltime *nowp,
+                         bool duringconnect);
 
 #define DEFAULT_CONNECT_TIMEOUT 300000 /* milliseconds == five minutes */
 
@@ -43,11 +48,70 @@ timediff_t Curl_timeleft(struct Curl_easy* data, struct curltime* nowp, bool dur
  *
  * The returned socket will be CURL_SOCKET_BAD in case of failure!
  */
-curl_socket_t Curl_getconnectinfo(struct Curl_easy* data, struct connectdata** connp);
+curl_socket_t Curl_getconnectinfo(struct Curl_easy *data,
+                                  struct connectdata **connp);
 
-bool Curl_addr2string(struct sockaddr* sa, curl_socklen_t salen, char* addr, int* port);
+/*
+ * Check if a connection seems to be alive.
+ */
+bool Curl_connalive(struct connectdata *conn);
 
-void Curl_persistconninfo(struct Curl_easy* data, struct connectdata* conn, char* local_ip, int local_port);
+#ifdef USE_WINSOCK
+/* When you run a program that uses the Windows Sockets API, you may
+   experience slow performance when you copy data to a TCP server.
+
+   https://support.microsoft.com/kb/823764
+
+   Work-around: Make the Socket Send Buffer Size Larger Than the Program Send
+   Buffer Size
+
+*/
+void Curl_sndbufset(curl_socket_t sockfd);
+#else
+#define Curl_sndbufset(y) Curl_nop_stmt
+#endif
+
+void Curl_updateconninfo(struct connectdata *conn, curl_socket_t sockfd);
+void Curl_persistconninfo(struct connectdata *conn);
+int Curl_closesocket(struct connectdata *conn, curl_socket_t sock);
+
+/*
+ * Get presentation format IP address and port from a sockaddr.
+ */
+bool Curl_getaddressinfo(struct sockaddr *sa, char *addr, long *port);
+
+/*
+ * The Curl_sockaddr_ex structure is basically libcurl's external API
+ * curl_sockaddr structure with enough space available to directly hold any
+ * protocol-specific address structures. The variable declared here will be
+ * used to pass / receive data to/from the fopensocket callback if this has
+ * been set, before that, it is initialized from parameters.
+ */
+struct Curl_sockaddr_ex {
+  int family;
+  int socktype;
+  int protocol;
+  unsigned int addrlen;
+  union {
+    struct sockaddr addr;
+    struct Curl_sockaddr_storage buff;
+  } _sa_ex_u;
+};
+#define sa_addr _sa_ex_u.addr
+
+/*
+ * Create a socket based on info from 'conn' and 'ai'.
+ *
+ * Fill in 'addr' and 'sockfd' accordingly if OK is returned. If the open
+ * socket callback is set, used that!
+ *
+ */
+CURLcode Curl_socket(struct connectdata *conn,
+                     const Curl_addrinfo *ai,
+                     struct Curl_sockaddr_ex *addr,
+                     curl_socket_t *sockfd);
+
+void Curl_tcpnodelay(struct connectdata *conn, curl_socket_t sockfd);
 
 /*
  * Curl_conncontrol() marks the end of a connection/stream. The 'closeit'
@@ -65,51 +129,23 @@ void Curl_persistconninfo(struct Curl_easy* data, struct connectdata* conn, char
 #define CONNCTRL_CONNECTION 1
 #define CONNCTRL_STREAM 2
 
-void Curl_conncontrol(struct connectdata* conn, int closeit
+void Curl_conncontrol(struct connectdata *conn,
+                      int closeit
 #if defined(DEBUGBUILD) && !defined(CURL_DISABLE_VERBOSE_STRINGS)
-    ,
-    const char* reason
+                      , const char *reason
 #endif
-);
+  );
 
 #if defined(DEBUGBUILD) && !defined(CURL_DISABLE_VERBOSE_STRINGS)
-#define streamclose(x, y) Curl_conncontrol(x, CONNCTRL_STREAM, y)
-#define connclose(x, y) Curl_conncontrol(x, CONNCTRL_CONNECTION, y)
-#define connkeep(x, y) Curl_conncontrol(x, CONNCTRL_KEEP, y)
+#define streamclose(x,y) Curl_conncontrol(x, CONNCTRL_STREAM, y)
+#define connclose(x,y) Curl_conncontrol(x, CONNCTRL_CONNECTION, y)
+#define connkeep(x,y) Curl_conncontrol(x, CONNCTRL_KEEP, y)
 #else /* if !DEBUGBUILD || CURL_DISABLE_VERBOSE_STRINGS */
-#define streamclose(x, y) Curl_conncontrol(x, CONNCTRL_STREAM)
-#define connclose(x, y) Curl_conncontrol(x, CONNCTRL_CONNECTION)
-#define connkeep(x, y) Curl_conncontrol(x, CONNCTRL_KEEP)
+#define streamclose(x,y) Curl_conncontrol(x, CONNCTRL_STREAM)
+#define connclose(x,y) Curl_conncontrol(x, CONNCTRL_CONNECTION)
+#define connkeep(x,y) Curl_conncontrol(x, CONNCTRL_KEEP)
 #endif
 
-/**
- * Create a cfilter for making an "ip" connection to the
- * given address, using parameters from `conn`. The "ip" connection
- * can be a TCP socket, a UDP socket or even a QUIC connection.
- *
- * It MUST use only the supplied `ai` for its connection attempt.
- *
- * Such a filter may be used in "happy eyeball" scenarios, and its
- * `connect` implementation needs to support non-blocking. Once connected,
- * it MAY be installed in the connection filter chain to serve transfers.
- */
-typedef CURLcode cf_ip_connect_create(
-    struct Curl_cfilter** pcf, struct Curl_easy* data, struct connectdata* conn, const struct Curl_addrinfo* ai, int transport);
-
-CURLcode Curl_cf_setup_insert_after(struct Curl_cfilter* cf_at, struct Curl_easy* data, const struct Curl_dns_entry* remotehost, int transport, int ssl_mode);
-
-/**
- * Setup the cfilters at `sockindex` in connection `conn`.
- * If no filter chain is installed yet, inspects the configuration
- * in `data` and `conn? to install a suitable filter chain.
- */
-CURLcode Curl_conn_setup(struct Curl_easy* data, struct connectdata* conn, int sockindex, const struct Curl_dns_entry* remotehost, int ssl_mode);
-
-extern struct Curl_cftype Curl_cft_happy_eyeballs;
-extern struct Curl_cftype Curl_cft_setup;
-
-#ifdef DEBUGBUILD
-void Curl_debug_set_transport_provider(int transport, cf_ip_connect_create* cf_create);
-#endif
+bool Curl_conn_data_pending(struct connectdata *conn, int sockindex);
 
 #endif /* HEADER_CURL_CONNECT_H */

@@ -1,488 +1,613 @@
-# Copyright 2014 The Chromium Authors
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
 
-import("//build/buildflag_header.gni")
-import("//build/config/android/config.gni")
-import("//build/config/arm.gni")
-import("//build/config/chromecast_build.gni")
-import("//build/config/features.gni")
-import("//build/config/linux/pkg_config.gni")
-import("//build/config/ui.gni")
-import("//media/media_options.gni")
-import("//testing/libfuzzer/fuzzer_test.gni")
-import("//testing/test.gni")
-import("//third_party/ffmpeg/ffmpeg_options.gni")
+import("//sdkpath.gni")
 
-if (enable_library_cdms) {
-  import("//media/cdm/library_cdm/cdm_paths.gni")
-}
 
-buildflag_header("media_buildflags") {
-  header = "media_buildflags.h"
+static_library("media") {
 
-  flags = [
-    "ALTERNATE_CDM_STORAGE_ID_KEY=\"$alternate_cdm_storage_id_key\"",
-    "CHROME_WIDE_ECHO_CANCELLATION=$chrome_wide_echo_cancellation_supported",
-    "ENABLE_PLATFORM_AC3_EAC3_AUDIO=$enable_platform_ac3_eac3_audio",
-    "ENABLE_CAST_AUDIO_RENDERER=$enable_cast_audio_renderer",
-    "ENABLE_DAV1D_DECODER=$enable_dav1d_decoder",
-    "ENABLE_AV1_DECODER=$enable_av1_decoder",
-    "ENABLE_PLATFORM_DOLBY_VISION=$enable_platform_dolby_vision",
-    "ENABLE_PLATFORM_ENCRYPTED_DOLBY_VISION=$enable_platform_encrypted_dolby_vision",
-    "ENABLE_FFMPEG=$media_use_ffmpeg",
-    "ENABLE_FFMPEG_VIDEO_DECODERS=$enable_ffmpeg_video_decoders",
-    "ENABLE_PLATFORM_HEVC=$enable_platform_hevc",
-    "ENABLE_HEVC_PARSER_AND_HW_DECODER=$enable_hevc_parser_and_hw_decoder",
-    "ENABLE_HLS_SAMPLE_AES=$enable_hls_sample_aes",
-    "ENABLE_HLS_DEMUXER=$enable_hls_demuxer",
-    "ENABLE_LIBGAV1_DECODER=$enable_libgav1_decoder",
-    "ENABLE_LIBAOM=$enable_libaom",
-    "ENABLE_LIBRARY_CDMS=$enable_library_cdms",
-    "ENABLE_LIBVPX=$media_use_libvpx",
-    "ENABLE_LOGGING_OVERRIDE=$enable_logging_override",
-    "ENABLE_MEDIA_DRM_STORAGE=$enable_media_drm_storage",
-    "ENABLE_MEDIA_REMOTING=$enable_media_remoting",
-    "ENABLE_MEDIA_REMOTING_RPC=$enable_media_remoting_rpc",
-    "ENABLE_OPENH264=$media_use_openh264",
-    "ENABLE_PLATFORM_MPEG_H_AUDIO=$enable_platform_mpeg_h_audio",
-    "ENABLE_MSE_MPEG2TS_STREAM_PARSER=$enable_mse_mpeg2ts_stream_parser",
-    "USE_ARC_PROTECTED_MEDIA=$use_arc_protected_media",
-    "USE_CHROMEOS_MEDIA_ACCELERATION=$use_vaapi||$use_v4l2_codec",
-    "USE_CHROMEOS_PROTECTED_AV1=$use_chromeos_protected_av1",
-    "USE_CHROMEOS_PROTECTED_MEDIA=$use_chromeos_protected_media",
-    "USE_PROPRIETARY_CODECS=$proprietary_codecs",
-    "ENABLE_PLATFORM_DTS_AUDIO=$enable_platform_dts_audio",
+  include_dirs = [
+
+    "$ndkIncludePath",
+    "$sdkPath/include/c++/7.2.0",
+    "$sdkPath/include/c++/7.2.0/include",
+    "$sdkPath/include/c++/7.2.0/x86_64-unknown-linux-gnu/",
+    "$sdkPath2/usr/lib/x86_64-linux-gnu/glib-2.0/include",
+
+    "$sdkPath/sysroot/usr/include",
+    "$sdkPath/sysroot/usr/",
+    "$sdkPath/sysroot/usr/include/linux",
+    "$sdkPath2/usr/include/libdrm",
+
+    "//",
+
+    "$sdkPath2/usr/include/cairo",
+    "$sdkPath2/usr/include/glib-2.0",
+    "$sdkPath2/usr/include/gtk-3.0",
+    "$sdkPath2/usr/include/gdk-pixbuf-2.0",
+    "$sdkPath2/usr/include/atk-1.0",
+    "$sdkPath2/usr/include/pango-1.0",
+
+    "//linux",
+
+    "$sdkPath2/usr/include",
+
+    "//gen/v8/include",
+    "//v8",
+    "//v8/include",
+    "//gen",
+    "//third_party/",
+    "//third_party/abseil-cpp",
+    "//third_party/icu/source/common",
+    "//audio_manager_base/blink",
+    "//gen/blink/core",
+    "//gen/blink/bindings/modules/v8",
+    "//gen/blink/bindings/core/v8",
+    "//gpu",
+    "//third_party/libyuv/include",
+    "//third_party/openssl/openssl/include",
+    "//third_party/khronos",
+    "//third_party/libxml/src/include",
+    "//third_party/libxml/win32/include",
+    "//third_party/fontconfig/src",
+    "//third_party/skia",
+    "//third_party/skia/include/core",
+    "//third_party/skia/include/config",
+    "//third_party/skia/include/codec",
+    "//third_party/skia/include/device",
+    "//third_party/skia/include/effects",
+    "//third_party/skia/include/images",
+    "//third_party/skia/include/pathops",
+    "//third_party/skia/include/ports",
+    "//third_party/skia/include/private",
+    "//third_party/skia/include/utils",
+    "//third_party/skia/include/gpu",
+    "//third_party/angle/include",
+    "//third_party/angle/src",
+    "//third_party/icu/source/common",
+    "//third_party/khronos",
+    "//third_party/ffmpeg",
+    "//third_party/ffmpeg/chromium/config/Chromium/linux-noasm/x64",
+
   ]
 
-  if (enable_library_cdms) {
-    flags += [
-      "CDM_PLATFORM_SPECIFIC_PATH=\"$cdm_platform_specific_path\"",
-      "ENABLE_CDM_HOST_VERIFICATION=$enable_cdm_host_verification",
-      "ENABLE_CDM_STORAGE_ID=$enable_cdm_storage_id",
-    ]
-  }
-}
 
-if (proprietary_codecs && media_use_ffmpeg) {
-  assert(
-      ffmpeg_branding != "Chromium",
-      "proprietary codecs and ffmpeg_branding set to Chromium are incompatible")
-}
+  cflags = [
 
-# Common configuration for targets in the media directory; these must not be
-# exported since things like USE_NEON and USE_CRAS have different meanings
-# elsewhere in the code base.
-config("media_config") {
-  defines = []
-  if (current_cpu == "arm64" || (current_cpu == "arm" && arm_use_neon)) {
-    defines += [ "USE_NEON" ]
-  }
-  if (use_pulseaudio) {
-    defines += [ "USE_PULSEAUDIO" ]
-    if (!link_pulseaudio) {
-      defines += [ "DLOPEN_PULSEAUDIO" ]
-    }
-  }
-  if (use_cras) {
-    defines += [ "USE_CRAS" ]
-  }
-}
+    "-fms-extensions",
+    "-D_GLIBCXX_USE_C99_MATH",
+    "-D_GNU_SOURCE",
+    "-DUSE_GLIB=1",
+    "-DUSE_AURA=1",
+    "-DOS_LINUX_FOR_WIN=1",
+    "-D_HAS_CONSTEXPR=0",
+    "-DNO_TCMALLOC=1",
+    "-DUSE_OZONE",
+    "-DANGLE_ENABLE_GLSL=1",
+    "-DMEDIA_IMPLEMENTATION=1",
+    "-DSK_SUPPORT_LEGACY_DRAWLOOPER",
 
-# Internal grouping of the configs necessary to support sub-folders having their
-# own BUILD.gn files; only targets which roll up into the "media" target should
-# include this config. I.e., not "test_support" or "unit_tests" targets.
-#
-# Without these configs having individual sub-folders take a //media/base DEP
-# (or others) can yield incorrectly imported and exported symbols on Windows:
-#
-#    fatal error LNK1169: one or more multiply defined symbols found.
-#
-config("subcomponent_config") {
-  visibility = media_subcomponent_deps
-  if (is_mac) {
-    visibility += [ "//media/base/mac" ]
-  }
-  defines = [ "IS_MEDIA_IMPL" ]
-  configs = [
-    ":media_config",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
-}
 
-component("media") {
-  libs = []
+    #  audio
+    "-DUSE_ALSA",
 
-  deps = [
-    "//base",
-    "//base:i18n",
-    "//base/third_party/dynamic_annotations",
-    "//cc/paint",
-    "//gpu/command_buffer/client:gles2_interface",
-    "//gpu/command_buffer/common",
-    "//third_party/libyuv",
-    "//ui/events:events_base",
-    "//ui/gfx",
-    "//ui/gfx/geometry",
-    "//ui/gl:gl",
-    "//url",
-  ]
+    #  media
+    "-DENABLE_MB_MEDIA=1",
 
-  public_configs = [ "//third_party/libwebm:libwebm_config" ]
-  public_deps = media_subcomponent_deps
-  public_deps += [
-    ":media_buildflags",
-    ":shared_memory_support",
-    "//ui/gfx:color_space",
-  ]
+    #  gtk:
+    # "-DSK_B32_SHIFT=0",
+    # "-DSK_G32_SHIFT=8",
+    # "-DSK_R32_SHIFT=16",
+    # "-DSK_A32_SHIFT=24",
 
-  # This must be included here since it actually depends on //media/base.
-  if (is_apple) {
-    public_deps += [ "//media/base/mac" ]
-  }
+    #  opengl
+    # "-DSK_B32_SHIFT=16",
+    # "-DSK_G32_SHIFT=8",
+    # "-DSK_R32_SHIFT=0",
+    # "-DSK_A32_SHIFT=24",
 
-  if (use_ozone) {
-    deps += [ "//ui/ozone" ]
-  }
-}
+    "-DDYNAMIC_ANNOTATIONS_ENABLED=0",
+    "-DV8_OS_LINUX",
+    "-DBUILDING_V8_SHARED=1",
+    "-DBUILDING_UV_SHARED=1",
+    "-DV8_HOST_ARCH_X64",
+    "-DV8_TYPED_ARRAY_MAX_SIZE_IN_HEAP=64",
+    "-DV8_INTL_SUPPORT",
+    "-DV8_USE_EXTERNAL_STARTUP_DATA",
+    "-DV8_ATOMIC_OBJECT_FIELD_WRITES",
+    "-DV8_ENABLE_LAZY_SOURCE_POSITIONS",
+    "-DV8_SHARED_RO_HEAP",
+    "-DV8_ENABLE_REGEXP_INTERPRETER_THREADED_DISPATCH",
+    "-DV8_SHORT_BUILTIN_CALLS",
+    "-DV8_EXTERNAL_CODE_SPACE",
+    "-DV8_ENABLE_MAGLEV",
+    "-DV8_ENABLE_SYSTEM_INSTRUMENTATION",
+    "-DV8_ENABLE_ETW_STACK_WALKING",
+    "-DV8_ENABLE_WEBASSEMBLY",
+    "-DV8_ALLOCATION_FOLDING",
+    "-DV8_ALLOCATION_SITE_TRACKING",
+    "-DV8_ADVANCED_BIGINT_ALGORITHMS",
+    "-DV8_USE_ZLIB",
+    "-DV8_COMPRESS_POINTERS",
+    "-DV8_COMPRESS_POINTERS_IN_SHARED_CAGE",
+    "-DV8_31BIT_SMIS_ON_64BIT_ARCH",
+    "-DV8_DEPRECATION_WARNINGS",
+    "-DCPPGC_CAGED_HEAP",
+    "-DCPPGC_YOUNG_GENERATION",
+    "-DCPPGC_POINTER_COMPRESSION",
+    "-DV8_TARGET_ARCH_X64",
+    "-DV8_HAVE_TARGET_OS",
+    "-DV8_TARGET_OS_LINUX",
+    "-D_LIB",
 
-# Note: This can't be a static_library since it does not have any sources.
-source_set("test_support") {
-  testonly = true
-  public_deps = [
-    ":media",
-    "//media/audio:test_support",
-    "//media/base:test_support",
-    "//media/base/android:test_support",
-    "//media/filters:test_support",
-    "//media/formats:test_support",
-    "//media/renderers:test_support",
-    "//media/video:test_support",
-  ]
-}
+    "-fPIC", 
+    "-fno-exceptions", 
+    "-fvisibility=hidden", 
+    "--target=x86_64-linux-guneabi", 
+    "-DUSE_EGL", 
+    "-DSK_GL", 
+    "-DSK_SUPPORT_GPU=1", 
+    "-DSK_GRAPHITE_ENABLED", 
+    "-DSK_SUPPORT_LEGACY_SLUG_CONVERT", 
+    "-DSK_B32_SHIFT=16", 
+    "-DSK_G32_SHIFT=8", 
+    "-DSK_R32_SHIFT=0", 
+    "-DSK_A32_SHIFT=24", 
+    "-DOS_LINUX=1", 
+    "-DENABLE_MB_MEDIA=1", 
+    "-DV8_HOST_ARCH_X64", 
+    "-DV8_TARGET_ARCH_X64", 
+    "-D__POINT_SIZE__=8", 
+    "-D__USE_OPENGL__", 
+    "-DV8_ENABLE_MAGLEV", 
+    "-mno-avx", 
+    "-DV8_EXTERNAL_CODE_SPACE",
+    "-DV8_DEPRECATION_WARNINGS", 
+    "-DV8_COMPRESS_POINTERS", 
+    "-DV8_COMPRESS_POINTERS_IN_SHARED_CAGE", 
+    "-DV8_31BIT_SMIS_ON_64BIT_ARCH", 
+    "-DCPPGC_CAGED_HEAP", 
+    "-DCPPGC_YOUNG_GENERATION", 
+    "-DCPPGC_POINTER_COMPRESSION", 
 
-# Contains tests for all targets in the "media" folder.
-# TODO(xhwang): Move mojo/capture/remoting tests here where applicable.
-test("media_unittests") {
-  use_xvfb = use_xvfb_in_this_config
-
-  deps = [
-    "//media/audio:unit_tests",
-    "//media/base:unit_tests",
-    "//media/capabilities:unit_tests",
-    "//media/cdm:unit_tests",
-    "//media/device_monitors:unit_tests",
-    "//media/filters:unit_tests",
-    "//media/formats:unit_tests",
-    "//media/gpu:unit_tests",
-    "//media/learning:unit_tests",
-    "//media/mojo:unit_tests",
-    "//media/muxers:unit_tests",
-    "//media/parsers:unit_tests",
-    "//media/renderers:unit_tests",
-    "//media/test:pipeline_integration_tests",
-    "//media/test:run_all_unittests",
-    "//media/video:unit_tests",
-    "//media/webrtc:unit_tests",
   ]
 
-  data = [
-    "test/data/",
-    "formats/mp4/h264_annex_b_fuzz_corpus/",
-  ]
-
-  data_deps = [ "//testing/buildbot/filters:media_unittests_filters" ]
-
-  if (is_android && enable_chrome_android_internal) {
-    data_deps += [ "//clank/build/bot/filters:media_unittests_filters" ]
-  }
-
-  if (media_use_ffmpeg) {
-    deps += [ "//media/ffmpeg:unit_tests" ]
-  }
-
-  if (is_android) {
-    deps += [
-      # The test needs the java dependencies to add the java classes for their
-      # native counterparts to the test apk.
-      "//gpu/command_buffer/service:android_texture_owner_unittests",
-      "//media/base/android:media_java",
-      "//media/base/android:unit_tests",
-      "//media/gpu:android_video_decode_accelerator_unittests",
-      "//ui/android:ui_java",
-    ]
-  }
-
-  if (is_fuchsia) {
-    deps += [
-      "//media/fuchsia/cdm/service:unittests",
-      "//media/fuchsia/video:unittests",
-    ]
-
-    # PaintCanvasVideoRendererWithGLTest.* uses SwiftShader, which generates
-    # machine code.
-    test_runner_shard = "//build/config/fuchsia/test/elf_test_ambient_exec_runner.shard.test-cml"
-
-    additional_manifest_fragments = [
-      "//build/config/fuchsia/test/audio_output.shard.test-cml",
-      "//build/config/fuchsia/test/mark_vmo_executable.shard.test-cml",
-      "//build/config/fuchsia/test/platform_video_codecs.shard.test-cml",
-      "//third_party/fuchsia-sdk/sdk/pkg/vulkan/client.shard.cml",
-    ]
-
-    if (enable_library_cdms) {
-      excluded_files = [ "lib.unstripped/libclearkeycdm.so" ]
-    }
-  }
-
-  if (enable_media_remoting) {
-    deps += [ "//media/remoting:media_remoting_tests" ]
-  }
-
-  # The test needs OPUS_FIXED_POINT conditional define.
-  configs += [ "//third_party/opus:opus_config" ]
-}
-
-test("media_perftests") {
-  configs += [ ":media_config" ]
-  deps = [
-    ":test_support",
-    "//base/test:test_support",
-    "//media/base:perftests",
-    "//media/filters:perftests",
-    "//media/test:pipeline_integration_perftests",
-    "//testing/gmock",
-    "//testing/gtest",
-    "//testing/perf",
-    "//third_party/widevine/cdm:headers",
-    "//ui/gfx:test_support",
-  ]
-  if (media_use_ffmpeg) {
-    # Direct dependency required to inherit config.
-    deps += [ "//third_party/ffmpeg" ]
-  }
-
-  # This target should not require the Chrome executable to run.
-  assert_no_deps = [ "//chrome" ]
-
-  data = [ "test/data/" ]
-
-  data_deps = [
-    # Needed for isolate script to execute.
-    "//testing:run_perf_test",
-  ]
-}
-
-# The audio subset of media_unittests. This target exists for running only the
-# audio tests on the GPU bots (which have audio hardware).
-test("audio_unittests") {
-  deps = [
-    ":test_support",
-    "//base/test:test_support",
-    "//media/audio:unit_tests",
-    "//media/test:run_all_unittests",
-  ]
-  if (is_android) {
-    deps += [
-      # The test needs the java dependencies to add the java classes for their
-      # native counterparts to the test apk.
-      "//media/base/android:media_java",
-      "//ui/android:ui_java",
-    ]
-  }
-
-  if (is_fuchsia) {
-    additional_manifest_fragments =
-        [ "//build/config/fuchsia/test/audio_output.shard.test-cml" ]
-  }
-}
-
-# Note: Most external components should just depend on //media unless they
-# specifically need this pared own target (NaCl, PPAPI, etc). Internal targets
-# should just depend on //media/base which will propagate this target to them.
-component("shared_memory_support") {
   sources = [
-    "base/audio_bus.cc",
-    "base/audio_bus.h",
-    "base/audio_codecs.h",
-    "base/audio_latency.cc",
-    "base/audio_latency.h",
-    "base/audio_parameters.cc",
-    "base/audio_parameters.h",
-    "base/audio_point.cc",
-    "base/audio_point.h",
-    "base/audio_sample_types.h",
-    "base/channel_layout.cc",
-    "base/channel_layout.h",
-    "base/limits.h",
-    "base/media_export.h",
-    "base/media_shmem_export.h",
-    "base/sample_format.cc",
-    "base/sample_format.h",
-    "base/vector_math.cc",
-    "base/vector_math.h",
-    "base/vector_math_testing.h",
-    "base/video_types.cc",
-    "base/video_types.h",
+
+    "//services/audio/delay_buffer.cc",
+    "//services/audio/device_listener_output_stream.cc",
+    "//services/audio/device_notifier.cc",
+    "//services/audio/input_controller.cc",
+    "//services/audio/input_glitch_counter.cc",
+    "//services/audio/input_stream.cc",
+    "//services/audio/input_sync_writer.cc",
+    "//services/audio/local_muter.cc",
+    "//services/audio/log_adapter.cc",
+    "//services/audio/log_factory_adapter.cc",
+    "//services/audio/log_factory_manager.cc",
+    "//services/audio/loopback_coordinator.cc",
+    "//services/audio/loopback_stream.cc",
+    "//services/audio/mixing_graph.cc",
+    "//services/audio/mixing_graph_impl.cc",
+    "//services/audio/output_controller.cc",
+    "//services/audio/output_device_mixer.cc",
+    "//services/audio/output_device_mixer_impl.cc",
+    "//services/audio/output_device_mixer_manager.cc",
+    "//services/audio/output_stream.cc",
+    "//services/audio/output_tapper.cc",
+    "//services/audio/owning_audio_manager_accessor.cc",
+    "//services/audio/processing_audio_fifo.cc",
+    "//services/audio/realtime_audio_thread.cc",
+    "//services/audio/service.cc",
+    "//services/audio/service_factory.cc",
+    "//services/audio/service_metrics.cc",
+    "//services/audio/snooper_node.cc",
+    "//services/audio/stream_factory.cc",
+    "//services/audio/sync_mixing_graph_input.cc",
+    "//services/audio/sync_reader.cc",
+    "//services/audio/system_info.cc",
+    "//media/audio/aecdump_recording_manager.cc",
+    "//media/audio/alive_checker.cc",
+    "//media/audio/audio_bus_pool.cc",
+    "//media/audio/audio_debug_file_writer.cc",
+    "//media/audio/audio_debug_recording_helper.cc",
+    "//media/audio/audio_debug_recording_manager.cc",
+    "//media/audio/audio_device_description.cc",
+    "//media/audio/audio_device_name.cc",
+    "//media/audio/audio_device_thread.cc",
+    "//media/audio/audio_features.cc",
+    "//media/audio/audio_input_delegate.cc",
+    "//media/audio/audio_input_device.cc",
+    "//media/audio/audio_input_ipc.cc",
+    "//media/audio/audio_input_stream_data_interceptor.cc",
+    "//media/audio/audio_io.cc",
+    "//media/audio/audio_manager.cc",
+    "//media/audio/audio_manager_base.cc",
+    "//media/audio/audio_output_delegate.cc",
+    "//media/audio/audio_output_device.cc",
+    "//media/audio/audio_output_device_thread_callback.cc",
+    "//media/audio/audio_output_dispatcher.cc",
+    "//media/audio/audio_output_dispatcher_impl.cc",
+    "//media/audio/audio_output_ipc.cc",
+    "//media/audio/audio_output_proxy.cc",
+    "//media/audio/audio_output_resampler.cc",
+    "//media/audio/audio_output_stream_sink.cc",
+    "//media/audio/audio_sink_parameters.cc",
+    "//media/audio/audio_source_parameters.cc",
+    "//media/audio/audio_system.cc",
+    "//media/audio/audio_system_helper.cc",
+    "//media/audio/audio_system_impl.cc",
+    "//media/audio/audio_thread_hang_monitor.cc",
+    "//media/audio/audio_thread_impl.cc",
+    "//media/audio/clockless_audio_sink.cc",
+    "//media/audio/fake_audio_input_stream.cc",
+    "//media/audio/fake_audio_log_factory.cc",
+    "//media/audio/fake_audio_manager.cc",
+    "//media/audio/fake_audio_output_stream.cc",
+    "//media/audio/null_audio_sink.cc",
+    "//media/audio/power_observer_helper.cc",
+    "//media/audio/scoped_task_runner_observer.cc",
+    "//media/audio/simple_sources.cc",
+    "//media/audio/system_glitch_reporter.cc",
+    "//media/audio/wav_audio_handler.cc",
+    "//media/audio/wav_audio_handler_fuzzer.cc",
+    #  "//media/audio/win/audio_device_listener_win.cc",
+    #  "//media/audio/win/audio_edid_scan_win.cc",
+    #  "//media/audio/win/audio_low_latency_input_win.cc",
+    #  "//media/audio/win/audio_low_latency_output_win.cc",
+    #  "//media/audio/win/audio_manager_win.cc",
+    #  "//media/audio/win/audio_session_event_listener_win.cc",
+    #  "//media/audio/win/avrt_wrapper_win.cc",
+    #  "//media/audio/win/core_audio_util_win.cc",
+    #  "//media/audio/win/device_enumeration_win.cc",
+    #  "//media/audio/win/volume_range_util.cc",
+    #  "//media/audio/win/wavein_input_win.cc",
+    #  "//media/audio/win/waveout_output_win.cc",
+    "//media/audio/linux/audio_manager_linux.cc",
+    "//media/audio/alsa/alsa_input.cc",
+    "//media/audio/alsa/alsa_output.cc",
+    "//media/audio/alsa/alsa_util.cc",
+    "//media/audio/alsa/alsa_wrapper.cc",
+    "//media/audio/alsa/audio_manager_alsa.cc",
+
+    "//media/base/android_overlay_config.cc",
+    "//media/base/audio_block_fifo.cc",
+    "//media/base/audio_buffer.cc",
+    "//media/base/audio_buffer_converter.cc",
+    "//media/base/audio_buffer_queue.cc",
+    "//media/base/audio_bus.cc",
+    "//media/base/audio_codecs.cc",
+    "//media/base/audio_converter.cc",
+    "//media/base/audio_decoder.cc",
+    "//media/base/audio_decoder_config.cc",
+    "//media/base/audio_discard_helper.cc",
+    "//media/base/audio_encoder.cc",
+    "//media/base/audio_fifo.cc",
+    "//media/base/audio_hash.cc",
+    "//media/base/audio_latency.cc",
+    "//media/base/audio_parameters.cc",
+    "//media/base/audio_point.cc",
+    "//media/base/audio_power_monitor.cc",
+    "//media/base/audio_processing.cc",
+    "//media/base/audio_pull_fifo.cc",
+    "//media/base/audio_push_fifo.cc",
+    "//media/base/audio_renderer.cc",
+    "//media/base/audio_renderer_mixer.cc",
+    "//media/base/audio_renderer_mixer_input.cc",
+    "//media/base/audio_shifter.cc",
+    "//media/base/audio_timestamp_helper.cc",
+    "//media/base/bitrate.cc",
+    "//media/base/bitstream_buffer.cc",
+    "//media/base/bit_reader.cc",
+    "//media/base/bit_reader_core.cc",
+    "//media/base/buffering_state.cc",
+    "//media/base/byte_queue.cc",
+    "//media/base/cdm_callback_promise.cc",
+    "//media/base/cdm_config.cc",
+    "//media/base/cdm_context.cc",
+    "//media/base/cdm_factory.cc",
+    "//media/base/cdm_initialized_promise.cc",
+    "//media/base/cdm_key_information.cc",
+    "//media/base/cdm_promise.cc",
+    "//media/base/cdm_promise_adapter.cc",
+    "//media/base/cdm_session_tracker.cc",
+    "//media/base/channel_layout.cc",
+    "//media/base/channel_mixer.cc",
+    "//media/base/channel_mixing_matrix.cc",
+    "//media/base/color_plane_layout.cc",
+    "//media/base/container_names.cc",
+    "//media/base/content_decryption_module.cc",
+    "//media/base/converting_audio_fifo.cc",
+    "//media/base/data_buffer.cc",
+    "//media/base/data_source.cc",
+    "//media/base/decoder.cc",
+    "//media/base/decoder_buffer.cc",
+    "//media/base/decoder_buffer_queue.cc",
+    "//media/base/decoder_factory.cc",
+    "//media/base/decoder_status.cc",
+    "//media/base/decryptor.cc",
+    "//media/base/decrypt_config.cc",
+    "//media/base/demuxer.cc",
+    "//media/base/demuxer_memory_limit_cast.cc",
+    "//media/base/demuxer_memory_limit_default.cc",
+    "//media/base/demuxer_memory_limit_low.cc",
+    "//media/base/demuxer_stream.cc",
+    "//media/base/djb2.cc",
+    "//media/base/encryption_pattern.cc",
+    "//media/base/encryption_scheme.cc",
+    "//media/base/fake_audio_worker.cc",
+    "//media/base/format_utils.cc",
+    "//media/base/frame_rate_estimator.cc",
+    "//media/base/key_systems.cc",
+    "//media/base/key_system_info.cc",
+    "//media/base/key_system_names.cc",
+    "//media/base/localized_strings.cc",
+    "//media/base/loopback_audio_converter.cc",
+    "//media/base/media.cc",
+    "//media/base/media_client.cc",
+    "//media/base/media_content_type.cc",
+    "//media/base/media_drm_storage.cc",
+    "//media/base/media_log.cc",
+    "//media/base/media_log_events.cc",
+    "//media/base/media_log_message_levels.cc",
+    "//media/base/media_log_properties.cc",
+    "//media/base/media_observer.cc",
+    "//media/base/media_permission.cc",
+    "//media/base/media_player_logging_id.cc",
+    "//media/base/media_resource.cc",
+    "//media/base/media_status.cc",
+    "//media/base/media_switches.cc",
+    "//media/base/media_track.cc",
+    "//media/base/media_tracks.cc",
+    "//media/base/media_types.cc",
+    "//media/base/media_url_demuxer.cc",
+    "//media/base/media_url_params.cc",
+    "//media/base/media_util.cc",
+    "//media/base/memory_dump_provider_proxy.cc",
+    "//media/base/mime_util.cc",
+    "//media/base/mime_util_internal.cc",
+    "//media/base/moving_average.cc",
+    "//media/base/multi_channel_resampler.cc",
+    "//media/base/null_video_sink.cc",
+    "//media/base/offloading_audio_encoder.cc",
+    "//media/base/offloading_video_encoder.cc",
+    "//media/base/output_device_info.cc",
+    "//media/base/overlay_info.cc",
+    "//media/base/pipeline_impl.cc",
+    "//media/base/pipeline_metadata.cc",
+    "//media/base/pipeline_status.cc",
+    "//media/base/ranges.cc",
+    "//media/base/reentrancy_checker.cc",
+    "//media/base/renderer.cc",
+    "//media/base/renderer_client.cc",
+    "//media/base/renderer_factory.cc",
+    "//media/base/renderer_factory_selector.cc",
+    "//media/base/sample_format.cc",
+    "//media/base/sample_rates.cc",
+    "//media/base/scoped_async_trace.cc",
+    "//media/base/seekable_buffer.cc",
+    "//media/base/serial_runner.cc",
+    "//media/base/silent_sink_suspender.cc",
+    "//media/base/simple_sync_token_client.cc",
+    "//media/base/simple_watch_timer.cc",
+    "//media/base/sinc_resampler.cc",
+    "//media/base/status.cc",
+    "//media/base/stream_parser.cc",
+    "//media/base/stream_parser_buffer.cc",
+    "//media/base/subsample_entry.cc",
+    "//media/base/supported_types.cc",
+    "//media/base/supported_video_decoder_config.cc",
+    "//media/base/svc_scalability_mode.cc",
+    "//media/base/text_cue.cc",
+    "//media/base/text_ranges.cc",
+    "//media/base/text_renderer.cc",
+    "//media/base/text_track_config.cc",
+    "//media/base/time_delta_interpolator.cc",
+    "//media/base/tuneable.cc",
+    "//media/base/user_input_monitor.cc",
+    "//media/base/user_input_monitor_linux.cc",
+    "//media/base/vector_math.cc",
+    "//media/base/video_aspect_ratio.cc",
+    "//media/base/video_bitrate_allocation.cc",
+    "//media/base/video_codecs.cc",
+    "//media/base/video_color_space.cc",
+    "//media/base/video_decoder.cc",
+    "//media/base/video_decoder_config.cc",
+    "//media/base/video_encoder.cc",
+    "//media/base/video_frame.cc",
+    "//media/base/video_frame_layout.cc",
+    "//media/base/video_frame_metadata.cc",
+    "//media/base/video_frame_pool.cc",
+    "//media/base/video_renderer.cc",
+    "//media/base/video_thumbnail_decoder.cc",
+    "//media/base/video_transformation.cc",
+    "//media/base/video_types.cc",
+    "//media/base/video_util.cc",
+    "//media/base/wait_and_replace_sync_token_client.cc",
+    "//media/base/wall_clock_time_source.cc",
+    "//media/base/watch_time_keys.cc",
+    #  "//media/base/win/dxgi_device_manager.cc",
+    #  "//media/base/win/mf_feature_checks.cc",
+    #  "//media/base/win/mf_helpers.cc",
+    #  "//media/base/win/mf_initializer.cc",
+    "//media/capture/capture_switches.cc",
+    "//media/capture/content/animated_content_sampler.cc",
+    "//media/capture/content/capture_resolution_chooser.cc",
+    "//media/capture/content/smooth_event_sampler.cc",
+    "//media/capture/content/video_capture_oracle.cc",
+    "//media/capture/mojom/image_capture_types.cc",
+    "//media/capture/mojom/video_capture_types_mojom_traits.cc",
+    "//media/capture/video/blob_utils.cc",
+    "//media/capture/video/create_video_capture_device_factory.cc",
+    "//media/capture/video/fake_video_capture_device.cc",
+    "//media/capture/video/fake_video_capture_device_factory.cc",
+    "//media/capture/video/file_video_capture_device.cc",
+    "//media/capture/video/file_video_capture_device_factory.cc",
+    "//media/capture/video/gpu_memory_buffer_utils.cc",
+    "//media/capture/video/shared_memory_buffer_tracker.cc",
+    "//media/capture/video/video_capture_buffer_handle.cc",
+    "//media/capture/video/video_capture_buffer_pool_impl.cc",
+    "//media/capture/video/video_capture_buffer_pool_util.cc",
+    "//media/capture/video/video_capture_buffer_tracker.cc",
+    "//media/capture/video/video_capture_buffer_tracker_factory_impl.cc",
+    "//media/capture/video/video_capture_device.cc",
+    "//media/capture/video/video_capture_device_client.cc",
+    "//media/capture/video/video_capture_device_descriptor.cc",
+    "//media/capture/video/video_capture_device_factory.cc",
+    "//media/capture/video/video_capture_device_info.cc",
+    "//media/capture/video/video_capture_feedback.cc",
+    "//media/capture/video/video_capture_metrics.cc",
+    "//media/capture/video/video_capture_system_impl.cc",
+    "//media/capture/video/video_frame_receiver.cc",
+    "//media/capture/video/video_frame_receiver_on_task_runner.cc",
+    #  "//media/capture/video/win/capability_list_win.cc",
+    #  "//media/capture/video/win/filter_base_win.cc",
+    #  "//media/capture/video/win/gpu_memory_buffer_tracker.cc",
+    #  "//media/capture/video/win/metrics.cc",
+    #  "//media/capture/video/win/pin_base_win.cc",
+    #  "//media/capture/video/win/sink_filter_win.cc",
+    #  "//media/capture/video/win/sink_input_pin_win.cc",
+    #  "//media/capture/video/win/video_capture_buffer_tracker_factory_win.cc",
+    #  "//media/capture/video/win/video_capture_device_factory_win.cc",
+    #  "//media/capture/video/win/video_capture_device_mf_win.cc",
+    #  "//media/capture/video/win/video_capture_device_utils_win.cc",
+    #  "//media/capture/video/win/video_capture_device_win.cc",
+    "//media/capture/video/linux/video_capture_device_linux.cc",
+    "//media/capture/video/linux/video_capture_device_factory_linux.cc",
+    "//media/capture/video_capture_types.cc",
+    "//media/ffmpeg/ffmpeg_common.cc",
+    "//media/ffmpeg/ffmpeg_decoding_loop.cc",
+    "//media/ffmpeg/scoped_av_packet.cc",
+    "//media/filters/audio_clock.cc",
+    "//media/filters/audio_file_reader.cc",
+    "//media/filters/audio_renderer_algorithm.cc",
+    "//media/filters/audio_timestamp_validator.cc",
+    "//media/filters/audio_video_metadata_extractor.cc",
+    "//media/filters/blocking_url_protocol.cc",
+    "//media/filters/chunk_demuxer.cc",
+    "//media/filters/dav1d_video_decoder.cc",
+    "//media/filters/decoder_selector.cc",
+    "//media/filters/decoder_stream.cc",
+    "//media/filters/decoder_stream_traits.cc",
+    "//media/filters/decrypting_audio_decoder.cc",
+    "//media/filters/decrypting_demuxer_stream.cc",
+    "//media/filters/decrypting_media_resource.cc",
+    "//media/filters/decrypting_video_decoder.cc",
+    "//media/filters/ffmpeg_aac_bitstream_converter.cc",
+    "//media/filters/ffmpeg_audio_decoder.cc",
+    "//media/filters/ffmpeg_demuxer.cc",
+    "//media/filters/ffmpeg_glue.cc",
+    "//media/filters/ffmpeg_h264_to_annex_b_bitstream_converter.cc",
+    "//media/filters/ffmpeg_h265_to_annex_b_bitstream_converter.cc",
+    "//media/filters/ffmpeg_video_decoder.cc",
+    "//media/filters/file_data_source.cc",
+    "//media/filters/frame_buffer_pool.cc",
+    "//media/filters/frame_processor.cc",
+    "//media/filters/h264_bitstream_buffer.cc",
+    "//media/filters/h264_to_annex_b_bitstream_converter.cc",
+    "//media/filters/h265_to_annex_b_bitstream_converter.cc",
+    "//media/filters/in_memory_url_protocol.cc",
+    "//media/filters/ivf_parser.cc",
+    "//media/filters/media_file_checker.cc",
+    "//media/filters/memory_data_source.cc",
+    "//media/filters/offloading_video_decoder.cc",
+    "//media/filters/passthrough_dts_audio_decoder.cc",
+    "//media/filters/pipeline_controller.cc",
+    "//media/filters/source_buffer_range.cc",
+    "//media/filters/source_buffer_state.cc",
+    "//media/filters/source_buffer_stream.cc",
+    "//media/filters/stream_parser_factory.cc",
+    "//media/filters/video_cadence_estimator.cc",
+    "//media/filters/video_renderer_algorithm.cc",
+    "//media/filters/vp9_bool_decoder.cc",
+    "//media/filters/vp9_compressed_header_parser.cc",
+    "//media/filters/vp9_parser.cc",
+    "//media/filters/vp9_raw_bits_reader.cc",
+    "//media/filters/vp9_uncompressed_header_parser.cc",
+    "//media/filters/wsola_internals.cc",
+    "//media/formats/common/offset_byte_queue.cc",
+    "//media/formats/common/opus_constants.cc",
+    "//media/formats/mp4/aac.cc",
+    "//media/formats/mp4/avc.cc",
+    "//media/formats/mp4/bitstream_converter.cc",
+    "//media/formats/mp4/box_definitions.cc",
+    "//media/formats/mp4/box_reader.cc",
+    "//media/formats/mp4/dts.cc",
+    "//media/formats/mp4/dtsx.cc",
+    "//media/formats/mp4/es_descriptor.cc",
+    "//media/formats/mp4/h264_annex_b_to_avc_bitstream_converter.cc",
+    "//media/formats/mp4/hevc.cc",
+    "//media/formats/mp4/mp4_avcc_parser_fuzzer.cc",
+    "//media/formats/mp4/mp4_box_reader_fuzzer.cc",
+    "//media/formats/mp4/mp4_stream_parser.cc",
+    "//media/formats/mp4/sample_to_group_iterator.cc",
+    "//media/formats/mp4/track_run_iterator.cc",
+    "//media/formats/mpeg/adts_constants.cc",
+    "//media/formats/mpeg/mpeg1_audio_stream_parser.cc",
+    "//media/formats/mpeg/mpeg_audio_stream_parser_base.cc",
+    "//media/mb/batching_media_log.cc",
+    "//media/mb/MbMediaImpl.cpp",
+    "//media/mb/renderer_webmediaplayer_delegate.cc",
+    "//media/media_empty.cc",
+    "//media/renderers/audio_renderer_impl.cc",
+    "//media/renderers/decrypting_renderer.cc",
+    "//media/renderers/decrypting_renderer_factory.cc",
+    "//media/renderers/default_decoder_factory.cc",
+    "//media/renderers/default_renderer_factory.cc",
+    "//media/renderers/renderer_impl.cc",
+    "//media/renderers/video_overlay_factory.cc",
+    "//media/renderers/video_renderer_impl.cc",
+    "//media/renderers/video_resource_updater.cc",
+    #  "//media/renderers/win/media_engine_extension.cc",
+    #  "//media/renderers/win/media_engine_notify_impl.cc",
+    #  "//media/renderers/win/media_foundation_audio_stream.cc",
+    #  "//media/renderers/win/media_foundation_protection_manager.cc",
+    #  "//media/renderers/win/media_foundation_renderer.cc",
+    #  "//media/renderers/win/media_foundation_rendering_mode.cc",
+    #  "//media/renderers/win/media_foundation_source_wrapper.cc",
+    #  "//media/renderers/win/media_foundation_stream_wrapper.cc",
+    #  "//media/renderers/win/media_foundation_texture_pool.cc",
+    #  "//media/renderers/win/media_foundation_video_stream.cc",
+    "//media/video/fake_gpu_memory_buffer.cc",
+    "//media/video/fake_video_encode_accelerator.cc",
+    "//media/video/gpu_memory_buffer_video_frame_pool.cc",
+    "//media/video/h264_bit_reader.cc",
+    "//media/video/h264_level_limits.cc",
+    "//media/video/h264_parser.cc",
+    "//media/video/h264_poc.cc",
+    "//media/video/h265_nalu_parser.cc",
+    "//media/video/h265_parser.cc",
+    "//media/video/h265_poc.cc",
+    "//media/video/half_float_maker.cc",
+    "//media/video/picture.cc",
+    "//media/video/renderable_gpu_memory_buffer_video_frame_pool.cc",
+    "//media/video/trace_util.cc",
+    "//media/video/video_decode_accelerator.cc",
+    "//media/video/video_encoder_fallback.cc",
+    "//media/video/video_encoder_info.cc",
+    "//media/video/video_encode_accelerator.cc",
+    "//media/video/video_encode_accelerator_adapter.cc",
+    "//mojo/public/cpp/platform/platform_handle.cc",
+    "//services/media_session/public/cpp/media_position.cc",
+
+    "//third_party/webrtc_overrides/low_precision_timer.cc",
+    #  "//url/gurl.cc",
+
+    "//third_party/blink/renderer/platform/media/buffered_data_source_host_impl.cc",
+    "//third_party/blink/renderer/platform/media/cache_util.cc",
+    "//third_party/blink/renderer/platform/media/multi_buffer.cc",
+    "//third_party/blink/renderer/platform/media/multi_buffer_data_source.cc",
+    "//third_party/blink/renderer/platform/media/multi_buffer_reader.cc",
+    "//third_party/blink/renderer/platform/media/resource_multi_buffer_data_provider.cc",
+    "//third_party/blink/renderer/platform/media/url_index.cc",
+    "//third_party/blink/renderer/platform/media/video_frame_compositor.cc",
+    "//third_party/blink/renderer/platform/media/webaudiosourceprovider_impl.cc",
+    "//third_party/blink/renderer/platform/media/web_media_player_builder.cc",
+    "//third_party/blink/renderer/platform/media/web_media_player_impl.cc",
+    "//third_party/blink/renderer/platform/media/web_media_source_impl.cc",
+    "//third_party/blink/renderer/platform/media/web_source_buffer_impl.cc",
+
   ]
-  if (is_mac) {
-    # These need to be included here because audio_latency.cc depends on them.
-    sources += [
-      "base/mac/audio_latency_mac.cc",
-      "base/mac/audio_latency_mac.h",
-    ]
-  }
 
-  # Do not use "subcomponent_config" here since these files are in their own
-  # component target and thus can't share the standard export macros.
-  configs += [ ":media_config" ]
-  defines = [ "MEDIA_SHMEM_IMPLEMENTATION" ]
 
-  if (!is_debug) {
-    configs -= [ "//build/config/compiler:default_optimization" ]
-    configs += [ "//build/config/compiler:optimize_max" ]
-  }
-  deps = [
-    "//base",
-    "//build:chromeos_buildflags",
-    "//ui/gfx/geometry",
-  ]
+
 }
 
-# TODO(watk): Refactor tests that could be made to run on Android. See
-# http://crbug.com/570762
-if (media_use_ffmpeg && !is_android) {
-  test("ffmpeg_regression_tests") {
-    configs += [ "//media:media_config" ]
-
-    deps = [
-      ":test_support",
-      "//base/test:test_support",
-      "//media/ffmpeg:ffmpeg_regression_tests",
-      "//media/test:pipeline_integration_tests",
-      "//media/test:run_all_unittests",
-      "//testing/gmock",
-      "//testing/gtest",
-      "//ui/gfx:test_support",
-      "//ui/gfx/geometry",
-    ]
-  }
-}
-
-if (proprietary_codecs) {
-  fuzzer_test("media_cenc_utils_fuzzer") {
-    sources = [ "cdm/cenc_utils_fuzzertest.cc" ]
-    deps = [ ":media" ]
-  }
-}
-
-fuzzer_test("media_vp9_parser_fuzzer") {
-  sources = [ "filters/vp9_parser_fuzzertest.cc" ]
-  deps = [
-    ":test_support",
-    "//base",
-  ]
-  libfuzzer_options = [ "max_len = 400000" ]
-}
-
-fuzzer_test("media_vp9_parser_encrypted_fuzzer") {
-  sources = [ "filters/vp9_parser_encrypted_fuzzertest.cc" ]
-  deps = [
-    ":test_support",
-    "//base",
-    "//base/test:test_support",
-  ]
-  seed_corpus = "//media/test/data"
-}
-
-fuzzer_test("media_vpx_video_decoder_fuzzer") {
-  sources = [ "filters/vpx_video_decoder_fuzzertest.cc" ]
-  deps = [
-    ":media",
-    "//base",
-    "//base/test:test_support",
-  ]
-  libfuzzer_options = [ "max_len = 400000" ]
-  seed_corpus = "//media/test/data"
-}
-
-fuzzer_test("media_webm_muxer_fuzzer") {
-  sources = [ "muxers/webm_muxer_fuzzertest.cc" ]
-  deps = [
-    ":media",
-    "//base",
-    "//third_party/libwebm",
-  ]
-}
-
-fuzzer_test("cbcs_decryptor_fuzzer") {
-  sources = [ "cdm/cbcs_decryptor_fuzzer.cc" ]
-  deps = [
-    ":media",
-    "//base",
-    "//crypto",
-  ]
-}
-
-fuzzer_test("cenc_decryptor_fuzzer") {
-  sources = [ "cdm/cenc_decryptor_fuzzer.cc" ]
-  deps = [
-    ":media",
-    "//base",
-    "//crypto",
-  ]
-}
-
-fuzzer_test("json_web_key_fuzzer") {
-  sources = [ "cdm/json_web_key_fuzzer.cc" ]
-  deps = [
-    ":media",
-    "//base",
-  ]
-}
-
-if (proprietary_codecs) {
-  fuzzer_test("media_mp4_avcc_parser_fuzzer") {
-    sources = [ "formats/mp4/mp4_avcc_parser_fuzzer.cc" ]
-    deps = [
-      ":media",
-      "//base",
-    ]
-  }
-
-  fuzzer_test("media_mp4_box_reader_fuzzer") {
-    sources = [ "formats/mp4/mp4_box_reader_fuzzer.cc" ]
-    deps = [
-      ":media",
-      "//base",
-    ]
-    libfuzzer_options = [ "max_len=500" ]
-    dict = "test/mp4.dict"
-  }
-}
-
-if (enable_mse_mpeg2ts_stream_parser) {
-  fuzzer_test("media_es_parser_adts_fuzzer") {
-    sources = [ "formats/mp2t/es_parser_adts_fuzzer.cc" ]
-    deps = [
-      ":media",
-      "//base",
-    ]
-  }
-
-  fuzzer_test("media_es_parser_h264_fuzzer") {
-    sources = [ "formats/mp2t/es_parser_h264_fuzzer.cc" ]
-    deps = [
-      ":media",
-      "//base",
-    ]
-  }
-
-  fuzzer_test("media_es_parser_mpeg1audio_fuzzer") {
-    sources = [ "formats/mp2t/es_parser_mpeg1audio_fuzzer.cc" ]
-    deps = [
-      ":media",
-      "//base",
-    ]
-  }
-}

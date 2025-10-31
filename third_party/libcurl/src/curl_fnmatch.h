@@ -7,11 +7,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -20,13 +20,11 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * SPDX-License-Identifier: curl
- *
  ***************************************************************************/
 
-#define CURL_FNMATCH_MATCH 0
-#define CURL_FNMATCH_NOMATCH 1
-#define CURL_FNMATCH_FAIL 2
+#define CURL_FNMATCH_MATCH    0
+#define CURL_FNMATCH_NOMATCH  1
+#define CURL_FNMATCH_FAIL     2
 
 /* default pattern matching function
  * =================================
@@ -41,6 +39,6 @@
  * keywords: alnum, digit, xdigit, alpha, print, blank, lower, graph, space
  *           and upper (use as "[[:alnum:]]")
  */
-int Curl_fnmatch(void* ptr, const char* pattern, const char* string);
+int Curl_fnmatch(void *ptr, const char *pattern, const char *string);
 
 #endif /* HEADER_CURL_FNMATCH_H */

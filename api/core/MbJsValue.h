@@ -14,7 +14,7 @@
 #ifndef mbvip_core_MbJsValue_h
 #define mbvip_core_MbJsValue_h
 
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 #include "content/common/LiveIdDetect.h"
 #include "v8.h"
 

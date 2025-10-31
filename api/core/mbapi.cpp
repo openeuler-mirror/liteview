@@ -12,11 +12,11 @@
 
 #include <stdlib.h>
 #include <crtdbg.h>
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 
-#include "mbvip/download/SimpleDownload.h"
-#include "mbvip/core/MbJsValue.h"
-#include "mbvip/core/MbInternalApi.h"
+#include "api/download/SimpleDownload.h"
+#include "api/core/MbJsValue.h"
+#include "api/core/MbInternalApi.h"
 #include "content/browser/MbWebview.h"
 #include "content/browser/SharedTimerWin.h"
 #include "content/common/LiveIdDetect.h"
@@ -163,12 +163,12 @@ typedef enum _MemBufType {
     kMemBufTypeStdString = 110002,
 } MemBufType;
 
-struct MemBufSkdata { // À©Õ¹Ô­°æµÄmbMemBuf£¬ÒÔmbMemBuf::unuse×öÇø·Ö
+struct MemBufSkdata { // ï¿½ï¿½Õ¹Ô­ï¿½ï¿½ï¿½mbMemBufï¿½ï¿½ï¿½ï¿½mbMemBuf::unuseï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     mbMemBuf buf;
     sk_sp<SkData> skdata;
 };
 
-struct MemBufStdString { // À©Õ¹Ô­°æµÄmbMemBuf£¬ÒÔmbMemBuf::unuse×öÇø·Ö
+struct MemBufStdString { // ï¿½ï¿½Õ¹Ô­ï¿½ï¿½ï¿½mbMemBufï¿½ï¿½ï¿½ï¿½mbMemBuf::unuseï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     mbMemBuf buf;
     std::string* stdstring;
 };
@@ -317,9 +317,9 @@ inline HRESULT SetProcessDpiAwarenessXp(XP_PROCESS_DPI_AWARENESS value)
 }
 #endif // OS_WIN
 
-namespace content {
-display::Screen* getScreenOrCreate();
-}
+//namespace content {
+//display::Screen* getScreenOrCreate();
+//}
 
 void MB_CALL_TYPE mbEnableHighDPISupport()
 {
@@ -328,7 +328,7 @@ void MB_CALL_TYPE mbEnableHighDPISupport()
     SetProcessDPIAwareXp();
 
     //HDC screenDC = ::GetDC(nullptr);
-    //int dpiX = ::GetDeviceCaps(screenDC, LOGPIXELSX); // 96?ÊÇ100%¡¢120?ÊÇ125%
+    //int dpiX = ::GetDeviceCaps(screenDC, LOGPIXELSX); // 96?ï¿½ï¿½100%ï¿½ï¿½120?ï¿½ï¿½125%
     //content::RenderThreadImpl::get()->setZoom(dpiX / 96.0);
     //::ReleaseDC(nullptr, screenDC);
 
@@ -338,7 +338,7 @@ void MB_CALL_TYPE mbEnableHighDPISupport()
 #endif
 }
 
-// ÔÝÊ±Ö»ÄÜ»ñÈ¡main world
+// ï¿½ï¿½Ê±Ö»ï¿½Ü»ï¿½È¡main world
 BOOL MB_CALL_TYPE mbGetContextByV8Object(void* isolate, void* obj, int worldID, v8ContextPtr cxtOut)
 {
     v8::Local<v8::Object>* object = (v8::Local<v8::Object>*)obj;

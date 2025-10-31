@@ -13,9 +13,9 @@
 
 #include <stdlib.h>
 #include <crtdbg.h>
-#include "mbvip/core/mb.h"
-#include "mbvip/download/SimpleDownload.h"
-#include "mbvip/core/MbJsValue.h"
+#include "api/core/mb.h"
+#include "api/download/SimpleDownload.h"
+#include "api/core/MbJsValue.h"
 #include "content/browser/MbWebview.h"
 #include "content/browser/SharedTimerWin.h"
 #include "content/common/LiveIdDetect.h"

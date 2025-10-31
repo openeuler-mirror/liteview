@@ -14,7 +14,7 @@
 #ifndef content_BindJsQuery_h
 #define content_BindJsQuery_h
 
-#include "mbvip/core/mb.h"
+#include "api/core/mb.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include <functional>
 #include "v8.h"

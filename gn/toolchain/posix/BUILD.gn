@@ -1,0 +1,135 @@
+import("//gn/toolchain/gcc_toolchain.gni")
+import("//gn/toolchain/posix/settings.gni")
+import("//gn/toolchain/posix/livi_toolchain.gni")
+
+gcc_toolchain("clang_x86") {
+  cc = clang_cc
+  cxx = clang_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "x86"
+    current_os = target_os
+    is_clang = true
+  }
+}
+
+gcc_toolchain("x86") {
+  cc = gcc_cc
+  cxx = gcc_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "x86"
+    current_os = target_os
+    is_clang = false
+  }
+}
+
+gcc_toolchain("clang_x64") {
+  cc = clang_cc
+  cxx = clang_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "x64"
+    current_os = target_os
+    is_clang = true
+  }
+}
+
+gcc_toolchain("x64") {
+  cc = gcc_cc
+  cxx = gcc_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "x64"
+    current_os = target_os
+    is_clang = false
+  }
+}
+
+gcc_toolchain("arm") {
+  cc = gcc_cc
+  cxx = gcc_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "arm"
+    current_os = target_os
+    is_clang = false
+  }
+}
+
+gcc_toolchain("arm64") {
+  cc = gcc_cc
+  cxx = gcc_cxx
+  ld = cxx
+
+  readelf = readelf
+  ar = ar
+  nm = nm
+
+  toolchain_args = {
+    current_cpu = "arm64"
+    current_os = target_os
+    is_clang = false
+  }
+}
+
+import("//sdkpath.gni")
+livi_toolchain("livi_x64") {
+  cc = clang_cc
+  cxx = clang_cxx
+  ld = ld
+
+  ar = ar
+
+  begin_libs = [
+    "${sdkPath2}/usr/lib/x86_64-linux-gnu/crt1.o",
+    "${sdkPath2}/usr/lib/x86_64-linux-gnu/crti.o",
+    "${sdkPath2}/usr/lib/x86_64-linux-gnu/libc_nonshared.a",
+    "${sdkPath2}/usr/lib/gcc/x86_64-linux-gnu/7/libgcc_eh.a",
+    "${sdkPath2}/usr/lib/gcc/x86_64-linux-gnu/7/libgcc.a",
+    "${sdkPath2}/usr/lib/x86_64-linux-gnu/libffi.a",
+  ]
+
+  if (is_component_build) {
+    begin_libs += ["${sdkPath2}/usr/lib/gcc/x86_64-linux-gnu/7/crtbeginS.o"]
+  } else{
+    begin_libs += ["${sdkPath2}/usr/lib/gcc/x86_64-linux-gnu/7/crtbegin.o"]
+  }
+
+  end_libs = [
+    # "${srcPath}/out/${targetDir}/lib${v8dir}_2.a",
+    "${sdkPath2}/usr/lib/x86_64-linux-gnu/crtn.o",
+    "${sdkPath2}/usr/lib/gcc/x86_64-linux-gnu/7/crtend.o",
+  ]
+
+  toolchain_args = {
+    current_cpu = "x64"
+    current_os = target_os
+    is_clang = true
+  }
+}

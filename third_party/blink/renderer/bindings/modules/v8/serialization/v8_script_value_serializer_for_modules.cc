@@ -73,7 +73,7 @@ bool V8ScriptValueSerializerForModules::ExtractTransferable(
     if (exception_state.HadException())
         return false;
 
-    OutputDebugStringA("V8ScriptValueSerializerForModules::ExtractTransferable not impl\n");
+    //OutputDebugStringA("V8ScriptValueSerializerForModules::ExtractTransferable not impl\n");
 
     //     if (V8VideoFrame::HasInstance(object, isolate)) {
     //         //     VideoFrame* video_frame =
@@ -344,7 +344,7 @@ bool V8ScriptValueSerializerForModules::WriteDOMObject(ScriptWrappable* wrappabl
     //     return false;
     //   }
 
-    OutputDebugStringA("V8ScriptValueSerializerForModules::WriteDOMObject not impl\n");
+    //OutputDebugStringA("V8ScriptValueSerializerForModules::WriteDOMObject not impl\n");
     return false;
 }
 

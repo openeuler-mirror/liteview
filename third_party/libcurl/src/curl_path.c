@@ -5,11 +5,11 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2017, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
- * are also available at https://curl.se/docs/copyright.html.
+ * are also available at https://curl.haxx.se/docs/copyright.html.
  *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
@@ -18,13 +18,9 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * SPDX-License-Identifier: curl AND ISC
- *
  ***************************************************************************/
 
 #include "curl_setup.h"
-
-#if defined(USE_SSH)
 
 #include <curl/curl.h>
 #include "curl_memory.h"
@@ -32,62 +28,69 @@
 #include "escape.h"
 #include "memdebug.h"
 
-#define MAX_SSHPATH_LEN 100000 /* arbitrary */
-
 /* figure out the path to work with in this particular request */
-CURLcode Curl_getworkingpath(struct Curl_easy* data, char* homedir, /* when SFTP is used */
-    char** path) /* returns the  allocated
+CURLcode Curl_getworkingpath(struct connectdata *conn,
+                             char *homedir,  /* when SFTP is used */
+                             char **path) /* returns the  allocated
                                              real path to work with */
 {
-    char* working_path;
-    size_t working_path_len;
-    struct dynbuf npath;
-    CURLcode result = Curl_urldecode(data->state.up.path, 0, &working_path, &working_path_len, REJECT_ZERO);
-    if (result)
-        return result;
+  struct Curl_easy *data = conn->data;
+  char *real_path = NULL;
+  char *working_path;
+  size_t working_path_len;
+  CURLcode result =
+    Curl_urldecode(data, data->state.path, 0, &working_path,
+                   &working_path_len, FALSE);
+  if(result)
+    return result;
 
-    /* new path to switch to in case we need to */
-    Curl_dyn_init(&npath, MAX_SSHPATH_LEN);
-
-    /* Check for /~/, indicating relative to the user's home directory */
-    if ((data->conn->handler->protocol & CURLPROTO_SCP) && (working_path_len > 3) && (!memcmp(working_path, "/~/", 3))) {
-        /* It is referenced to the home directory, so strip the leading '/~/' */
-        if (Curl_dyn_addn(&npath, &working_path[3], working_path_len - 3)) {
-            free(working_path);
-            return CURLE_OUT_OF_MEMORY;
-        }
-    } else if ((data->conn->handler->protocol & CURLPROTO_SFTP)
-        && (!strcmp("/~", working_path) || ((working_path_len > 2) && !memcmp(working_path, "/~/", 3)))) {
-        if (Curl_dyn_add(&npath, homedir)) {
-            free(working_path);
-            return CURLE_OUT_OF_MEMORY;
-        }
-        if (working_path_len > 2) {
-            size_t len;
-            const char* p;
-            int copyfrom = 3;
-            /* Copy a separating '/' if homedir does not end with one */
-            len = Curl_dyn_len(&npath);
-            p = Curl_dyn_ptr(&npath);
-            if (len && (p[len - 1] != '/'))
-                copyfrom = 2;
-
-            if (Curl_dyn_addn(&npath, &working_path[copyfrom], working_path_len - copyfrom)) {
-                free(working_path);
-                return CURLE_OUT_OF_MEMORY;
-            }
-        }
+  /* Check for /~/, indicating relative to the user's home directory */
+  if(conn->handler->protocol & CURLPROTO_SCP) {
+    real_path = malloc(working_path_len + 1);
+    if(real_path == NULL) {
+      free(working_path);
+      return CURLE_OUT_OF_MEMORY;
     }
-
-    if (Curl_dyn_len(&npath)) {
+    if((working_path_len > 3) && (!memcmp(working_path, "/~/", 3)))
+      /* It is referenced to the home directory, so strip the leading '/~/' */
+      memcpy(real_path, working_path + 3, 4 + working_path_len-3);
+    else
+      memcpy(real_path, working_path, 1 + working_path_len);
+  }
+  else if(conn->handler->protocol & CURLPROTO_SFTP) {
+    if((working_path_len > 1) && (working_path[1] == '~')) {
+      size_t homelen = strlen(homedir);
+      real_path = malloc(homelen + working_path_len + 1);
+      if(real_path == NULL) {
         free(working_path);
+        return CURLE_OUT_OF_MEMORY;
+      }
+      /* It is referenced to the home directory, so strip the
+         leading '/' */
+      memcpy(real_path, homedir, homelen);
+      real_path[homelen] = '/';
+      real_path[homelen + 1] = '\0';
+      if(working_path_len > 3) {
+        memcpy(real_path + homelen + 1, working_path + 3,
+               1 + working_path_len -3);
+      }
+    }
+    else {
+      real_path = malloc(working_path_len + 1);
+      if(real_path == NULL) {
+        free(working_path);
+        return CURLE_OUT_OF_MEMORY;
+      }
+      memcpy(real_path, working_path, 1 + working_path_len);
+    }
+  }
 
-        /* store the pointer for the caller to receive */
-        *path = Curl_dyn_ptr(&npath);
-    } else
-        *path = working_path;
+  free(working_path);
 
-    return CURLE_OK;
+  /* store the pointer for the caller to receive */
+  *path = real_path;
+
+  return CURLE_OK;
 }
 
 /* The get_pathname() function is being borrowed from OpenSSH sftp.c
@@ -107,83 +110,86 @@ CURLcode Curl_getworkingpath(struct Curl_easy* data, char* homedir, /* when SFTP
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-CURLcode Curl_get_pathname(const char** cpp, char** path, char* homedir)
+CURLcode Curl_get_pathname(const char **cpp, char **path, char *homedir)
 {
-    const char *cp = *cpp, *end;
-    char quot;
-    unsigned int i, j;
-    size_t fullPathLength, pathLength;
-    bool relativePath = false;
-    static const char WHITESPACE[] = " \t\r\n";
+  const char *cp = *cpp, *end;
+  char quot;
+  unsigned int i, j;
+  size_t fullPathLength, pathLength;
+  bool relativePath = false;
+  static const char WHITESPACE[] = " \t\r\n";
 
-    DEBUGASSERT(homedir);
-    if (!*cp || !homedir) {
-        *cpp = NULL;
-        *path = NULL;
-        return CURLE_QUOTE_ERROR;
-    }
-    /* Ignore leading whitespace */
-    cp += strspn(cp, WHITESPACE);
-    /* Allocate enough space for home directory and filename + separator */
-    fullPathLength = strlen(cp) + strlen(homedir) + 2;
-    *path = malloc(fullPathLength);
-    if (!*path)
-        return CURLE_OUT_OF_MEMORY;
-
-    /* Check for quoted filenames */
-    if (*cp == '\"' || *cp == '\'') {
-        quot = *cp++;
-
-        /* Search for terminating quote, unescape some chars */
-        for (i = j = 0; i <= strlen(cp); i++) {
-            if (cp[i] == quot) { /* Found quote */
-                i++;
-                (*path)[j] = '\0';
-                break;
-            }
-            if (cp[i] == '\0') { /* End of string */
-                goto fail;
-            }
-            if (cp[i] == '\\') { /* Escaped characters */
-                i++;
-                if (cp[i] != '\'' && cp[i] != '\"' && cp[i] != '\\') {
-                    goto fail;
-                }
-            }
-            (*path)[j++] = cp[i];
-        }
-
-        if (j == 0) {
-            goto fail;
-        }
-        *cpp = cp + i + strspn(cp + i, WHITESPACE);
-    } else {
-        /* Read to end of filename - either to whitespace or terminator */
-        end = strpbrk(cp, WHITESPACE);
-        if (!end)
-            end = strchr(cp, '\0');
-        /* return pointer to second parameter if it exists */
-        *cpp = end + strspn(end, WHITESPACE);
-        pathLength = 0;
-        relativePath = (cp[0] == '/' && cp[1] == '~' && cp[2] == '/');
-        /* Handling for relative path - prepend home directory */
-        if (relativePath) {
-            strcpy(*path, homedir);
-            pathLength = strlen(homedir);
-            (*path)[pathLength++] = '/';
-            (*path)[pathLength] = '\0';
-            cp += 3;
-        }
-        /* Copy path name up until first "whitespace" */
-        memcpy(&(*path)[pathLength], cp, (int)(end - cp));
-        pathLength += (int)(end - cp);
-        (*path)[pathLength] = '\0';
-    }
-    return CURLE_OK;
-
-fail:
-    Curl_safefree(*path);
+  if(!*cp) {
+    *cpp = NULL;
+    *path = NULL;
     return CURLE_QUOTE_ERROR;
-}
+  }
+  /* Ignore leading whitespace */
+  cp += strspn(cp, WHITESPACE);
+  /* Allocate enough space for home directory and filename + separator */
+  fullPathLength = strlen(cp) + strlen(homedir) + 2;
+  *path = malloc(fullPathLength);
+  if(*path == NULL)
+    return CURLE_OUT_OF_MEMORY;
 
-#endif /* if SSH is used */
+  /* Check for quoted filenames */
+  if(*cp == '\"' || *cp == '\'') {
+    quot = *cp++;
+
+    /* Search for terminating quote, unescape some chars */
+    for(i = j = 0; i <= strlen(cp); i++) {
+      if(cp[i] == quot) {  /* Found quote */
+        i++;
+        (*path)[j] = '\0';
+        break;
+      }
+      if(cp[i] == '\0') {  /* End of string */
+        /*error("Unterminated quote");*/
+        goto fail;
+      }
+      if(cp[i] == '\\') {  /* Escaped characters */
+        i++;
+        if(cp[i] != '\'' && cp[i] != '\"' &&
+            cp[i] != '\\') {
+          /*error("Bad escaped character '\\%c'",
+              cp[i]);*/
+          goto fail;
+        }
+      }
+      (*path)[j++] = cp[i];
+    }
+
+    if(j == 0) {
+      /*error("Empty quotes");*/
+      goto fail;
+    }
+    *cpp = cp + i + strspn(cp + i, WHITESPACE);
+  }
+  else {
+    /* Read to end of filename - either to white space or terminator */
+    end = strpbrk(cp, WHITESPACE);
+    if(end == NULL)
+      end = strchr(cp, '\0');
+    /* return pointer to second parameter if it exists */
+    *cpp = end + strspn(end, WHITESPACE);
+    pathLength = 0;
+    relativePath = (cp[0] == '/' && cp[1] == '~' && cp[2] == '/');
+    /* Handling for relative path - prepend home directory */
+    if(relativePath) {
+      strcpy(*path, homedir);
+      pathLength = strlen(homedir);
+      (*path)[pathLength++] = '/';
+      (*path)[pathLength] = '\0';
+      cp += 3;
+    }
+    /* Copy path name up until first "white space" */
+    memcpy(&(*path)[pathLength], cp, (int)(end - cp));
+    pathLength += (int)(end - cp);
+    (*path)[pathLength] = '\0';
+  }
+  return CURLE_OK;
+
+  fail:
+  Curl_safefree(*path);
+  return CURLE_QUOTE_ERROR;
+}

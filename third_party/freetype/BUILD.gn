@@ -1,156 +1,118 @@
-# Copyright 2014 The Chromium Authors. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
+import("//sdkpath.gni")
 
-import("//build/config/chromecast_build.gni")
-import("//build/config/freetype/freetype.gni")
-import("//third_party/harfbuzz-ng/harfbuzz.gni")
+static_library("freetype") {
 
-assert(!use_system_freetype, "Not used when using system freetype.")
-
-config("freetype_config") {
   include_dirs = [
-    "include",
-    "src/include",
+
+    "$ndkIncludePath",
+    "$sdkPath/include/c++/7.2.0",
+    "$sdkPath/include/c++/7.2.0/include",
+    "$sdkPath/include/c++/7.2.0/x86_64-unknown-linux-gnu/",
+    "$sdkPath2/usr/lib/x86_64-linux-gnu/glib-2.0/include",
+
+    "$sdkPath/sysroot/usr/include",
+    "$sdkPath/sysroot/usr/",
+    "$sdkPath/sysroot/usr/include/linux",
+    "$sdkPath2/usr/include/libdrm",
+
+    "//",
+
+    "$sdkPath2/usr/include/cairo",
+    "$sdkPath2/usr/include/glib-2.0",
+    "$sdkPath2/usr/include/gtk-3.0",
+    "$sdkPath2/usr/include/gdk-pixbuf-2.0",
+    "$sdkPath2/usr/include/atk-1.0",
+    "$sdkPath2/usr/include/pango-1.0",
+
+    "//linux",
+    "src/include", 
+
+    "//gen/v8x64linux",
+    "//gen/v8x64linux/include",
+
   ]
 
-  defines = [
-    # Long directory name to avoid accidentally using wrong headers.
-    # GN currently does not escape '<' and '>' when generating xml based Visual
-    # Studio project files. As a result, use quotes instead of pointy brackets
-    # in these defines.
-    "FT_CONFIG_CONFIG_H=\"freetype-custom-config/ftconfig.h\"",
-    "FT_CONFIG_MODULES_H=\"freetype-custom-config/ftmodule.h\"",
-    "FT_CONFIG_OPTIONS_H=\"freetype-custom-config/ftoption.h\"",
+  cflags = [
+    "-D_GNU_SOURCE",
+    "-DUSE_AURA",
+    "-DOS_LINUX_FOR_WIN",
+    "-DFT_DEBUG_LEVEL_ERROR",
+    "-DFT_DEBUG_LEVEL_TRACE",
+    "-DFT2_BUILD_LIBRARY",
+    "-DCHROMIUM_RESTRICT_VISIBILITY",
+
+
+    "-fPIC", 
+    "-fno-exceptions", 
+    "-fvisibility=hidden", 
+    "--target=x86_64-linux-guneabi", 
+    "-DUSE_EGL", 
+    "-DSK_GL", 
+    "-DSK_SUPPORT_GPU=1", 
+    "-DSK_GRAPHITE_ENABLED", 
+    "-DSK_SUPPORT_LEGACY_SLUG_CONVERT", 
+    "-DSK_B32_SHIFT=16", 
+    "-DSK_G32_SHIFT=8", 
+    "-DSK_R32_SHIFT=0", 
+    "-DSK_A32_SHIFT=24", 
+    "-DOS_LINUX=1", 
+    "-DENABLE_MB_MEDIA=1", 
+    "-DV8_HOST_ARCH_X64", 
+    "-DV8_TARGET_ARCH_X64", 
+    "-D__POINT_SIZE__=8", 
+    "-D__USE_OPENGL__", 
+    "-DV8_ENABLE_MAGLEV", 
+    "-mno-avx", 
+    "-DV8_EXTERNAL_CODE_SPACE",
+    "-DV8_DEPRECATION_WARNINGS", 
+    "-DV8_COMPRESS_POINTERS", 
+    "-DV8_COMPRESS_POINTERS_IN_SHARED_CAGE", 
+    "-DV8_31BIT_SMIS_ON_64BIT_ARCH", 
+    "-DCPPGC_CAGED_HEAP", 
+    "-DCPPGC_YOUNG_GENERATION", 
+    "-DCPPGC_POINTER_COMPRESSION", 
   ]
-
-  if (!is_android) {
-    # Selects type1cid.c and type1.c modules in
-    # freetype-custom-config/ftmodule.h.
-    defines += [ "PDFIUM_REQUIRED_MODULES" ]
-  } else {
-    # Using HarfBuzz assisted autohinting has a performance impact that we do
-    # not want to take on Android, see crbug.com/724095.
-    defines += [ "WITHOUT_HARFBUZZ" ]
-  }
-
-  if (!is_component_build) {
-    defines += [ "CHROMIUM_RESTRICT_VISIBILITY" ]
-  }
-}
-
-config("freetype-warnings") {
-  cflags = []
-
-  if (is_clang) {
-    # The reduction of FreeType files to a minimum triggers -Wunused-function
-    # warnings in ftbase.c
-    cflags += [
-      "-Wno-unused-function",
-
-      # TODO(drott): Remove once we can roll past a commit that fixes:
-      # https://savannah.nongnu.org/bugs/index.php?54852
-      "-Wno-deprecated-declarations",
-    ]
-  }
-}
-
-source_set("freetype_source") {
-  visibility = [ "//third_party:freetype_harfbuzz" ]
-
-  defines = []
-  include_dirs = []
 
   sources = [
-    "include/freetype-custom-config/ftconfig.h",
-    "include/freetype-custom-config/ftmodule.h",
-    "include/freetype-custom-config/ftoption.h",
+    "src/src/winfonts/winfnt.c",
     "src/src/autofit/autofit.c",
-    "src/src/base/ftbase.c",
-    "src/src/base/ftbbox.c",
-    "src/src/base/ftbitmap.c",
-    "src/src/base/ftdebug.c",
-    "src/src/base/ftfstype.c",
-    "src/src/base/ftgasp.c",
-    "src/src/base/ftglyph.c",
-    "src/src/base/ftinit.c",
-    "src/src/base/ftmm.c",
-    "src/src/base/ftstroke.c",
-    "src/src/base/fttype1.c",
+    "src/src/bdf/bdf.c",
+    "src/src/cache/ftcache.c",
     "src/src/cff/cff.c",
+    "src/src/cid/type1cid.c",
     "src/src/gzip/ftgzip.c",
+    "src/src/lzw/ftlzw.c",
+    "src/src/pfr/pfr.c",
+    "src/src/pcf/pcf.c",
     "src/src/psaux/psaux.c",
     "src/src/pshinter/pshinter.c",
-    "src/src/psnames/psnames.c",
+    "src/src/psnames/psmodule.c",
     "src/src/raster/raster.c",
     "src/src/sfnt/sfnt.c",
     "src/src/smooth/smooth.c",
     "src/src/truetype/truetype.c",
-  ]
-
-  # ftsystem.c provides implementations of FT_Memory and FT_Stream_Open.
-  # While Chromium itself avoids using this code, any build of Chromium which
-  # depends on //third_party/fontconfig:fontconfig with use_bundled_fontconfig
-  # will make heavy use of these implementations, so use the best available.
-  if (is_posix || is_fuchsia) {
-    sources += [ "src/builds/unix/ftsystem.c" ]
-
-    # builds/unix/ftsystem.c directly includes <ftconfig.h> instead of using
-    # FT_CONFIG_CONFIG_H. The includes/freetype/config directory should not be
-    # on the include path to avoid accidentally using the ftoption or ftmodule
-    # from there.
-    include_dirs += [ "include/freetype-custom-config" ]
-
-    # builds/unix/ftsystem.c requires the following defines to be set.
-    defines += [
-      "HAVE_UNISTD_H",
-      "HAVE_FCNTL_H",
-    ]
-  } else {
-    sources += [ "src/src/base/ftsystem.c" ]
-  }
-
-  if (!is_android) {
-    sources += [
-      "src/src/cid/type1cid.c",
-      "src/src/type1/type1.c",
-    ]
-  }
-
-  if (is_linux || is_chromecast) {
-    # Needed for content_shell on Linux and Chromecast, since fontconfig
-    # requires FT_Get_BDF_Property.
-    sources += [ "src/src/base/ftbdf.c" ]
-  }
-
-  if (is_linux || is_chromecast) {
-    # Needed on Fedora whose libfreetype builds ftsynth.c containing
-    # FT_GlyphSlot_Embolden, which we need to replace in content_shell if
-    # we are linking against our own FreeType.
-    sources += [ "src/src/base/ftsynth.c" ]
-  }
-
-  defines += [ "FT2_BUILD_LIBRARY" ]
-
-  if (is_win && is_component_build) {
-    # Used for managing declspec(dllimport/export) visibility.
-    defines += [ "FT2_BUILD_DLL" ]
-  }
-
-  if (use_system_harfbuzz) {
-    configs += [ "//third_party/harfbuzz-ng:harfbuzz_from_pkgconfig" ]
-  } else {
-    configs += [ "//third_party/harfbuzz-ng:harfbuzz_config" ]
-  }
-  configs -= [ "//build/config/compiler:chromium_code" ]
-  configs += [ "//build/config/compiler:no_chromium_code" ]
-  configs += [ "//build/config/sanitizers:cfi_icall_generalize_pointers" ]
-  configs += [ ":freetype-warnings" ]
-
-  public_configs = [ ":freetype_config" ]
-
-  deps = [
-    "//third_party/libpng",
-    "//third_party/zlib",
+    "src/src/type1/type1.c",
+    "src/src/type42/type42.c",
+    "src/src/base/ftbase.c",
+    "src/src/base/ftinit.c",
+    "src/src/base/ftsystem.c",
+    "src/src/base/ftdebug.c",
+    "src/src/base/ftbbox.c",
+    "src/src/base/ftbdf.c",
+    "src/src/base/ftbitmap.c",
+    "src/src/base/ftcid.c",
+    "src/src/base/ftfstype.c",
+    "src/src/base/ftgasp.c",
+    "src/src/base/ftglyph.c",
+    "src/src/base/ftgxval.c",
+    "src/src/base/ftmm.c",
+    "src/src/base/ftotval.c",
+    "src/src/base/ftpatent.c",
+    "src/src/base/ftpfr.c",
+    "src/src/base/ftstroke.c",
+    "src/src/base/ftsynth.c",
+    "src/src/base/fttype1.c",
+    "src/src/base/ftobjs.c",
+    "src/src/base/ftwinfnt.c"
   ]
 }
