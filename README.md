@@ -4,59 +4,64 @@
 LiteView是一个轻量级浏览器，采用Livi浏览器内核，具备资源占用低、可快速移植等特性，兼容多种主流和国产GPU。
 
 Livi浏览器内核是在Chromium基础上精简的浏览器内核，采用纯C接口调用，适合运行在计算资源比较有限的设备中，用于网页解析和渲染。
-目前，LiteView浏览器可以运行在Linux操作系统的多种发行版中，包括openEuler（openEuler 22.03 LTS、openEuler 24.03 LTS、openEuler 25.03）、麒麟V10(SP1)和Ubuntu(20.04,22.04)等。
+目前，LiteView浏览器可以运行在Linux操作系统的多种发行版中，包括openEuler（openEuler 22.03 LTS、openEuler 24.03 LTS、openEuler 25.03、openEuler 25.09）、麒麟V10(SP1)和Ubuntu(20.04,22.04)等。
 
 
 #### 安装教程
 
-本项目支持在 openEuler 25.03 标准版进行编译构建。
+一、搭建编译构建环境
 
-1、安装 openEuler 25.03
+1、下载 openEuler 25.09 系统镜像
 ```
-https://www.openeuler.openatom.cn/zh/download/archive/detail/?version=openEuler%2025.03
-```
-
-2、安装gnome桌面环境
-```
-https://docs.openeuler.openatom.cn/zh/docs/25.03/tools/desktop/gnome/gnome-installation.html
+https://repo.openeuler.openatom.cn/openEuler-25.09/DevStation/x86_64/openEuler-25.09-DevStation-x86_64-dvd.iso
 ```
 
-3、安装git
+该镜像地址来源
+
+openEuler官网下载地址：https://www.openeuler.openatom.cn/zh/download/#openEuler%2025.09
+
+架构：x86_64
+
+场景：DevStation
+
+2、安装openEuler 25.09 系统
+
+硬件要求：
+
+CPU：x86_64 架构
+
+内存：16G 及以上
+
+硬盘：100G 及以上
+
+安装指南
 ```
-sudo dnf install git
+https://docs.openeuler.openatom.cn/zh/docs/25.09/devstation/devstation/calamares/install/devstation_installation_guide.html
 ```
 
-4、安装gn
+备注：在安装系统镜像的时候，在“用户设置”页面中，请选择 “DevStation”，不要选择“最小安装”。
+
+3、登录到系统中，执行如下命令
 ```
-sudo dnf install gn
+sudo dnf install git gn ninja-build clang lld libev-devel gtk3-devel sqlite-devel
 ```
 
-5、安装 ninja
+
+二、编译与构建
+
+1、源码下载
 ```
-sudo dnf install ninja-build
+git clone https://gitee.com/openeuler/liteview.git
 ```
 
-6、安装clang
-```
-sudo dnf install clang
-```
-
-7、安装lld
-```
-sudo dnf install lld
-```
-
-8、安装 libev库
-```
-sudo dnf install libev-devel
-```
-
-9、执行如下命令进行构建
+2、进入源码目录，并执行如下命令进行构建
 ```
 python3 build_liteview.py
 ```
 
-10、构建成功后，LiteView浏览器位置位于 livi-browser 目录中，执行如下命令，打开LiteView浏览器
+备注：编译构建需要一定时间，硬件条件不同，时间也有所不同，在使用32核的设备中，大约需要30分钟可以构建完成。
+
+3、构建成功后，LiteView浏览器位置位于 livi-browser 目录中，执行如下命令，打开LiteView浏览器
 ```
 cd livi-browser
 ./liteview
