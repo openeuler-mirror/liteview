@@ -4,7 +4,7 @@
  *
  *   FreeType utility functions for bitmaps (specification).
  *
- * Copyright 2004-2018 by
+ * Copyright (C) 2004-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -20,9 +20,8 @@
 #define FTBITMAP_H_
 
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_COLOR_H
+#include <freetype/freetype.h>
+#include <freetype/ftcolor.h>
 
 #ifdef FREETYPE_H
 #error "freetype.h of FreeType 1 has been loaded!"
@@ -225,7 +224,8 @@ FT_BEGIN_HEADER
    *
    *   source_offset ::
    *     The offset vector to the upper left corner of the source bitmap in
-   *     26.6 pixel format.  This can be a fractional pixel value.
+   *     26.6 pixel format.  It should represent an integer offset; the
+   *     function will set the lowest six bits to zero to enforce that.
    *
    *   color ::
    *     The color used to draw `source` onto `target`.

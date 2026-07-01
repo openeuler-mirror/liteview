@@ -13,8 +13,10 @@
 
 #include "mbnet/LoaderFactoryImpl.h"
 
+#include "content/browser/MbWebview.h"
 #include "content/renderer/PolicyContainerHostImpl.h"
 #include "content/common/CreateAndBindTempl.h"
+#include "content/common/LiveIdDetect.h"
 
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
@@ -43,11 +45,13 @@ std::unique_ptr<blink::WebURLLoader> LoaderFactoryImpl::CreateURLLoader(
 }
 
 BodyLoaderClient::BodyLoaderClient(
+    int64_t mbwebviewId,
     bool isDownload,
     std::unique_ptr<blink::WebNavigationInfo> info, 
     const blink::LocalFrameToken& navigationControlToken,
     const blink::FrameToken& token)
 {
+    m_mbwebviewId = mbwebviewId;
     m_isDownload = isDownload;
     m_info.reset(info.release());
     //m_navigationControl = navigationControl;
@@ -98,6 +102,12 @@ void BodyLoaderClient::DidReceiveResponse(const blink::WebURLResponse& response)
 
 void BodyLoaderClient::DidStartLoadingResponseBody(mojo::ScopedDataPipeConsumerHandle responseBodyConsumer)
 {
+    content::MbWebView* webView = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(m_mbwebviewId);
+    if (webView && !m_isDownload)
+        webView->setIsMouseKeyMessageEnable(true);
+
+    if (m_info->frame_load_type == blink::WebFrameLoadType::kBackForward)
+        return;
     blink::WebFrame* frame = blink::WebFrame::FromFrameToken(m_frameToken);
     if (!frame)
         return;
@@ -144,9 +154,9 @@ void BodyLoaderClient::DidStartLoadingResponseBody(mojo::ScopedDataPipeConsumerH
         std::move(urlLoaderClientEndpoints), base::ThreadTaskRunnerHandle::Get(), std::move(resourceLoadInfoNotifierWrap));
 
     navigationParams->frame_load_type = m_info->frame_load_type;
-    navigationParams->response.SetCurrentRequestUrl(url);
-    navigationParams->response.SetMimeType(m_response->MimeType());
-    //navigationParams->redirects;
+    //navigationParams->response.SetCurrentRequestUrl(url);
+    //navigationParams->response.SetMimeType(m_response->MimeType());
+    navigationParams->response = *(m_response.get());
 
     blink::WebNavigationControl* navigationControl = (blink::WebNavigationControl*)blink::WebLocalFrame::FromFrameToken(m_navigationControlId);
     if (navigationControl)
@@ -166,6 +176,10 @@ void BodyLoaderClient::DidReceiveData(const char* data, int dataLength)
 void BodyLoaderClient::DidFinishLoading(base::TimeTicks finish_time, int64_t total_encoded_data_length, int64_t total_encoded_body_length,
     int64_t total_decoded_body_length, bool should_report_corb_blocking, absl::optional<bool> pervasive_payload_requested)
 {
+    content::MbWebView* webView = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(m_mbwebviewId);
+    if (webView && !m_isDownload)
+        webView->setIsMouseKeyMessageEnable(true);
+
     if (m_isDownload) {
         delete this;
         return;
@@ -203,6 +217,10 @@ void BodyLoaderClient::DidFail(
     int64_t total_encoded_body_length,
     int64_t total_decoded_body_length)
 {
+    content::MbWebView* webView = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(m_mbwebviewId);
+    if (webView && !m_isDownload)
+        webView->setIsMouseKeyMessageEnable(true);
+
     if (m_isDownload) {
         delete this;
         return;

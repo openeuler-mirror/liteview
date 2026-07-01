@@ -52,3 +52,5 @@
 /*.targets
 /*.vcxproj*
 /*.xml
+
+!/BUILD.gn

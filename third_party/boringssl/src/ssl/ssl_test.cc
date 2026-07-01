@@ -6630,8 +6630,7 @@ TEST_F(QUICMethodTest, Async)
 
     // Install an asynchronous certificate callback.
     bool cert_cb_ok = false;
-    SSL_set_cert_cb(
-        server_.get(), [](SSL*, void* arg) -> int { return *static_cast<bool*>(arg) ? 1 : -1; }, &cert_cb_ok);
+    SSL_set_cert_cb(server_.get(), [](SSL*, void* arg) -> int { return *static_cast<bool*>(arg) ? 1 : -1; }, &cert_cb_ok);
 
     for (;;) {
         int client_ret = SSL_do_handshake(client_.get());

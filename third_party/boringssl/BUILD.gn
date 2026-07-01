@@ -1,335 +1,423 @@
-# Copyright 2014 The Chromium Authors
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
+import("//sdkpath.gni")
 
-import("//build/config/android/config.gni")
-import("//build/config/arm.gni")
-import("//build/config/compiler/compiler.gni")
-import("//build/config/sanitizers/sanitizers.gni")
-import("//build_overrides/build.gni")
-import("//testing/libfuzzer/fuzzer_test.gni")
-import("BUILD.generated.gni")
-import("BUILD.generated_tests.gni")
 
-# Config for us and everybody else depending on BoringSSL.
-config("external_config") {
-  include_dirs = [ "src/include" ]
-  if (is_component_build) {
-    defines = [ "BORINGSSL_SHARED_LIBRARY" ]
-  }
-}
+static_library("boringssl"){
 
-# The config used by the :boringssl component itself, and the fuzzer copies.
-config("component_config") {
-  visibility = [ ":*" ]  # Only targets in this file can depend on this.
-  configs = [ ":internal_config" ]
-  defines = [ "BORINGSSL_IMPLEMENTATION" ]
-}
 
-# This config is used by anything that consumes internal headers. Tests consume
-# this rather than :component_config.
-config("internal_config") {
-  visibility = [ ":*" ]  # Only targets in this file can depend on this.
-  defines = [
-    "BORINGSSL_ALLOW_CXX_RUNTIME",
-    "BORINGSSL_NO_STATIC_INITIALIZER",
-    "OPENSSL_SMALL",
-  ]
-}
+    include_dirs = [
 
-config("no_asm_config") {
-  visibility = [ ":*" ]  # Only targets in this file can depend on this.
-  defines = [ "OPENSSL_NO_ASM" ]
-}
+        "$ndkIncludePath",
+        "$sdkPath/include/c++/7.2.0",
+        "$sdkPath/include/c++/7.2.0/include",
+        "$sdkPath/include/c++/7.2.0/x86_64-unknown-linux-gnu/",
+        "$sdkPath2/usr/lib/x86_64-linux-gnu/glib-2.0/include",
 
-all_sources = crypto_sources + ssl_sources
-all_headers = crypto_headers + ssl_headers
+        "$sdkPath/sysroot/usr/include",
+        "$sdkPath/sysroot/usr/",
+        "$sdkPath/sysroot/usr/include/linux",
+        "$sdkPath2/usr/include/libdrm",
 
-# Windows' assembly is built with NASM. The other platforms use the platform
-# assembler. Exclude Windows ARM64 because NASM targets x86 and x64 only.
-if (is_win && !is_msan && current_cpu != "arm64") {
-  import("//third_party/nasm/nasm_assemble.gni")
-  nasm_assemble("boringssl_asm") {
-    if (current_cpu == "x64") {
-      sources = crypto_sources_win_x86_64
-    } else if (current_cpu == "x86") {
-      sources = crypto_sources_win_x86
-    }
-  }
-} else {
-  # This has no sources on some platforms so must be a source_set.
-  source_set("boringssl_asm") {
-    visibility = [ ":*" ]  # Only targets in this file can depend on this.
+        "//",
 
-    sources = []
-    asmflags = []
-    include_dirs = [ "src/include" ]
+        "$sdkPath2/usr/include/cairo",
+        "$sdkPath2/usr/include/glib-2.0",
+        "$sdkPath2/usr/include/gtk-3.0",
+        "$sdkPath2/usr/include/gdk-pixbuf-2.0",
+        "$sdkPath2/usr/include/atk-1.0",
+        "$sdkPath2/usr/include/pango-1.0",
 
-    if (is_msan) {
-      public_configs = [ ":no_asm_config" ]
-    } else if (current_cpu == "x64") {
-      if (is_apple) {
-        sources += crypto_sources_apple_x86_64
-      } else if (is_linux || is_chromeos || is_android) {
-        sources += crypto_sources_linux_x86_64
-      } else {
-        public_configs = [ ":no_asm_config" ]
-      }
-    } else if (current_cpu == "x86") {
-      if (is_apple) {
-        sources += crypto_sources_apple_x86
-      } else if (is_linux || is_chromeos || is_android) {
-        sources += crypto_sources_linux_x86
-      } else {
-        public_configs = [ ":no_asm_config" ]
-      }
-    } else if (current_cpu == "arm") {
-      if (is_linux || is_chromeos || is_android) {
-        sources += crypto_sources_linux_arm
-      } else if (is_apple) {
-        sources += crypto_sources_apple_arm
-      } else {
-        public_configs = [ ":no_asm_config" ]
-      }
-    } else if (current_cpu == "arm64") {
-      if (is_linux || is_chromeos || is_android) {
-        sources += crypto_sources_linux_aarch64
-      } else if (is_apple) {
-        sources += crypto_sources_apple_aarch64
-      } else if (is_win) {
-        sources += crypto_sources_win_aarch64
-      } else {
-        public_configs = [ ":no_asm_config" ]
-      }
-    } else {
-      public_configs = [ ":no_asm_config" ]
-    }
-  }
-}
+        "//linux",
 
-component("boringssl") {
-  sources = all_sources
-  public = all_headers
-  friend = [ ":*" ]
-  deps = [ "//third_party/boringssl/src/third_party/fiat:fiat_license" ]
+        "//third_party/boringssl",
+        "//third_party/boringssl/src",
+        "//third_party/boringssl/src/include/",
+        "//third_party/zlib",
 
-  # Mark boringssl_asm as a public dependency so the OPENSSL_NO_ASM
-  # config is forwarded to callers. In particular, boringssl_crypto_tests
-  # requires it.
-  public_deps = [ ":boringssl_asm" ]
+        "//gen/v8x64linux",
+        "//gen/v8x64linux/include",
 
-  public_configs = [ ":external_config" ]
-  configs += [ ":component_config" ]
-
-  configs -= [ "//build/config/compiler:chromium_code" ]
-  configs += [ "//build/config/compiler:no_chromium_code" ]
-
-  if (is_nacl) {
-    deps += [ "//native_client_sdk/src/libraries/nacl_io" ]
-  }
-
-  if (!is_debug && !optimize_for_size) {
-    configs -= [ "//build/config/compiler:default_optimization" ]
-    configs += [ "//build/config/compiler:optimize_max" ]
-  }
-
-  if (is_linux && is_component_build) {
-    version_script = "boringssl.map"
-    inputs = [ version_script ]
-    ldflags = [ "-Wl,--version-script=" +
-                rebase_path(version_script, root_build_dir) ]
-  }
-}
-
-if (build_with_chromium) {
-  # These targets are named "_tests" rather than "_test" to avoid colliding with
-  # a historical "boringssl_ssl_test" target. This works around a bug with the
-  # iOS build rules.
-
-  bundle_data("boringssl_crypto_tests_bundle_data") {
-    sources = crypto_test_data
-    testonly = true
-    outputs = [ "{{bundle_resources_dir}}/" +
-                "{{source_root_relative_dir}}/{{source_file_part}}" ]
-  }
-
-  test("boringssl_crypto_tests") {
-    sources = crypto_test_sources + test_support_sources
-    data = crypto_test_data
-    deps = [
-      ":boringssl",
-      ":boringssl_crypto_tests_bundle_data",
-      "//testing/gtest",
     ]
 
-    configs -= [ "//build/config/compiler:chromium_code" ]
-    configs += [
-      ":internal_config",
-      "//build/config/compiler:no_chromium_code",
+    cflags = [
+        "-fms-extensions",
+        "-D_GNU_SOURCE",
+        "-DHAVE_CONFIG_H",
+        "-DOS_LINUX_FOR_WIN",
+        "-DL_ENDIAN",
+        # "-DOPENSSL_CPUID_OBJ",
+        "-DOPENSSL_BN_ASM_PART_WORDS",
+        # "-DDSO_WIN32",
+        "-DOPENSSL_DEV_NO_ATOMICS=1",
+        "-D__STDC_NO_ATOMICS__=1",
+        "-DOPENSSL_NO_ASM",
+        "-DOPENSSL_NO_KTLS=1",
+        "-D_M_X64=100",
+
+        "-fPIC", 
+        "-fno-exceptions", 
+        "-fvisibility=hidden", 
+        "--target=x86_64-linux-guneabi", 
+        "-DUSE_EGL", 
+        "-DSK_GL", 
+        "-DSK_SUPPORT_GPU=1", 
+        "-DSK_GRAPHITE_ENABLED", 
+        "-DSK_SUPPORT_LEGACY_SLUG_CONVERT", 
+        "-DSK_B32_SHIFT=16", 
+        "-DSK_G32_SHIFT=8", 
+        "-DSK_R32_SHIFT=0", 
+        "-DSK_A32_SHIFT=24", 
+        "-DOS_LINUX=1", 
+        "-DENABLE_MB_MEDIA=1", 
+        "-DV8_HOST_ARCH_X64", 
+        "-DV8_TARGET_ARCH_X64", 
+        "-D__POINT_SIZE__=8", 
+        "-D__USE_OPENGL__", 
+        "-DV8_ENABLE_MAGLEV", 
+        "-mno-avx", 
+        "-DV8_EXTERNAL_CODE_SPACE",
+        "-DV8_DEPRECATION_WARNINGS", 
+        "-DV8_COMPRESS_POINTERS", 
+        "-DV8_COMPRESS_POINTERS_IN_SHARED_CAGE", 
+        "-DV8_31BIT_SMIS_ON_64BIT_ARCH", 
+        "-DCPPGC_CAGED_HEAP", 
+        "-DCPPGC_YOUNG_GENERATION", 
+        "-DCPPGC_POINTER_COMPRESSION", 
+                
     ]
 
-    # Chromium infrastructure does not support GTest, only the //base wrapper.
-    sources -= [
-      "src/crypto/test/gtest_main.cc",
-
-      # //base includes its own conflicting malloc shim.
-      "src/crypto/test/malloc.cc",
-    ]
-    sources += [
-      "gtest_main_chromium.cc",
-      "test_data_chromium.cc",
-    ]
-    deps += [ "//base/test:test_support" ]
-
-    if (is_fuchsia) {
-      additional_manifest_fragments =
-          [ "//build/config/fuchsia/test/network.shard.test-cml" ]
-    }
-  }
-
-  test("boringssl_ssl_tests") {
-    sources = ssl_test_sources + test_support_sources
-    deps = [
-      ":boringssl",
-      "//testing/gtest",
-    ]
-
-    configs -= [ "//build/config/compiler:chromium_code" ]
-    configs += [
-      ":internal_config",
-      "//build/config/compiler:no_chromium_code",
-    ]
-
-    # Chromium infrastructure does not support GTest, only the //base wrapper.
-    sources -= [
-      "src/crypto/test/gtest_main.cc",
-
-      # //base includes its own conflicting malloc shim.
-      "src/crypto/test/malloc.cc",
-    ]
-    sources += [ "gtest_main_chromium.cc" ]
-    deps += [ "//base/test:test_support" ]
-  }
-
-  config("fuzzer_config") {
-    visibility = [ ":*" ]  # Only targets in this file can depend on this.
-    defines = [
-      "BORINGSSL_UNSAFE_FUZZER_MODE",
-      "BORINGSSL_UNSAFE_DETERMINISTIC_MODE",
-    ]
-  }
-
-  # The same as boringssl, but builds with BORINGSSL_UNSAFE_FUZZER_MODE.
-  # TODO(https://crbug.com/boringssl/258): Fold this into the normal target.
-  component("boringssl_fuzzer") {
-    visibility = [ ":*" ]  # Only targets in this file can depend on this.
-
-    sources = all_sources
-    deps = [ "//third_party/boringssl/src/third_party/fiat:fiat_license" ]
-
-    # Mark boringssl_asm as a public dependency so the OPENSSL_NO_ASM
-    # config is forwarded to callers. In particular, boringssl_crypto_tests
-    # requires it.
-    public_deps = [ ":boringssl_asm" ]
-
-    public_configs = [
-      ":external_config",
-      ":fuzzer_config",
-    ]
-    configs += [ ":component_config" ]
-
-    configs -= [ "//build/config/compiler:chromium_code" ]
-    configs += [ "//build/config/compiler:no_chromium_code" ]
-
-    if (is_nacl) {
-      deps += [ "//native_client_sdk/src/libraries/nacl_io" ]
-    }
-  }
-
-  foreach(fuzzer, fuzzers) {
-    fuzzer_test("boringssl_${fuzzer}_fuzzer") {
-      sources = [
-        "src/fuzz/${fuzzer}.cc",
-        "src/ssl/test/fuzzer.h",
-        "src/ssl/test/fuzzer_tags.h",
-      ]
-      additional_configs = [ ":internal_config" ]
-      deps = [ ":boringssl_fuzzer" ]
-      seed_corpus = "src/fuzz/${fuzzer}_corpus"
-
-      if ("cert" == fuzzer) {
-        libfuzzer_options = [ "max_len=3072" ]
-      } else if ("client" == fuzzer) {
-        libfuzzer_options = [ "max_len=20000" ]
-      } else if ("pkcs8" == fuzzer) {
-        libfuzzer_options = [ "max_len=2048" ]
-      } else if ("privkey" == fuzzer) {
-        libfuzzer_options = [ "max_len=2048" ]
-      } else if ("read_pem" == fuzzer) {
-        libfuzzer_options = [ "max_len=512" ]
-      } else if ("session" == fuzzer) {
-        libfuzzer_options = [ "max_len=8192" ]
-      } else if ("server" == fuzzer) {
-        libfuzzer_options = [ "max_len=4096" ]
-      } else if ("spki" == fuzzer) {
-        libfuzzer_options = [ "max_len=1024" ]
-      } else if ("ssl_ctx_api" == fuzzer) {
-        libfuzzer_options = [ "max_len=256" ]
-      }
-    }
-  }
-
-  config("fuzzer_no_fuzzer_mode_config") {
-    visibility = [ ":*" ]  # Only targets in this file can depend on this.
-    defines = [ "BORINGSSL_UNSAFE_DETERMINISTIC_MODE" ]
-  }
-
-  # The same as boringssl, but builds with BORINGSSL_UNSAFE_DETERMINISTIC_MODE.
-  # TODO(https://crbug.com/boringssl/258): Fold this into the normal target.
-  component("boringssl_fuzzer_no_fuzzer_mode") {
-    visibility = [ ":*" ]  # Only targets in this file can depend on this.
-
-    sources = all_sources
-    deps = [ "//third_party/boringssl/src/third_party/fiat:fiat_license" ]
-
-    # Mark boringssl_asm as a public dependency so the OPENSSL_NO_ASM
-    # config is forwarded to callers. In particular, boringssl_crypto_tests
-    # requires it.
-    public_deps = [ ":boringssl_asm" ]
-
-    public_configs = [
-      ":external_config",
-      ":fuzzer_no_fuzzer_mode_config",
-    ]
-    configs += [ ":component_config" ]
-
-    configs -= [ "//build/config/compiler:chromium_code" ]
-    configs += [ "//build/config/compiler:no_chromium_code" ]
-
-    if (is_nacl) {
-      deps += [ "//native_client_sdk/src/libraries/nacl_io" ]
-    }
-  }
-
-  fuzzer_test("boringssl_client_no_fuzzer_mode_fuzzer") {
     sources = [
-      "src/fuzz/client.cc",
-      "src/ssl/test/fuzzer.h",
-      "src/ssl/test/fuzzer_tags.h",
-    ]
-    additional_configs = [ ":internal_config" ]
-    deps = [ ":boringssl_fuzzer_no_fuzzer_mode" ]
-    seed_corpus = "src/fuzz/client_corpus_no_fuzzer_mode"
-  }
 
-  fuzzer_test("boringssl_server_no_fuzzer_mode_fuzzer") {
-    sources = [
-      "src/fuzz/server.cc",
-      "src/ssl/test/fuzzer.h",
-      "src/ssl/test/fuzzer_tags.h",
+        "//third_party/boringssl/src/crypto/asn1/a_bitstr.c",
+        "//third_party/boringssl/src/crypto/asn1/a_bool.c",
+        "//third_party/boringssl/src/crypto/asn1/a_d2i_fp.c",
+        "//third_party/boringssl/src/crypto/asn1/a_dup.c",
+        "//third_party/boringssl/src/crypto/asn1/a_gentm.c",
+        "//third_party/boringssl/src/crypto/asn1/a_i2d_fp.c",
+        "//third_party/boringssl/src/crypto/asn1/a_int.c",
+        "//third_party/boringssl/src/crypto/asn1/a_mbstr.c",
+        "//third_party/boringssl/src/crypto/asn1/a_object.c",
+        "//third_party/boringssl/src/crypto/asn1/a_octet.c",
+        "//third_party/boringssl/src/crypto/asn1/a_print.c",
+        "//third_party/boringssl/src/crypto/asn1/a_strex.c",
+        "//third_party/boringssl/src/crypto/asn1/a_strnid.c",
+        "//third_party/boringssl/src/crypto/asn1/a_time.c",
+        "//third_party/boringssl/src/crypto/asn1/a_type.c",
+        "//third_party/boringssl/src/crypto/asn1/a_utctm.c",
+        "//third_party/boringssl/src/crypto/asn1/a_utf8.c",
+        "//third_party/boringssl/src/crypto/asn1/asn_pack.c",
+        "//third_party/boringssl/src/crypto/asn1/asn1_lib.c",
+        "//third_party/boringssl/src/crypto/asn1/asn1_par.c",
+        "//third_party/boringssl/src/crypto/asn1/f_int.c",
+        "//third_party/boringssl/src/crypto/asn1/f_string.c",
+        "//third_party/boringssl/src/crypto/asn1/posix_time.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_dec.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_enc.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_fre.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_new.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_typ.c",
+        "//third_party/boringssl/src/crypto/asn1/tasn_utl.c",
+        "//third_party/boringssl/src/crypto/base64/base64.c",
+        "//third_party/boringssl/src/crypto/bio/bio_mem.c",
+        "//third_party/boringssl/src/crypto/bio/connect.c",
+        "//third_party/boringssl/src/crypto/bio/fd.c",
+        "//third_party/boringssl/src/crypto/bio/file.c",
+        "//third_party/boringssl/src/crypto/bio/hexdump.c",
+        "//third_party/boringssl/src/crypto/bio/pair.c",
+        "//third_party/boringssl/src/crypto/bio/printf.c",
+        "//third_party/boringssl/src/crypto/bio/socket.c",
+        "//third_party/boringssl/src/crypto/bio/socket_helper.c",
+        "//third_party/boringssl/src/crypto/bio/bio.c",
+        "//third_party/boringssl/src/crypto/blake2/blake2.c",
+        "//third_party/boringssl/src/crypto/bn_extra/convert.c",
+        "//third_party/boringssl/src/crypto/bn_extra/bn_asn1.c",
+        "//third_party/boringssl/src/crypto/buf/buf.c",
+        "//third_party/boringssl/src/crypto/bytestring/cbb.c",
+        "//third_party/boringssl/src/crypto/bytestring/cbs.c",
+        "//third_party/boringssl/src/crypto/bytestring/unicode.c",
+        "//third_party/boringssl/src/crypto/bytestring/asn1_compat.c",
+        "//third_party/boringssl/src/crypto/bytestring/ber.c",
+        "//third_party/boringssl/src/crypto/chacha/chacha.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/derive_key.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_aesctrhmac.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_aesgcmsiv.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_chacha20poly1305.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_des.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_null.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_rc2.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_rc4.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/e_tls.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/tls_cbc.c",
+        "//third_party/boringssl/src/crypto/cipher_extra/cipher_extra.c",
+        "//third_party/boringssl/src/crypto/conf/conf.c",
+        "//third_party/boringssl/src/crypto/curve25519/spake25519.c",
+        "//third_party/boringssl/src/crypto/curve25519/curve25519.c",
+        "//third_party/boringssl/src/crypto/des/des.c",
+        "//third_party/boringssl/src/crypto/dh_extra/dh_asn1.c",
+        "//third_party/boringssl/src/crypto/dh_extra/params.c",
+        "//third_party/boringssl/src/crypto/digest_extra/digest_extra.c",
+        "//third_party/boringssl/src/crypto/dsa/dsa_asn1.c",
+        "//third_party/boringssl/src/crypto/dsa/dsa.c",
+        "//third_party/boringssl/src/crypto/ec_extra/hash_to_curve.c",
+        "//third_party/boringssl/src/crypto/ec_extra/ec_asn1.c",
+        "//third_party/boringssl/src/crypto/ec_extra/ec_derive.c",
+        "//third_party/boringssl/src/crypto/ecdh_extra/ecdh_extra.c",
+        "//third_party/boringssl/src/crypto/ecdsa_extra/ecdsa_asn1.c",
+        "//third_party/boringssl/src/crypto/engine/engine.c",
+        "//third_party/boringssl/src/crypto/evp/sign.c",
+        "//third_party/boringssl/src/crypto/evp/evp.c",
+        "//third_party/boringssl/src/crypto/evp/evp_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/evp_ctx.c",
+        "//third_party/boringssl/src/crypto/evp/p_dsa_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/p_ec.c",
+        "//third_party/boringssl/src/crypto/evp/p_ec_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/p_ed25519.c",
+        "//third_party/boringssl/src/crypto/evp/p_ed25519_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/p_hkdf.c",
+        "//third_party/boringssl/src/crypto/evp/p_rsa.c",
+        "//third_party/boringssl/src/crypto/evp/p_rsa_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/p_x25519.c",
+        "//third_party/boringssl/src/crypto/evp/p_x25519_asn1.c",
+        "//third_party/boringssl/src/crypto/evp/pbkdf.c",
+        "//third_party/boringssl/src/crypto/evp/print.c",
+        "//third_party/boringssl/src/crypto/evp/scrypt.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/aes/key_wrap.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/aes/mode_wrappers.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/aes/aes.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/aes/aes_nohw.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/montgomery_inv.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/mul.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/prime.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/random.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/rsaz_exp.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/shift.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/sqrt.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/add.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/bn.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/bytes.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/cmp.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/ctx.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/div.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/div_extra.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/exponentiation.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/gcd.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/gcd_extra.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/generic.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/jacobi.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/bn/montgomery.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/cipher/e_aesccm.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/cipher/aead.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/cipher/cipher.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/cipher/e_aes.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/cmac/cmac.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/dh/dh.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/dh/check.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/digest/digest.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/digest/digests.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/digestsign/digestsign.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/util.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/wnaf.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/ec.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/ec_key.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/ec_montgomery.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/felem.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/oct.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/p224-64.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/p256.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/p256-nistz.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/scalar.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/simple.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ec/simple_mul.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ecdh/ecdh.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/ecdsa/ecdsa.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/hmac/hmac.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/md4/md4.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/md5/md5.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/cbc.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/cfb.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/ctr.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/gcm.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/gcm_nohw.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/ofb.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/modes/polyval.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rand/urandom.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rand/ctrdrbg.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rand/fork_detect.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rand/rand.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rsa/rsa_impl.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rsa/blinding.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rsa/padding.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/rsa/rsa.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/self_check/self_check.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/self_check/fips.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/service_indicator/service_indicator.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/sha/sha1-altivec.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/sha/sha256.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/sha/sha512.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/sha/sha1.c",
+        "//third_party/boringssl/src/crypto/fipsmodule/tls/kdf.c",
+        "//third_party/boringssl/src/crypto/hkdf/hkdf.c",
+        "//third_party/boringssl/src/crypto/hpke/hpke.c",
+        "//third_party/boringssl/src/crypto/hrss/hrss.c",
+        "//third_party/boringssl/src/crypto/lhash/lhash.c",
+        "//third_party/boringssl/src/crypto/obj/obj_xref.c",
+        "//third_party/boringssl/src/crypto/obj/obj.c",
+        "//third_party/boringssl/src/crypto/pem/pem_pkey.c",
+        "//third_party/boringssl/src/crypto/pem/pem_x509.c",
+        "//third_party/boringssl/src/crypto/pem/pem_xaux.c",
+        "//third_party/boringssl/src/crypto/pem/pem_all.c",
+        "//third_party/boringssl/src/crypto/pem/pem_info.c",
+        "//third_party/boringssl/src/crypto/pem/pem_lib.c",
+        "//third_party/boringssl/src/crypto/pem/pem_oth.c",
+        "//third_party/boringssl/src/crypto/pem/pem_pk8.c",
+        "//third_party/boringssl/src/crypto/pkcs7/pkcs7_x509.c",
+        "//third_party/boringssl/src/crypto/pkcs7/pkcs7.c",
+        "//third_party/boringssl/src/crypto/pkcs8/p5_pbev2.c",
+        "//third_party/boringssl/src/crypto/pkcs8/pkcs8.c",
+        "//third_party/boringssl/src/crypto/pkcs8/pkcs8_x509.c",
+        "//third_party/boringssl/src/crypto/poly1305/poly1305.c",
+        "//third_party/boringssl/src/crypto/poly1305/poly1305_arm.c",
+        "//third_party/boringssl/src/crypto/poly1305/poly1305_vec.c",
+        "//third_party/boringssl/src/crypto/pool/pool.c",
+        "//third_party/boringssl/src/crypto/rand_extra/forkunsafe.c",
+        "//third_party/boringssl/src/crypto/rand_extra/fuchsia.c",
+        "//third_party/boringssl/src/crypto/rand_extra/passive.c",
+        "//third_party/boringssl/src/crypto/rand_extra/rand_extra.c",
+        "//third_party/boringssl/src/crypto/rand_extra/windows.c",
+        "//third_party/boringssl/src/crypto/rand_extra/deterministic.c",
+        "//third_party/boringssl/src/crypto/rc4/rc4.c",
+        "//third_party/boringssl/src/crypto/rsa_extra/rsa_print.c",
+        "//third_party/boringssl/src/crypto/rsa_extra/rsa_asn1.c",
+        "//third_party/boringssl/src/crypto/siphash/siphash.c",
+        "//third_party/boringssl/src/crypto/stack/stack.c",
+        "//third_party/boringssl/src/crypto/x509/a_digest.c",
+        "//third_party/boringssl/src/crypto/x509/a_sign.c",
+        "//third_party/boringssl/src/crypto/x509/a_verify.c",
+        "//third_party/boringssl/src/crypto/x509/algorithm.c",
+        "//third_party/boringssl/src/crypto/x509/asn1_gen.c",
+        "//third_party/boringssl/src/crypto/x509/by_dir.c",
+        "//third_party/boringssl/src/crypto/x509/by_file.c",
+        "//third_party/boringssl/src/crypto/x509/i2d_pr.c",
+        "//third_party/boringssl/src/crypto/x509/name_print.c",
+        "//third_party/boringssl/src/crypto/x509/rsa_pss.c",
+        "//third_party/boringssl/src/crypto/x509/t_crl.c",
+        "//third_party/boringssl/src/crypto/x509/t_req.c",
+        "//third_party/boringssl/src/crypto/x509/t_x509.c",
+        "//third_party/boringssl/src/crypto/x509/t_x509a.c",
+        "//third_party/boringssl/src/crypto/x509/x_algor.c",
+        "//third_party/boringssl/src/crypto/x509/x_all.c",
+        "//third_party/boringssl/src/crypto/x509/x_attrib.c",
+        "//third_party/boringssl/src/crypto/x509/x_crl.c",
+        "//third_party/boringssl/src/crypto/x509/x_exten.c",
+        "//third_party/boringssl/src/crypto/x509/x_info.c",
+        "//third_party/boringssl/src/crypto/x509/x_name.c",
+        "//third_party/boringssl/src/crypto/x509/x_pkey.c",
+        "//third_party/boringssl/src/crypto/x509/x_pubkey.c",
+        "//third_party/boringssl/src/crypto/x509/x_req.c",
+        "//third_party/boringssl/src/crypto/x509/x_sig.c",
+        "//third_party/boringssl/src/crypto/x509/x_spki.c",
+        "//third_party/boringssl/src/crypto/x509/x_val.c",
+        "//third_party/boringssl/src/crypto/x509/x_x509.c",
+        "//third_party/boringssl/src/crypto/x509/x_x509a.c",
+        "//third_party/boringssl/src/crypto/x509/x509.c",
+        "//third_party/boringssl/src/crypto/x509/x509_att.c",
+        "//third_party/boringssl/src/crypto/x509/x509_cmp.c",
+        "//third_party/boringssl/src/crypto/x509/x509_d2.c",
+        "//third_party/boringssl/src/crypto/x509/x509_def.c",
+        "//third_party/boringssl/src/crypto/x509/x509_ext.c",
+        "//third_party/boringssl/src/crypto/x509/x509_lu.c",
+        "//third_party/boringssl/src/crypto/x509/x509_obj.c",
+        "//third_party/boringssl/src/crypto/x509/x509_req.c",
+        "//third_party/boringssl/src/crypto/x509/x509_set.c",
+        "//third_party/boringssl/src/crypto/x509/x509_trs.c",
+        "//third_party/boringssl/src/crypto/x509/x509_txt.c",
+        "//third_party/boringssl/src/crypto/x509/x509_v3.c",
+        "//third_party/boringssl/src/crypto/x509/x509_vfy.c",
+        "//third_party/boringssl/src/crypto/x509/x509_vpm.c",
+        "//third_party/boringssl/src/crypto/x509/x509cset.c",
+        "//third_party/boringssl/src/crypto/x509/x509name.c",
+        "//third_party/boringssl/src/crypto/x509/x509rset.c",
+        "//third_party/boringssl/src/crypto/x509/x509spki.c",
+        "//third_party/boringssl/src/crypto/x509v3/pcy_cache.c",
+        "//third_party/boringssl/src/crypto/x509v3/pcy_data.c",
+        "//third_party/boringssl/src/crypto/x509v3/pcy_map.c",
+        "//third_party/boringssl/src/crypto/x509v3/pcy_node.c",
+        "//third_party/boringssl/src/crypto/x509v3/pcy_tree.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_akey.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_akeya.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_alt.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_bcons.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_bitst.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_conf.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_cpols.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_crld.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_enum.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_extku.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_genn.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_ia5.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_info.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_int.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_lib.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_ncons.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_ocsp.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_pci.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_pcia.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_pcons.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_pmaps.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_prn.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_purp.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_skey.c",
+        "//third_party/boringssl/src/crypto/x509v3/v3_utl.c",
+        "//third_party/boringssl/src/crypto/trust_token/trust_token.c",
+        "//third_party/boringssl/src/crypto/trust_token/voprf.c",
+        "//third_party/boringssl/src/crypto/trust_token/pmbtoken.c",
+        "//third_party/boringssl/src/crypto/refcount_lock.c",
+        "//third_party/boringssl/src/crypto/thread.c",
+        "//third_party/boringssl/src/crypto/thread_pthread.c",
+        "//third_party/boringssl/src/crypto/cpu_intel.c",
+        "//third_party/boringssl/src/crypto/crypto.c",
+        "//third_party/boringssl/src/crypto/ex_data.c",
+        "//third_party/boringssl/src/crypto/mem.c",
+        "//third_party/boringssl/src/crypto/refcount_c11.c",
+        "//third_party/boringssl/src/ssl/t1_enc.cc",
+        "//third_party/boringssl/src/ssl/tls_method.cc",
+        "//third_party/boringssl/src/ssl/tls_record.cc",
+        "//third_party/boringssl/src/ssl/tls13_both.cc",
+        "//third_party/boringssl/src/ssl/tls13_client.cc",
+        "//third_party/boringssl/src/ssl/tls13_enc.cc",
+        "//third_party/boringssl/src/ssl/tls13_server.cc",
+        "//third_party/boringssl/src/ssl/d1_both.cc",
+        "//third_party/boringssl/src/ssl/d1_lib.cc",
+        "//third_party/boringssl/src/ssl/d1_pkt.cc",
+        "//third_party/boringssl/src/ssl/d1_srtp.cc",
+        "//third_party/boringssl/src/ssl/dtls_method.cc",
+        "//third_party/boringssl/src/ssl/dtls_record.cc",
+        "//third_party/boringssl/src/ssl/encrypted_client_hello.cc",
+        "//third_party/boringssl/src/ssl/extensions.cc",
+        "//third_party/boringssl/src/ssl/handoff.cc",
+        "//third_party/boringssl/src/ssl/handshake.cc",
+        "//third_party/boringssl/src/ssl/handshake_client.cc",
+        "//third_party/boringssl/src/ssl/handshake_server.cc",
+        "//third_party/boringssl/src/ssl/s3_both.cc",
+        "//third_party/boringssl/src/ssl/s3_lib.cc",
+        "//third_party/boringssl/src/ssl/s3_pkt.cc",
+        "//third_party/boringssl/src/ssl/ssl_aead_ctx.cc",
+        "//third_party/boringssl/src/ssl/ssl_asn1.cc",
+        "//third_party/boringssl/src/ssl/ssl_buffer.cc",
+        "//third_party/boringssl/src/ssl/ssl_cert.cc",
+        "//third_party/boringssl/src/ssl/ssl_cipher.cc",
+        "//third_party/boringssl/src/ssl/ssl_file.cc",
+        "//third_party/boringssl/src/ssl/ssl_key_share.cc",
+        "//third_party/boringssl/src/ssl/ssl_lib.cc",
+        "//third_party/boringssl/src/ssl/ssl_privkey.cc",
+        "//third_party/boringssl/src/ssl/ssl_session.cc",
+        "//third_party/boringssl/src/ssl/ssl_stat.cc",
+        "//third_party/boringssl/src/ssl/ssl_transcript.cc",
+        "//third_party/boringssl/src/ssl/ssl_versions.cc",
+        "//third_party/boringssl/src/ssl/ssl_x509.cc",
+        "//third_party/boringssl/src/ssl/bio_ssl.cc",
+        "//third_party/boringssl/src/crypto/err/err.c",
+        "//third_party/boringssl/err_data.c",  
+
     ]
-    additional_configs = [ ":internal_config" ]
-    deps = [ ":boringssl_fuzzer_no_fuzzer_mode" ]
-    seed_corpus = "src/fuzz/server_corpus_no_fuzzer_mode"
-  }
+
 }

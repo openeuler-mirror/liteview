@@ -66,7 +66,7 @@ void VizHost::destroy(std::function<void(void)>&& callback)
                 self->m_rootClient.release(); // TODO
                 (callback)();
 
-                ThreadCall::delayDestroySelf(self, self->m_workRunner);
+                ThreadCall::delayDestroySelf(self, self->m_workRunner, 2000);
             }, base::Unretained(self), std::move(callback)));
         });
         

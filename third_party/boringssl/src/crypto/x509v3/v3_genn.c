@@ -62,7 +62,6 @@
 #include <openssl/obj.h>
 #include <openssl/x509v3.h>
 
-
 ASN1_SEQUENCE(OTHERNAME) = {
     ASN1_SIMPLE(OTHERNAME, type_id, ASN1_OBJECT),
     // Maybe have a true ANY DEFINED BY later
@@ -105,165 +104,169 @@ IMPLEMENT_ASN1_FUNCTIONS(GENERAL_NAMES)
 
 IMPLEMENT_ASN1_DUP_FUNCTION(GENERAL_NAME)
 
-static int edipartyname_cmp(const EDIPARTYNAME *a, const EDIPARTYNAME *b) {
-  // nameAssigner is optional and may be NULL.
-  if (a->nameAssigner == NULL) {
-    if (b->nameAssigner != NULL) {
-      return -1;
+static int edipartyname_cmp(const EDIPARTYNAME *a, const EDIPARTYNAME *b)
+{
+    // nameAssigner is optional and may be NULL.
+    if (a->nameAssigner == NULL) {
+        if (b->nameAssigner != NULL) {
+            return -1;
+        }
+    } else {
+        if (b->nameAssigner == NULL || ASN1_STRING_cmp(a->nameAssigner, b->nameAssigner) != 0) {
+            return -1;
+        }
     }
-  } else {
-    if (b->nameAssigner == NULL ||
-        ASN1_STRING_cmp(a->nameAssigner, b->nameAssigner) != 0) {
-      return -1;
-    }
-  }
 
-  // partyName may not be NULL.
-  return ASN1_STRING_cmp(a->partyName, b->partyName);
+    // partyName may not be NULL.
+    return ASN1_STRING_cmp(a->partyName, b->partyName);
 }
 
 // Returns 0 if they are equal, != 0 otherwise.
-int GENERAL_NAME_cmp(const GENERAL_NAME *a, const GENERAL_NAME *b) {
-  if (!a || !b || a->type != b->type) {
-    return -1;
-  }
+int GENERAL_NAME_cmp(const GENERAL_NAME* a, const GENERAL_NAME* b)
+{
+    if (!a || !b || a->type != b->type) {
+        return -1;
+    }
 
-  switch (a->type) {
+    switch (a->type) {
     case GEN_X400:
-      return ASN1_TYPE_cmp(a->d.x400Address, b->d.x400Address);
+        return ASN1_TYPE_cmp(a->d.x400Address, b->d.x400Address);
 
     case GEN_EDIPARTY:
-      return edipartyname_cmp(a->d.ediPartyName, b->d.ediPartyName);
+        return edipartyname_cmp(a->d.ediPartyName, b->d.ediPartyName);
 
     case GEN_OTHERNAME:
-      return OTHERNAME_cmp(a->d.otherName, b->d.otherName);
+        return OTHERNAME_cmp(a->d.otherName, b->d.otherName);
 
     case GEN_EMAIL:
     case GEN_DNS:
     case GEN_URI:
-      return ASN1_STRING_cmp(a->d.ia5, b->d.ia5);
+        return ASN1_STRING_cmp(a->d.ia5, b->d.ia5);
 
     case GEN_DIRNAME:
-      return X509_NAME_cmp(a->d.dirn, b->d.dirn);
+        return X509_NAME_cmp(a->d.dirn, b->d.dirn);
 
     case GEN_IPADD:
-      return ASN1_OCTET_STRING_cmp(a->d.ip, b->d.ip);
+        return ASN1_OCTET_STRING_cmp(a->d.ip, b->d.ip);
 
     case GEN_RID:
-      return OBJ_cmp(a->d.rid, b->d.rid);
-  }
+        return OBJ_cmp(a->d.rid, b->d.rid);
+    }
 
-  return -1;
+    return -1;
 }
 
 // Returns 0 if they are equal, != 0 otherwise.
-int OTHERNAME_cmp(OTHERNAME *a, OTHERNAME *b) {
-  int result = -1;
+int OTHERNAME_cmp(OTHERNAME* a, OTHERNAME* b)
+{
+    int result = -1;
 
-  if (!a || !b) {
-    return -1;
-  }
-  // Check their type first.
-  if ((result = OBJ_cmp(a->type_id, b->type_id)) != 0) {
+    if (!a || !b) {
+        return -1;
+    }
+    // Check their type first.
+    if ((result = OBJ_cmp(a->type_id, b->type_id)) != 0) {
+        return result;
+    }
+    // Check the value.
+    result = ASN1_TYPE_cmp(a->value, b->value);
     return result;
-  }
-  // Check the value.
-  result = ASN1_TYPE_cmp(a->value, b->value);
-  return result;
 }
 
-void GENERAL_NAME_set0_value(GENERAL_NAME *a, int type, void *value) {
-  switch (type) {
+void GENERAL_NAME_set0_value(GENERAL_NAME* a, int type, void* value)
+{
+    switch (type) {
     case GEN_X400:
-      a->d.x400Address = value;
-      break;
+        a->d.x400Address = value;
+        break;
 
     case GEN_EDIPARTY:
-      a->d.ediPartyName = value;
-      break;
+        a->d.ediPartyName = value;
+        break;
 
     case GEN_OTHERNAME:
-      a->d.otherName = value;
-      break;
+        a->d.otherName = value;
+        break;
 
     case GEN_EMAIL:
     case GEN_DNS:
     case GEN_URI:
-      a->d.ia5 = value;
-      break;
+        a->d.ia5 = value;
+        break;
 
     case GEN_DIRNAME:
-      a->d.dirn = value;
-      break;
+        a->d.dirn = value;
+        break;
 
     case GEN_IPADD:
-      a->d.ip = value;
-      break;
+        a->d.ip = value;
+        break;
 
     case GEN_RID:
-      a->d.rid = value;
-      break;
-  }
-  a->type = type;
+        a->d.rid = value;
+        break;
+    }
+    a->type = type;
 }
 
-void *GENERAL_NAME_get0_value(const GENERAL_NAME *a, int *ptype) {
-  if (ptype) {
-    *ptype = a->type;
-  }
-  switch (a->type) {
+void* GENERAL_NAME_get0_value(const GENERAL_NAME* a, int* ptype)
+{
+    if (ptype) {
+        *ptype = a->type;
+    }
+    switch (a->type) {
     case GEN_X400:
-      return a->d.x400Address;
+        return a->d.x400Address;
 
     case GEN_EDIPARTY:
-      return a->d.ediPartyName;
+        return a->d.ediPartyName;
 
     case GEN_OTHERNAME:
-      return a->d.otherName;
+        return a->d.otherName;
 
     case GEN_EMAIL:
     case GEN_DNS:
     case GEN_URI:
-      return a->d.ia5;
+        return a->d.ia5;
 
     case GEN_DIRNAME:
-      return a->d.dirn;
+        return a->d.dirn;
 
     case GEN_IPADD:
-      return a->d.ip;
+        return a->d.ip;
 
     case GEN_RID:
-      return a->d.rid;
+        return a->d.rid;
 
     default:
-      return NULL;
-  }
+        return NULL;
+    }
 }
 
-int GENERAL_NAME_set0_othername(GENERAL_NAME *gen, ASN1_OBJECT *oid,
-                                ASN1_TYPE *value) {
-  OTHERNAME *oth;
-  oth = OTHERNAME_new();
-  if (!oth) {
-    return 0;
-  }
-  ASN1_TYPE_free(oth->value);
-  oth->type_id = oid;
-  oth->value = value;
-  GENERAL_NAME_set0_value(gen, GEN_OTHERNAME, oth);
-  return 1;
+int GENERAL_NAME_set0_othername(GENERAL_NAME* gen, ASN1_OBJECT* oid, ASN1_TYPE* value)
+{
+    OTHERNAME* oth;
+    oth = OTHERNAME_new();
+    if (!oth) {
+        return 0;
+    }
+    ASN1_TYPE_free(oth->value);
+    oth->type_id = oid;
+    oth->value = value;
+    GENERAL_NAME_set0_value(gen, GEN_OTHERNAME, oth);
+    return 1;
 }
 
-int GENERAL_NAME_get0_otherName(const GENERAL_NAME *gen, ASN1_OBJECT **poid,
-                                ASN1_TYPE **pvalue) {
-  if (gen->type != GEN_OTHERNAME) {
-    return 0;
-  }
-  if (poid) {
-    *poid = gen->d.otherName->type_id;
-  }
-  if (pvalue) {
-    *pvalue = gen->d.otherName->value;
-  }
-  return 1;
+int GENERAL_NAME_get0_otherName(const GENERAL_NAME* gen, ASN1_OBJECT** poid, ASN1_TYPE** pvalue)
+{
+    if (gen->type != GEN_OTHERNAME) {
+        return 0;
+    }
+    if (poid) {
+        *poid = gen->d.otherName->type_id;
+    }
+    if (pvalue) {
+        *pvalue = gen->d.otherName->value;
+    }
+    return 1;
 }

@@ -344,15 +344,12 @@ public:
 };
 
 bool decidePolicyForNavigation(
-    int64_t mbwebviewId,
+    MbWebView* webView,
     blink::WebLocalFrame* frame,
     const blink::WebNavigationInfo& info)
 {
-#if 1 // ENABLE_WKE == 1
-    MbWebView* self = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(mbwebviewId);
-    if (!self)
-        return true;
-    if (!self->getClosure().m_NavigationCallback)
+    int64_t mbwebviewId = webView->getId();
+    if (!webView->getClosure().m_NavigationCallback)
         return true;
 
     GURL gurl = (GURL)(blink::KURL)info.url_request.Url();
@@ -389,7 +386,6 @@ bool decidePolicyForNavigation(
             return;
         result = self->getClosure().m_NavigationCallback(mbwebviewId, self->getClosure().m_NavigationParam, navigationType, url);
     });
-#endif
     return !!result;
 }
 
@@ -402,7 +398,11 @@ static void beginNavigation(
     std::unique_ptr<String> downloadName
     )
 {
-    if (!decidePolicyForNavigation(mbwebviewId, frame, *info))
+    MbWebView* webView = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(mbwebviewId);
+    if (!webView)
+        return;
+
+    if (!decidePolicyForNavigation(webView, frame, *info))
         return;
 
     const blink::FrameToken& token = frame->GetFrameToken();
@@ -455,12 +455,156 @@ static void beginNavigation(
     extraData->frameType = info->frame_type;
     extraData->setIsDownload(std::move(downloadName));
 
-    mbnet::BodyLoaderClient* client = new mbnet::BodyLoaderClient(isDownload, std::move(info), navigationControl->GetLocalFrameToken(), token);
+    if (!isDownload)
+        webView->setIsMouseKeyMessageEnable(false);
+
+    mbnet::BodyLoaderClient* client = new mbnet::BodyLoaderClient(mbwebviewId, isDownload, std::move(info), navigationControl->GetLocalFrameToken(), token);
     loader->LoadAsynchronously(std::move(request), extraData, false, std::move(resourceLoadInfoNotifierWrap), client);
+}
+
+static void clearAllDomElementsInFrame(blink::Frame* frame) 
+{
+    if (!frame)
+        return;
+
+    blink::LocalFrame* localFrame = blink::DynamicTo<blink::LocalFrame>(frame);
+    if (!localFrame)
+        return;
+
+    blink::Document* document = localFrame->GetDocument();
+    if (!document || !document->documentElement())
+        return;
+
+    // 获取根元素 <html>
+    blink::Element* rootElement = document->documentElement();
+
+    // 移除所有子节点（即 <head> 和 <body> 都会被移除）
+    while (blink::Node* child = rootElement->firstChild()) {
+        child->remove();
+    }
+}
+
+void synchronouslyCommitAboutBlankForBug778318(bool isMainFrame, std::unique_ptr<blink::WebNavigationInfo> info, blink::WebLocalFrame* frame)
+{
+//     CHECK_EQ(NavigationCommitState::kInitialEmptyDocument, navigation_commit_state_);
+//     navigation_commit_state_ = NavigationCommitState::kNone;
+//     AssertNavigationCommits assert_navigation_commits(this);
+
+    // TODO(dgozman): should we follow the RFI::CommitNavigation path instead?
+    auto navigation_params = blink::WebNavigationParams::CreateFromInfo(*info);
+    // This quirk is internal to the renderer, so just reuse the previous
+    // DocumentToken.
+    navigation_params->document_token = frame->GetDocument().Token();
+    navigation_params->is_synchronous_commit_for_bug_778318 = true;
+    // We need the provider to be non-null, otherwise Blink crashes, even
+    // though the provider should not be used for any actual networking.
+    //navigation_params->service_worker_network_provider = ServiceWorkerNetworkProviderForFrame::CreateInvalidInstance();
+    // The synchronous about:blank commit should only happen when the frame is
+    // currently showing the initial empty document. For iframes, all navigations
+    // that happen on the initial empty document should result in replacement, we
+    // must have set the `frame_load_type` to kReplaceCurrentItem. For main frames
+    // there are still cases where we will append instead of replace, but the
+    // browser already expects this case.
+    // TODO(crbug.com/40184245): Ensure main frame cases always do
+    // replacement too.
+    DCHECK(isMainFrame || navigation_params->frame_load_type == blink::WebFrameLoadType::kReplaceCurrentItem);
+
+    // This corresponds to steps 3 and 20 of
+    // https://html.spec.whatwg.org/multipage/browsers.html#creating-a-new-browsing-context,
+    // which sets the new Document's `referrer` member to the initiator frame's
+    // full unredacted URL, in the case of new browsing context creation.
+    //
+    // The initiator might no longer exist however, in which case we cannot get
+    // its document's full URL to use as the referrer.
+    if (info->initiator_frame_token.has_value() && blink::WebFrame::FromFrameToken(info->initiator_frame_token.value())) {
+        blink::WebFrame* initiator = blink::WebFrame::FromFrameToken(info->initiator_frame_token.value());
+        DCHECK(initiator->IsWebLocalFrame());
+        navigation_params->referrer = initiator->ToWebLocalFrame()->GetDocument().Url().GetString();
+    }
+
+    // To prevent pages from being able to abuse window.open() to determine the
+    // system entropy, always set a fixed value of 'normal', for consistency with
+    // other top-level navigations.
+    if (isMainFrame) {
+        //navigation_params->navigation_timings.system_entropy_at_navigation_start = blink::mojom::SystemEntropy::kNormal;
+    } else {
+        // Sub frames always have an empty entropy state since they are generally
+        // renderer-initiated. See
+        // https://docs.google.com/document/d/1D6DqptsCEd3wPRsZ0q1iwVBAXXmhxZuLV-KKFI0ptCg/edit?usp=sharing
+        // for background.
+        //DCHECK_EQ(blink::mojom::SystemEntropy::kEmpty, navigation_params->navigation_timings.system_entropy_at_navigation_start);
+    }
+    blink::WebLocalFrameImpl* impl = blink::To<blink::WebLocalFrameImpl>(frame);
+    impl->CommitNavigation(std::move(navigation_params), /*BuildDocumentState()*/nullptr);
 }
 
 void WebLocalFrameClientImpl::BeginNavigation(std::unique_ptr<blink::WebNavigationInfo> info)
 {
+    // This might be the first navigation in this RenderFrame.
+    const bool firstNavigationInRenderFrame = !m_hadStartedAnyNavigation;
+    m_hadStartedAnyNavigation = true;
+
+    const blink::WebURL& weburl = info->url_request.Url();
+    WTF::String url = weburl.GetString();
+    if (url == "about:srcdoc") {
+        std::string newUrl = "data:text/plain;charset=utf-8,";
+        newUrl += m_srcdoc.Utf8();
+        info->url_request.SetUrl(blink::KURL(String::FromUTF8(newUrl)));
+    }
+    if (!m_navigationControl->WillStartNavigation(*info))
+        return;
+
+    // In certain cases, Blink re-navigates to about:blank when creating a new
+    // browsing context (when opening a new window or creating an iframe) and
+    // expects the navigation to complete synchronously.
+    // TODO(crbug.com/40184245): Remove the synchronous about:blank
+    // navigation.
+    bool shouldDoSynchronousAboutBlankNavigation =
+        // Mainly a proxy for checking about:blank, even though it can match
+        // other things like about:srcdoc (or any empty document schemes that
+        // are registered).
+        // TODO(crbug.com/40184245): Tighten the condition to only accept
+        // about:blank or an empty URL which defaults to about:blank, per the
+        // spec:
+        // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-iframe-element:about:blank
+        blink::WebDocumentLoader::WillLoadUrlAsEmpty(weburl) &&
+        // The navigation method must be "GET". This is to avoid issues like
+        // https://crbug.com/1210653, where a form submits to about:blank
+        // targeting a new window using a POST. The browser never expects this
+        // to happen synchronously because it only expects the synchronous
+        // about:blank navigation to originate from browsing context creation,
+        // which will always be GET requests.
+        info->url_request.HttpMethod().Equals("GET") &&
+        // If the frame has committed or even started a navigation before, this
+        // navigation can't possibly be triggered by browsing context creation,
+        // which would have triggered the navigation synchronously as the first
+        // navigation in this frame. Note that we check both
+        // IsOnInitialEmptyDocument() and `first_navigation_in_render_frame`
+        // here because `first_navigation_in_render_frame` only tracks the state
+        // in this *RenderFrame*, so it will be true even if this navigation
+        // happens on a frame that has existed before in another process (e.g.
+        // an <iframe> pointing to a.com being navigated to a cross-origin
+        // about:blank document that happens in a new frame). Meanwhile,
+        // IsOnInitialEmptyDocument() tracks the state of the frame, so it will
+        // be true in the aforementioned case and we would not do a synchronous
+        // commit here.
+        /*m_frame->IsOnInitialEmptyDocument() &&*/ firstNavigationInRenderFrame &&
+        // If this is a subframe history navigation that should be sent to the
+        // browser, don't commit it synchronously.
+        /*!is_history_navigation_in_new_child_frame &&*/
+        // Synchronous about:blank commits on iframes should only be triggered
+        // when first creating the iframe with an unset/about:blank URL, which
+        // means the origin should inherit from the parent.
+        (m_isMainFrame || info->url_request.RequestorOrigin().IsSameOriginWith(((blink::WebLocalFrame*)(m_frame->Parent()))->GetDocument().GetSecurityOrigin()));
+
+    if (shouldDoSynchronousAboutBlankNavigation) {
+        synchronouslyCommitAboutBlankForBug778318(m_isMainFrame, std::move(info), m_frame);
+        return;
+    } else if (url == "about:blank") {
+        std::string newUrl = "data:text/html;charset=utf-8,%3Cbody%3E%3C%2Fbody%3E";
+        info->url_request.SetUrl(blink::KURL(String::FromUTF8(newUrl)));
+    }
+
     beginNavigation(std::move(info), m_navigationControl, m_mbwebviewId, 0, m_frame, nullptr);
 }
 
@@ -792,76 +936,76 @@ void WebLocalFrameClientImpl::loadHistoryItem(blink::WebLocalFrame* frame, const
     }
 }
 
-void WebLocalFrameClientImpl::loadUrl(blink::WebLocalFrame* frame, const blink::KURL& url)
-{
-    blink::WebLocalFrameImpl* impl = blink::To<blink::WebLocalFrameImpl>(frame);
-
-    std::unique_ptr<blink::WebNavigationParams> params = std::make_unique<blink::WebNavigationParams>();
-
-    params->response.SetMimeType("text/html"); // TODO: 这个要在上次WebHistoryItem里记录下来
-    params->url = url;
-#if 1
-    mojo::PendingAssociatedRemote<blink::mojom::blink::PolicyContainerHost> policyContainerRemote;
-    mojo::PendingAssociatedReceiver<blink::mojom::blink::PolicyContainerHost> policyContainerReceiver
-        = policyContainerRemote.InitWithNewEndpointAndPassReceiver();
-
-    mojo::AssociatedReceiver<blink::mojom::blink::PolicyContainerHost>* blinkPolicyContainerHostReceiver
-        = new mojo::AssociatedReceiver<blink::mojom::blink::PolicyContainerHost>(new PolicyContainerHostImpl());
-    blinkPolicyContainerHostReceiver->Bind(std::move(policyContainerReceiver)); // TODO: 内存泄露
-
-    ::network::mojom::URLResponseHeadPtr urlResponseHead = ::network::mojom::URLResponseHead::New();
-
-    MojoHandle dataPipeProducerHandle;
-    MojoHandle dataPipeConsumerHandle;
-    MojoCreateDataPipeOptions createDataOptions;
-    createDataOptions.element_num_bytes = 1;
-    createDataOptions.capacity_num_bytes = -1;
-    MojoCreateDataPipe(&createDataOptions, &dataPipeProducerHandle, &dataPipeConsumerHandle);
-
-    mojo::DataPipeConsumerHandle dataPipeConsumer(dataPipeConsumerHandle);
-    mojo::ScopedDataPipeConsumerHandle responseBody(std::move(dataPipeConsumer));
-
-    urlResponseHead->mime_type = params->response.MimeType().Ascii();
-    urlResponseHead->charset = "utf-8"; // m_response->HttpHeaderField(blink::WebString::FromASCII("charset")).Ascii();
-    urlResponseHead->content_length = 0;// m_response->ExpectedContentLength();
-    urlResponseHead->encoded_data_length = 0;// m_response->ExpectedContentLength();
-    urlResponseHead->encoded_body_length = 0;// m_response->ExpectedContentLength();
-
-    mbnet::URLLoaderImpl* urlLoaderImpl = new mbnet::URLLoaderImpl(nullptr); // TODO: 内存泄露
-
-    ::network::mojom::URLLoaderClientEndpointsPtr urlLoaderClientEndpoints = ::network::mojom::URLLoaderClientEndpoints::New(
-        urlLoaderImpl->m_urlLoader.BindNewPipeAndPassRemote(), urlLoaderImpl->m_urlLoaderClient.BindNewPipeAndPassReceiver());
-
-    blink::WeakWrapperResourceLoadInfoNotifier* resourceLoadInfoNotifier = new blink::WeakWrapperResourceLoadInfoNotifier(mbnet::ResourceLoadInfoNotifierImpl::get());
-
-    std::unique_ptr<blink::ResourceLoadInfoNotifierWrapper> resourceLoadInfoNotifierWrap
-        = std::make_unique<blink::ResourceLoadInfoNotifierWrapper>(resourceLoadInfoNotifier->AsWeakPtr());
-    resourceLoadInfoNotifierWrap->NotifyResourceLoadInitiated((int64_t)resourceLoadInfoNotifierWrap.get() /*request_id*/,
-        (GURL)(blink::KURL)(params->url), "GET", GURL() /*referrer*/, network::mojom::RequestDestination::kDocument, net::RequestPriority::DEFAULT_PRIORITY);
-
-    params->body_loader = std::make_unique<blink::NavigationBodyLoader>(params->url, std::move(urlResponseHead), std::move(responseBody),
-        std::move(urlLoaderClientEndpoints), base::ThreadTaskRunnerHandle::Get(), std::move(resourceLoadInfoNotifierWrap));
-
-    params->policy_container = std::make_unique<blink::WebPolicyContainer>(blink::WebPolicyContainerPolicies(), blink::ToCrossVariantAssociatedMojoType(std::move(policyContainerRemote)));
-#endif
-
-    params->frame_load_type = blink::WebFrameLoadType::kStandard;
-    params->navigation_timings.navigation_start = base::TimeTicks::Now();
-    params->navigation_timings.fetch_start = base::TimeTicks::Now();
-    params->response.SetCurrentRequestUrl(params->url);
-
-    fillNavigationParamsResponse(params.get());
-
-    WebLocalFrameClientImpl* client = (WebLocalFrameClientImpl*)impl->Client();
-
-    // 记得让WebURLLoaderManager::handlReceiveData不要调用BodyLoaderClient::DidStartLoadingResponseBody
-    std::unique_ptr<blink::WebNavigationInfo> info = std::make_unique<blink::WebNavigationInfo>();
-    info->url_request.SetUrl(params->url);
-    info->frame_load_type = blink::WebFrameLoadType::kBackForward;
-    beginNavigation(std::move(info), impl, client->m_mbwebviewId, dataPipeProducerHandle, frame, nullptr);
-
-    impl->CommitNavigation(std::move(params), nullptr /* extra_data */);
-}
+// void WebLocalFrameClientImpl::loadUrl(blink::WebLocalFrame* frame, const blink::KURL& url)
+// {
+//     blink::WebLocalFrameImpl* impl = blink::To<blink::WebLocalFrameImpl>(frame);
+// 
+//     std::unique_ptr<blink::WebNavigationParams> params = std::make_unique<blink::WebNavigationParams>();
+// 
+//     params->response.SetMimeType("text/html"); // TODO: 这个要在上次WebHistoryItem里记录下来
+//     params->url = url;
+// #if 1
+//     mojo::PendingAssociatedRemote<blink::mojom::blink::PolicyContainerHost> policyContainerRemote;
+//     mojo::PendingAssociatedReceiver<blink::mojom::blink::PolicyContainerHost> policyContainerReceiver
+//         = policyContainerRemote.InitWithNewEndpointAndPassReceiver();
+// 
+//     mojo::AssociatedReceiver<blink::mojom::blink::PolicyContainerHost>* blinkPolicyContainerHostReceiver
+//         = new mojo::AssociatedReceiver<blink::mojom::blink::PolicyContainerHost>(new PolicyContainerHostImpl());
+//     blinkPolicyContainerHostReceiver->Bind(std::move(policyContainerReceiver)); // TODO: 内存泄露
+// 
+//     ::network::mojom::URLResponseHeadPtr urlResponseHead = ::network::mojom::URLResponseHead::New();
+// 
+//     MojoHandle dataPipeProducerHandle;
+//     MojoHandle dataPipeConsumerHandle;
+//     MojoCreateDataPipeOptions createDataOptions;
+//     createDataOptions.element_num_bytes = 1;
+//     createDataOptions.capacity_num_bytes = -1;
+//     MojoCreateDataPipe(&createDataOptions, &dataPipeProducerHandle, &dataPipeConsumerHandle);
+// 
+//     mojo::DataPipeConsumerHandle dataPipeConsumer(dataPipeConsumerHandle);
+//     mojo::ScopedDataPipeConsumerHandle responseBody(std::move(dataPipeConsumer));
+// 
+//     urlResponseHead->mime_type = params->response.MimeType().Ascii();
+//     urlResponseHead->charset = "utf-8"; // m_response->HttpHeaderField(blink::WebString::FromASCII("charset")).Ascii();
+//     urlResponseHead->content_length = 0;// m_response->ExpectedContentLength();
+//     urlResponseHead->encoded_data_length = 0;// m_response->ExpectedContentLength();
+//     urlResponseHead->encoded_body_length = 0;// m_response->ExpectedContentLength();
+// 
+//     mbnet::URLLoaderImpl* urlLoaderImpl = new mbnet::URLLoaderImpl(nullptr); // TODO: 内存泄露
+// 
+//     ::network::mojom::URLLoaderClientEndpointsPtr urlLoaderClientEndpoints = ::network::mojom::URLLoaderClientEndpoints::New(
+//         urlLoaderImpl->m_urlLoader.BindNewPipeAndPassRemote(), urlLoaderImpl->m_urlLoaderClient.BindNewPipeAndPassReceiver());
+// 
+//     blink::WeakWrapperResourceLoadInfoNotifier* resourceLoadInfoNotifier = new blink::WeakWrapperResourceLoadInfoNotifier(mbnet::ResourceLoadInfoNotifierImpl::get());
+// 
+//     std::unique_ptr<blink::ResourceLoadInfoNotifierWrapper> resourceLoadInfoNotifierWrap
+//         = std::make_unique<blink::ResourceLoadInfoNotifierWrapper>(resourceLoadInfoNotifier->AsWeakPtr());
+//     resourceLoadInfoNotifierWrap->NotifyResourceLoadInitiated((int64_t)resourceLoadInfoNotifierWrap.get() /*request_id*/,
+//         (GURL)(blink::KURL)(params->url), "GET", GURL() /*referrer*/, network::mojom::RequestDestination::kDocument, net::RequestPriority::DEFAULT_PRIORITY);
+// 
+//     params->body_loader = std::make_unique<blink::NavigationBodyLoader>(params->url, std::move(urlResponseHead), std::move(responseBody),
+//         std::move(urlLoaderClientEndpoints), base::ThreadTaskRunnerHandle::Get(), std::move(resourceLoadInfoNotifierWrap));
+// 
+//     params->policy_container = std::make_unique<blink::WebPolicyContainer>(blink::WebPolicyContainerPolicies(), blink::ToCrossVariantAssociatedMojoType(std::move(policyContainerRemote)));
+// #endif
+// 
+//     params->frame_load_type = blink::WebFrameLoadType::kStandard;
+//     params->navigation_timings.navigation_start = base::TimeTicks::Now();
+//     params->navigation_timings.fetch_start = base::TimeTicks::Now();
+//     params->response.SetCurrentRequestUrl(params->url);
+// 
+//     fillNavigationParamsResponse(params.get());
+// 
+//     WebLocalFrameClientImpl* client = (WebLocalFrameClientImpl*)impl->Client();
+// 
+//     // 记得让WebURLLoaderManager::handlReceiveData不要调用BodyLoaderClient::DidStartLoadingResponseBody
+//     std::unique_ptr<blink::WebNavigationInfo> info = std::make_unique<blink::WebNavigationInfo>();
+//     info->url_request.SetUrl(params->url);
+//     info->frame_load_type = blink::WebFrameLoadType::kBackForward;
+//     beginNavigation(std::move(info), impl, client->m_mbwebviewId, dataPipeProducerHandle, frame, nullptr);
+// 
+//     impl->CommitNavigation(std::move(params), nullptr /* extra_data */);
+// }
 
 blink::WebView* WebLocalFrameClientImpl::CreateNewWindow(const blink::WebURLRequest& request,
     const blink::WebWindowFeatures& features,
@@ -988,6 +1132,28 @@ mbWebFrameHandle v8ContextToMbWebFrameHandle(v8::Local<v8::Context> context)
     return frameId;
 }
 
+void setAudioMuteWebMediaPlayer(MbMediaImpl* mediaImpl, WebMediaPlayerSaver* saver, bool mute);
+
+void WebLocalFrameClientImpl::setAudioMuted(bool mute)
+{
+    if (!m_mbMediaImpl)
+        return;
+
+    for (std::set<WebMediaPlayerSaver*>::const_iterator it = m_webMediaPlayerSavers.begin(); it != m_webMediaPlayerSavers.end(); ++it) {
+        setAudioMuteWebMediaPlayer(m_mbMediaImpl, *it, mute);
+    }
+}
+
+void WebLocalFrameClientImpl::addWebMediaPlayerSaver(WebMediaPlayerSaver* saver)
+{
+    m_webMediaPlayerSavers.insert(saver);
+}
+
+void WebLocalFrameClientImpl::removeWebMediaPlayerSaver(WebMediaPlayerSaver* saver)
+{
+    m_webMediaPlayerSavers.erase(saver);
+}
+
 void WebLocalFrameClientImpl::DidAddMessageToConsole(
     const blink::WebConsoleMessage& message, 
     const blink::WebString& source_name, 
@@ -1082,9 +1248,10 @@ void WebLocalFrameClientImpl::GetInterface(::mojo::GenericPendingReceiver receiv
         DebugBreak();
 }
 
-void WebLocalFrameClientImpl::ensureMbMedia() {
+void WebLocalFrameClientImpl::ensureMbMedia()
+{
     if (!m_mbMediaImpl) {
-        m_mbMediaImpl = new content::MbMediaImpl(this);
+        m_mbMediaImpl = new MbMediaImpl(this);
     }
 }
 

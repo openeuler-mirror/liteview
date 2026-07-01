@@ -22,6 +22,13 @@
 #include <windows.h>
 
 namespace cc {
+
+#if defined(_WIN64) || defined(__x86_64__) || defined(__LP64__)
+size_t kMemoryThresholdTSoftwareImageDecodeCache = 5000 * 5000 * 400;
+#else
+size_t kMemoryThresholdTSoftwareImageDecodeCache = 5000 * 5000 * 1;
+#endif
+
 namespace {
 // If the size of the original sized image breaches kMemoryRatioToSubrect but we
 // don't need to scale the image, consider caching only the needed subrect.
@@ -73,6 +80,14 @@ std::unique_ptr<SoftwareImageDecodeCacheUtils::CacheEntry> SoftwareImageDecodeCa
     DCHECK(target_size == paint_image.GetSupportedDecodeSize(target_size));
 
     SkImageInfo target_info = CreateImageInfo(target_size, color_type);
+
+    if (target_info.width() * target_info.height() > kMemoryThresholdTSoftwareImageDecodeCache) {
+        char output[100] = { 0 };
+        sprintf(output, "DoDecodeImage fail: %d * %d\n", target_info.width(), target_info.height());
+        OutputDebugStringA(output);
+        return nullptr;
+    }
+
     std::unique_ptr<base::DiscardableMemory> target_pixels = AllocateDiscardable(target_info, std::move(on_no_memory));
     if (!target_pixels->data())
         return nullptr;

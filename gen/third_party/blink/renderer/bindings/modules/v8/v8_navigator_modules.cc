@@ -121,9 +121,9 @@
 #include "third_party/blink/renderer/modules/plugins/dom_plugin_array.h"
 #include "third_party/blink/renderer/modules/plugins/navigator_plugins.h"
 #include "third_party/blink/renderer/modules/presentation/presentation.h"
-// #include "third_party/blink/renderer/modules/quota/deprecated_storage_quota.h"
-// #include "third_party/blink/renderer/modules/quota/navigator_storage_quota.h"
-// #include "third_party/blink/renderer/modules/quota/storage_manager.h"
+#include "third_party/blink/renderer/modules/quota/deprecated_storage_quota.h"
+#include "third_party/blink/renderer/modules/quota/navigator_storage_quota.h"
+#include "third_party/blink/renderer/modules/quota/storage_manager.h"
 // #include "third_party/blink/renderer/modules/serial/serial.h"
 // #include "third_party/blink/renderer/modules/service_worker/navigator_service_worker.h"
 // #include "third_party/blink/renderer/modules/service_worker/service_worker_container.h"
@@ -584,51 +584,51 @@ void PdfViewerEnabledAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Val
 //     auto&& return_value = Presentation::presentation(*blink_receiver);
 //     bindings::V8SetReturnValue(info, return_value, blink_receiver);
 // }
-//
-// void WebkitTemporaryStorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
-// {
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_webkitTemporaryStorage_Getter");
-//     BLINK_BINDINGS_TRACE_EVENT("Navigator.webkitTemporaryStorage.get");
-//     v8::Isolate* isolate = info.GetIsolate();
-//     v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
-//     ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
-//     // [Measure], [MeasureAs]
-//     UseCounter::Count(current_execution_context, WebFeature::kPrefixedStorageQuota);
-// 
-//     v8::Local<v8::Object> v8_receiver = info.This();
-//     Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
-//     auto&& return_value = NavigatorStorageQuota::webkitTemporaryStorage(*blink_receiver);
-//     bindings::V8SetReturnValue(info, return_value, blink_receiver);
-// }
 
-// void WebkitPersistentStorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
-// {
-// 
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_webkitPersistentStorage_Getter");
-//     BLINK_BINDINGS_TRACE_EVENT("Navigator.webkitPersistentStorage.get");
-//     v8::Isolate* isolate = info.GetIsolate();
-//     v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
-//     ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
-//     // [Measure], [MeasureAs]
-//     UseCounter::Count(current_execution_context, WebFeature::kPrefixedStorageQuota);
-// 
-//     v8::Local<v8::Object> v8_receiver = info.This();
-//     Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
-//     auto&& return_value = NavigatorStorageQuota::webkitPersistentStorage(*blink_receiver);
-//     bindings::V8SetReturnValue(info, return_value, blink_receiver);
-// }
-// 
-// void StorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
-// {
-// 
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_storage_Getter");
-//     BLINK_BINDINGS_TRACE_EVENT("Navigator.storage.get");
-// 
-//     v8::Local<v8::Object> v8_receiver = info.This();
-//     Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
-//     auto&& return_value = NavigatorStorageQuota::storage(*blink_receiver);
-//     bindings::V8SetReturnValue(info, return_value, blink_receiver);
-// }
+void WebkitTemporaryStorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_webkitTemporaryStorage_Getter");
+    BLINK_BINDINGS_TRACE_EVENT("Navigator.webkitTemporaryStorage.get");
+    v8::Isolate* isolate = info.GetIsolate();
+    v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
+    ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
+    // [Measure], [MeasureAs]
+    UseCounter::Count(current_execution_context, WebFeature::kPrefixedStorageQuota);
+
+    v8::Local<v8::Object> v8_receiver = info.This();
+    Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
+    auto&& return_value = NavigatorStorageQuota::webkitTemporaryStorage(*blink_receiver);
+    bindings::V8SetReturnValue(info, return_value, blink_receiver);
+}
+
+void WebkitPersistentStorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_webkitPersistentStorage_Getter");
+    BLINK_BINDINGS_TRACE_EVENT("Navigator.webkitPersistentStorage.get");
+    v8::Isolate* isolate = info.GetIsolate();
+    v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
+    ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
+    // [Measure], [MeasureAs]
+    UseCounter::Count(current_execution_context, WebFeature::kPrefixedStorageQuota);
+
+    v8::Local<v8::Object> v8_receiver = info.This();
+    Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
+    auto&& return_value = NavigatorStorageQuota::webkitPersistentStorage(*blink_receiver);
+    bindings::V8SetReturnValue(info, return_value, blink_receiver);
+}
+
+void StorageAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_Navigator_storage_Getter");
+    BLINK_BINDINGS_TRACE_EVENT("Navigator.storage.get");
+
+    v8::Local<v8::Object> v8_receiver = info.This();
+    Navigator* blink_receiver = V8Navigator::ToWrappableUnsafe(v8_receiver);
+    auto&& return_value = NavigatorStorageQuota::storage(*blink_receiver);
+    bindings::V8SetReturnValue(info, return_value, blink_receiver);
+}
 // 
 // void SerialAttributeGetCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 // {
@@ -2176,14 +2176,14 @@ void V8Navigator::Impl::InstallUnconditionalProperties(v8::Isolate* isolate, con
                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
                 unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
-//             { "webkitTemporaryStorage", WebkitTemporaryStorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
-//                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
-//                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
-//                 unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
-//             { "webkitPersistentStorage", WebkitPersistentStorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
-//                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
-//                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
-//                 unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
+            { "webkitTemporaryStorage", WebkitTemporaryStorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
+                unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
+                unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
+                unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
+            { "webkitPersistentStorage", WebkitPersistentStorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
+                unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
+                unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
+                unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
             { "hardwareConcurrency", HardwareConcurrencyAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
@@ -2309,10 +2309,10 @@ void V8Navigator::Impl::InstallContextDependentProperties(v8::Local<v8::Context>
 //                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
 //                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
 //                 unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
-//             { "storage", StorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
-//                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
-//                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
-//                 unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
+            { "storage", StorageAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
+                unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
+                unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),
+                unsigned(v8::SideEffectType::kHasNoSideEffect), unsigned(V8PrivateProperty::CachedAccessor::kNone) },
 //             { "serviceWorker", ServiceWorkerAttributeGetCallback, nullptr, unsigned(v8::None), unsigned(IDLMemberInstaller::FlagLocation::kPrototype),
 //                 unsigned(IDLMemberInstaller::FlagWorld::kAllWorlds), unsigned(IDLMemberInstaller::FlagReceiverCheck::kCheck),
 //                 unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck), unsigned(IDLMemberInstaller::FlagCrossOriginCheck::kCheck),

@@ -43,8 +43,9 @@ void pushBackToBuffer(std::vector<char>* buf, const char* data, size_t len)
     buf->insert(buf->end(), data, data + len);
 }
 
-SocketStreamHandleBase::SocketStreamHandleBase(const blink::KURL& url, SocketStreamHandleClient* client)
+SocketStreamHandleBase::SocketStreamHandleBase(const blink::KURL& url, const ProxyInfo& proxy, SocketStreamHandleClient* client)
     : m_url(url)
+    , m_proxy(proxy)
     , m_client(client)
     , m_clientId(client->getId())
     , m_state(Connecting)

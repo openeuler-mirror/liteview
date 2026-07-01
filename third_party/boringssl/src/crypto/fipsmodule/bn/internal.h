@@ -199,10 +199,7 @@ extern "C" {
 // inputs.
 #define MOD_EXP_CTIME_STORAGE_LEN (((320u * 3u) + (32u * 9u * 16u)) / sizeof(BN_ULONG))
 
-#define STATIC_BIGNUM(x)                                                                                                                                       \
-    {                                                                                                                                                          \
-        (BN_ULONG*)(x), sizeof(x) / sizeof(BN_ULONG), sizeof(x) / sizeof(BN_ULONG), 0, BN_FLG_STATIC_DATA                                                      \
-    }
+#define STATIC_BIGNUM(x) { (BN_ULONG*)(x), sizeof(x) / sizeof(BN_ULONG), sizeof(x) / sizeof(BN_ULONG), 0, BN_FLG_STATIC_DATA }
 
 #if defined(BN_ULLONG)
 #define Lw(t) ((BN_ULONG)(t))
@@ -397,7 +394,19 @@ uint64_t bn_mont_n0(const BIGNUM* n);
 // treated as secret.
 int bn_mod_exp_base_2_consttime(BIGNUM* r, unsigned p, const BIGNUM* n, BN_CTX* ctx);
 
-#if defined(_MSC_VER)
+#if defined(__clang__) && !defined(_MSC_VER)
+    // 为 Clang 提供 _umul128 的内联实现
+    static inline unsigned long long _umul128(
+        unsigned long long a, 
+        unsigned long long b, 
+        unsigned long long *high) {
+        __uint128_t r = (__uint128_t)a * (__uint128_t)b;
+        *high = (unsigned long long)(r >> 64);
+        return (unsigned long long)r;
+    }
+#endif
+
+#if 1 // defined(_MSC_VER) // weolar: don not use UINT128
 #if defined(OPENSSL_X86_64)
 #define BN_UMULT_LOHI(low, high, a, b) ((low) = _umul128((a), (b), &(high)))
 #elif defined(OPENSSL_AARCH64)

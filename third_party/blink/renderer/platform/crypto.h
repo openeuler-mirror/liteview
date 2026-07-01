@@ -12,8 +12,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/string_hasher.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
-//#include "third_party/boringssl/src/include/openssl/digest.h"
-#include "third_party/openssl/openssl/include/openssl/digest.h"
+#include "third_party/boringssl/src/include/openssl/digest.h"
+//#include "third_party/openssl/openssl/include/openssl/digest.h"
 
 namespace blink {
 

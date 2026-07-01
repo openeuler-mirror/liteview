@@ -27,20 +27,25 @@ V8RenderingContext* HTMLCanvasElementModule::getContext(
     }
 
     // todo(mb): 临时, 暂时禁止几个网站使用 webgl 和 webgl2, 有报错
-    if (context_id == "webgl" || context_id == "webgl2") {
-        String url = canvas.GetDocument().Url().GetString();
+    if (context_id == "webgl" || context_id == "webgl2" || context_id == "experimental-webgl") {
+        String host = canvas.GetDocument().Url().Host();
         static const char* blacklist[] = {
             "bilibili.com",
-            "iqiyi.com/v_",
+            "iqiyi.com",
             "v.qq.com",
+            "gitee.com",
+            "auth.alipay.com",
             "v.youku.com",
-            "gitee.com"
+            "www.youku.com",
+            "cnpassport.youku.com",
+            "modelscope.cn",
+            "music.163.com",
+            "www.uemo.net",
         };
 
         for (const char* blocked : blacklist) {
-            if (url.Contains(blocked)) {
-                exception_state.ThrowSecurityError(
-                    "WebGL is disabled on this site: " + url);
+            if (host.Contains(blocked)) {
+                //exception_state.ThrowSecurityError("WebGL is disabled on this site: " + url);
                 return nullptr;
             }
         }

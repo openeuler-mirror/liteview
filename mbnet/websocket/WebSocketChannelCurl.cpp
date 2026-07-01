@@ -37,8 +37,8 @@
 
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
-#include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
+#include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/modules/websockets/websocket_channel_client.h"
 
 #include "base/task/single_thread_task_runner.h"
@@ -48,6 +48,10 @@
 #include "wke/wkeString.h"
 #include "wke/wkeGlobalVar.h"
 #endif
+
+namespace content {
+bool getProxyFromExecutionContext(blink::ExecutionContext* context, mbnet::ProxyInfo* proxy);
+}
 
 namespace mbnet {
 
@@ -1039,12 +1043,15 @@ bool WebSocketChannelCurl::Connect(const blink::KURL& url, const String& protoco
     //     if (m_id)
     //         InspectorInstrumentation::didCreateWebSocket(document(), m_id, kurl, protocol);
 
-        // if (Frame* frame = document()->frame()) // 似乎这个判断没啥用
-    {
-        ref();
-        m_handle = SocketStreamHandle::create(m_handshake->url(), this);
-        m_handleId = m_handle->getId();
-    }
+
+    ref();
+
+    ProxyInfo proxy;
+    content::getProxyFromExecutionContext(m_executionContext, &proxy);
+
+    m_handle = SocketStreamHandle::create(m_handshake->url(), proxy, this);
+    m_handleId = m_handle->getId();
+    
     //     if (!document()->frame())
     //         OutputDebugStringA("WebSocketChannelCurl::connect, document()->frame() is empty\n");
     return true;

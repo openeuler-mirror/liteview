@@ -561,7 +561,7 @@ void WebCookieJarImpl::flushCurlCookie(CURL* curl)
         curl_easy_cleanup(curl);
 }
 
-std::string WebCookieJarImpl::getCookiesForSession(const blink::KURL& kurl, const blink::KURL& url, bool httponly)
+std::string WebCookieJarImpl::getCookiesForSession(const blink::KURL& kurl, bool httponly)
 {
     std::string cookies;
     CURL* curl = curl_easy_init();
@@ -578,8 +578,8 @@ std::string WebCookieJarImpl::getCookiesForSession(const blink::KURL& kurl, cons
     curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &list);
 
     if (list) {
-        std::string domain = url.Host().Utf8();
-        std::string path = url.GetPath().Utf8();
+        std::string domain = kurl.Host().Utf8();
+        std::string path = kurl.GetPath().Utf8();
         std::string cookiesBuilder;
 
         struct curl_slist* item = list;
@@ -596,6 +596,61 @@ std::string WebCookieJarImpl::getCookiesForSession(const blink::KURL& kurl, cons
     curl_easy_cleanup(curl);
 
     return cookies;
+}
+
+void WebCookieJarImpl::getAllCookies(const ::blink::KURL& url, const ::net::SiteForCookies& siteForCookies,
+    const ::scoped_refptr<const ::blink::SecurityOrigin>& topFrameOrigin, 
+    ::network::mojom::blink::CookieManagerGetOptionsPtr options,
+    bool partitionedCookiesRuntimeFeatureEnabled,
+    network::mojom::blink::RestrictedCookieManager::GetAllForUrlCallback callback)
+{
+//     CURL* curl = curl_easy_init();
+//     if (!curl)
+//         return;
+// 
+//     flushCurlCookie(curl);
+// 
+//     CURLSH* curlsh = m_curlShareHandle;
+// 
+//     curl_easy_setopt(curl, CURLOPT_SHARE, curlsh);
+// 
+//     curl_slist* list = nullptr;
+//     curl_easy_getinfo(curl, CURLINFO_COOKIELIST, &list);
+// 
+//     WTF::Vector<::network::mojom::blink::CookieWithAccessResultPtr> results;
+// 
+//     if (list) {
+//         std::string domain = url.Host().Utf8();
+//         std::string path = url.GetPath().Utf8();
+//         std::string cookiesBuilder;
+// 
+//         struct curl_slist* item = list;
+//         while (item) {
+//             const char* cookieLine = item->data;
+//             addMatchingCurlCookie(cookieLine, domain, path, cookiesBuilder, true);
+//             item = item->next;
+//             if (cookiesBuilder.empty())
+//                 continue;
+// 
+//             network::mojom::blink::CookieWithAccessResultPtr result = network::mojom::blink::CookieWithAccessResult::New();
+// 
+//             net::CookieInclusionStatus status;
+//             std::unique_ptr<net::CanonicalCookie> canonCookie = ::net::CanonicalCookie::Create(
+//                 (GURL)url, cookiesBuilder, base::Time::Now(),
+//                 absl::nullopt, absl::nullopt, &status);
+//             if (!canonCookie.get())
+//                 continue;
+//             result->cookie = *(canonCookie.get());
+//             result->access_result = ::network::mojom::blink::CookieAccessResult::New();
+//             results.push_back(std::move(result));
+//         }
+// 
+//         curl_slist_free_all(list);
+//     }
+// 
+//     curl_easy_cleanup(curl);
+// 
+//     std::move(callback).Run(std::move(results));
 }
 
 WebCookieJarImpl* WebCookieJarImpl::create(const std::string& cookieJarFullPath)
@@ -675,7 +730,7 @@ std::string WebCookieJarImpl::getCookieJarFullPath()
 // 
 std::string WebCookieJarImpl::cookieRequestHeaderFieldValue(const blink::WebURL& webUrl, const blink::WebURL& webFirstPartyForCookies)
 {
-    return getCookiesForSession(webFirstPartyForCookies, webUrl, false);
+    return getCookiesForSession(webUrl, false);
 }
 // 
 // void WebCookieJarImpl::setToRecordFromRawHeads(const KURL& url, const std::string& rawHeadsString)

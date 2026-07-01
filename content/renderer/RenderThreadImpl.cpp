@@ -19,8 +19,10 @@
 #include "content/renderer/PolicyContainerHostImpl.h"
 #include "content/renderer/WebViewClientImpl.h"
 #include "content/renderer/ContentSecurityNotifierImpl.h"
+#include "content/renderer/ReportingServiceProxyImpl.h"
 #include "content/browser/LocalFrameHostImpl.h"
 #include "content/browser/LocalMainFrameHostImpl.h"
+#include "content/browser/BackForwardCacheControllerHostImpl.h"
 #include "content/browser/RenderWidgetHostImpl.h"
 #include "content/common/ThreadCall.h"
 #include "content/common/CreateAndBindTempl.h"
@@ -33,6 +35,7 @@
 #include "gen/third_party/blink/public/platform/web_runtime_features_base.h"
 #include "gen/third_party/blink/public/mojom/frame/policy_container.mojom-blink.h"
 #include "gen/third_party/blink/public/mojom/frame/frame.mojom-blink.h"
+#include "gen/third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/navigation_body_loader.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
@@ -63,16 +66,17 @@
 #include "third_party/blink/renderer/platform/wtf/threading_primitives.h"
 //#include "content/resources/IcudtlDataFlutterDesktop.h"
 #if !defined(OS_WIN) 
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #else
 #include "third_party/blink/public/web/win/web_font_rendering.h"
 #include "base/win/windows_version.h"
 #include "base/allocator/partition_alloc_support.h"
 #include <Shlwapi.h>
 #endif
-
-//extern HWND g_hRootWnd;
-//extern SIZE g_wndSize;
 
 extern unsigned char icudtlData                [1884304];
 extern unsigned char icudtlData_flutter_desktop[2700172];
@@ -102,6 +106,10 @@ namespace v8 {
 namespace internal {
 uint32_t RSHash(const char* str, uint32_t len);
 }
+}
+
+namespace cc {
+extern size_t kMemoryThresholdTSoftwareImageDecodeCache;
 }
 
 #if defined(OS_OHOS)
@@ -160,6 +168,8 @@ RenderThreadImpl::RenderThreadImpl()
     //base::SingleThreadTaskExecutor mainThreadTaskExecutor(base::MessagePumpType::UI);
     base::PlatformThread::SetName("Mb108UiThread");
 
+    ThreadCall::init(nullptr);
+
     base::Thread::Options opt;
     opt.delegate = std::make_unique<RenderThreadImpl::ThreadDelegate>(this);
     m_thread.StartWithOptions(std::move(opt));
@@ -168,8 +178,6 @@ RenderThreadImpl::RenderThreadImpl()
     }
 
     m_hostThread.Start();
-
-    ThreadCall::init(nullptr);
 }
 
 void readFileToBuf(const char* path, std::vector<char>* buffer)
@@ -195,7 +203,33 @@ void readFileToBuf(const char* path, std::vector<char>* buffer)
     BOOL b = ::ReadFile(hFile, &buffer->at(0), bufferSize, &numberOfBytesRead, nullptr);
     ::CloseHandle(hFile);
 #else
-    __debugbreak();
+    std::string filePath = path;
+
+    const char kHead[] = "file://";
+    if (filePath.rfind(kHead, 0) == 0) 
+        filePath = filePath.substr(strlen(kHead));
+
+    int fd = open(filePath.c_str(), O_RDONLY);
+    if (fd < 0)
+        return;
+
+    struct stat st;
+    if (fstat(fd, &st) != 0) {
+        close(fd);
+        return;
+    }
+
+    if (st.st_size == 0) {
+        close(fd);
+        return;
+    }
+
+    buffer->resize(st.st_size);
+    ssize_t bytesRead = read(fd, buffer->data(), st.st_size);
+    close(fd);
+
+    if (bytesRead < 0)
+        buffer->clear();
 #endif // _MSC_VER
 }
 
@@ -238,6 +272,14 @@ static bool initializeICUWithFileDescriptorInternal()
 
     //udata_setCommonData(const_cast<uint8_t*>(icudtlData), &err);
 #else
+    static std::vector<char> buffer; // icu dat requires memory residency
+    readFileToBuf("icudtl.dat", &buffer);
+    if (buffer.size() != 0) {
+        udata_setCommonData((uint8_t*)(buffer.data()), &err);
+        printf("initializeICUWithFileDescriptorInternal: form outer dat\n");
+        return err == U_ZERO_ERROR;
+    }
+
     udata_setCommonData(const_cast<uint8_t*>(icudtlData), &err);
     printf("initializeICUWithFileDescriptorInternal: %p\n", icudtlData);
 #endif
@@ -247,6 +289,8 @@ static bool initializeICUWithFileDescriptorInternal()
 // TestDiscardableMemoryAllocator is a simple DiscardableMemoryAllocator
 // implementation that can be used for testing. It allocates one-shot
 // DiscardableMemory instances backed by heap memory.
+class DiscardableMemoryImpl;
+
 class TestDiscardableMemoryAllocator : public base::DiscardableMemoryAllocator {
 public:
     TestDiscardableMemoryAllocator() = default;
@@ -263,20 +307,16 @@ public:
         // Do nothing since it is backed by heap memory.
     }
 
-    void onDiscardableMemoryDestroy(int64_t id);
-    void onDiscardableMemoryAllocator(size_t size);
-    void onDiscardableMemoryRelease(size_t size);
+    void onDiscardableMemoryDestroyed(DiscardableMemoryImpl* memory);
 
 private:
-    //WTF::RecursiveMutex* mutex = sharedResourceMutex(CURL_LOCK_DATA_COOKIE);
-    //WTF::Locker<WTF::RecursiveMutex> locker(*mutex);
     WTF::RecursiveMutex m_lock;
-    std::set<int64_t> m_ids;
+    std::set<DiscardableMemoryImpl*> m_items;
     int64_t m_discardableMemorySize = 0;
 };
 
 const int kDebugSizeExt = 1 
-#ifdef _DEBUG
+#if 0 // def _DEBUG
 + 1
 #endif
 ;
@@ -288,21 +328,15 @@ public:
         , m_size(size) 
         , m_allocator(allocator)
     {
-        allocator->onDiscardableMemoryAllocator(size * kDebugSizeExt);
-
-        m_id = common::LiveIdDetect::get()->constructed(this);
-#ifdef _DEBUG
+#if 0 // def _DEBUG
         memset(m_data, 0xf4, size * kDebugSizeExt);
 #endif // _DEBUG
     }
 
-    ~DiscardableMemoryImpl()
+    ~DiscardableMemoryImpl() override
     {
-        common::LiveIdDetect::get()->deconstructed(m_id);
-        m_allocator->onDiscardableMemoryDestroy(m_id);
-
         DCHECK(!m_isLocked);
-        releaseMem();
+        m_allocator->onDiscardableMemoryDestroyed(this);
     }
 
     // Overridden from DiscardableMemory:
@@ -331,12 +365,12 @@ public:
 
     void DiscardForTesting() override {}
 
-    void releaseMem()
+    size_t releaseMem()
     {
         if (m_isLocked || !m_data)
-            return;
-        m_allocator->onDiscardableMemoryRelease(m_size * kDebugSizeExt);
-#ifdef _DEBUG
+            return 0;
+
+#if 0 // def _DEBUG
         for (size_t i = m_size; i < 2 * kDebugSizeExt; ++i) {
             if (m_data[i] != 0xf4)
                 DebugBreak();
@@ -344,9 +378,9 @@ public:
 #endif // _DEBUG
         delete[] m_data;
         m_data = nullptr;
-    }
 
-    int64_t getId() const { return m_id; }
+        return m_size * kDebugSizeExt;
+    }
 
     base::trace_event::MemoryAllocatorDump* CreateMemoryAllocatorDump(const char* name, base::trace_event::ProcessMemoryDump* pmd) const override 
     {
@@ -357,50 +391,47 @@ private:
     bool m_isLocked = true;
     uint8_t* m_data = nullptr;
     size_t m_size = 0;
-    int64_t m_id = 0;
     TestDiscardableMemoryAllocator* m_allocator = nullptr;
 };
 
 std::unique_ptr<base::DiscardableMemory> TestDiscardableMemoryAllocator::AllocateLockedDiscardableMemory(size_t size)
 {
-    if (m_discardableMemorySize > 1000 * 1000 * 100) {
-        m_lock.lock();
-        for (std::set<int64_t>::iterator it = m_ids.begin(); it != m_ids.end(); ++it) {
-            int64_t id = *it;
-            DiscardableMemoryImpl* item = (DiscardableMemoryImpl*)common::LiveIdDetect::get()->getPtr(id);
-            item->releaseMem();
+    if (size > cc::kMemoryThresholdTSoftwareImageDecodeCache)
+        return nullptr;
+
+    WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
+    if (m_discardableMemorySize > cc::kMemoryThresholdTSoftwareImageDecodeCache) {
+        for (std::set<DiscardableMemoryImpl*>::iterator it = m_items.begin(); it != m_items.end(); ++it) {
+            DiscardableMemoryImpl* item = *it;
+            size_t freed = item->releaseMem();
+            if (freed != 0)
+                m_discardableMemorySize -= freed;
         }
-        m_lock.unlock();
         return nullptr;
     }
 
+    m_discardableMemorySize += size * kDebugSizeExt;
     std::unique_ptr<DiscardableMemoryImpl> ret = std::make_unique<DiscardableMemoryImpl>(this, size);
-    WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
-    m_ids.insert(ret->getId());
+
+    m_items.insert(ret.get());
     return std::move(ret);
 }
 
-void TestDiscardableMemoryAllocator::onDiscardableMemoryDestroy(int64_t id)
+void TestDiscardableMemoryAllocator::onDiscardableMemoryDestroyed(DiscardableMemoryImpl* memory)
 {
     WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
-    m_ids.erase(id);
-}
+    std::set<DiscardableMemoryImpl*>::iterator it = m_items.find(memory);
+    if (it != m_items.end())
+        m_items.erase(it);
 
-void TestDiscardableMemoryAllocator::onDiscardableMemoryAllocator(size_t size)
-{
-    WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
-    m_discardableMemorySize += size;
-}
-
-void TestDiscardableMemoryAllocator::onDiscardableMemoryRelease(size_t size)
-{
-    WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
-    m_discardableMemorySize -= size;
+    size_t freed = memory->releaseMem();
+    if (freed != 0)
+        m_discardableMemorySize -= freed;
 }
 
 size_t TestDiscardableMemoryAllocator::GetBytesAllocated() const
 {
-    return 0U;
+    return m_discardableMemorySize;
 }
 
 static std::unique_ptr<base::MessagePump> createMainThreadMessagePump()
@@ -451,6 +482,8 @@ private:
             //mojo::PendingReceiver<::blink::mojom::blink::ContentSecurityNotifier> pendingReceiver(receiver.PassPipe());
             //m_contentSecurityNotifierImplReceiver.Bind(std::move(pendingReceiver));
             createAndBindBrokerProxy<::blink::mojom::blink::ContentSecurityNotifier, ContentSecurityNotifierImpl>(receiver.PassPipe(), NULL_WEBVIEW);
+        } else if ("blink.mojom.ReportingServiceProxy" == name) {
+            createAndBindBrokerProxy<::blink::mojom::blink::ReportingServiceProxy, ReportingServiceProxyImpl>(receiver.PassPipe(), NULL_WEBVIEW);
         } else
             DebugBreak();
     }
@@ -482,6 +515,11 @@ public:
         createAndBindInterface<::blink::mojom::blink::LocalFrameHost, LocalFrameHostImpl>(std::move(handle), nullptr);
     }
 
+    void onBindBackForwardCacheControllerHost(mojo::ScopedInterfaceEndpointHandle handle)
+    {
+        createAndBindInterface<::blink::mojom::blink::BackForwardCacheControllerHost, BackForwardCacheControllerHostImpl>(std::move(handle));
+    }
+
     mojo::AssociatedReceiver<::blink::mojom::blink::LocalFrameHost> m_emptyLocalFrameHostReceiver;
     //mojo::AssociatedReceiver<::blink::mojom::blink::LocalMainFrameHost> m_emptyLocalMainFrameHostReceiver;
 
@@ -500,6 +538,9 @@ void RenderThreadImpl::OverrideEmptyAssociatedInterfaceProvider()
 
     associatedInterfaceProvider->OverrideBinderForTesting("blink.mojom.LocalFrameHost",
         base::BindRepeating(&EmptyAssociatedInterfaceProvider::onBindLocalFrameHost, base::Unretained(m_emptyAssociatedInterfaceProvider)));
+
+    associatedInterfaceProvider->OverrideBinderForTesting("blink.mojom.BackForwardCacheControllerHost",
+        base::BindRepeating(&EmptyAssociatedInterfaceProvider::onBindBackForwardCacheControllerHost, base::Unretained(m_emptyAssociatedInterfaceProvider)));
 
 //     if ("blink.mojom.BackForwardCacheControllerHost" == name) {
 //         mojo::PendingAssociatedReceiver<::blink::mojom::blink::BackForwardCacheControllerHost> pendingReceiver(receiver.PassHandle());
@@ -629,6 +670,9 @@ void initV8Data()
     printf("v8_Default_embedded_blob_data_: %d\n", v8_Default_embedded_blob_data_[0]);
 #endif
 
+    v8::V8::SetFlagsFromString("--max-old-space-size=1024"); // ÀÏÉú´ú 4GB
+    v8::V8::SetFlagsFromString("--max-heap-size=1024"); //
+
 //     std::vector<char>* buffer = new std::vector<char>();
 //     readFileToBuf("W:\\mycode\\mb108\\content\\resources\\EmbeddedBlobDataX64Win.bin", buffer);
 //     v8_Default_embedded_blob_data_ = (const uint8_t*)genV8EmbeddedData(buffer->data(), buffer->size());
@@ -666,6 +710,14 @@ void RenderThreadImpl::initializeWebKitOnThread(/*mojo::BinderMap* binders*/)
     base::DiscardableMemoryAllocator::SetInstance(discardable_memory_allocator);
 
     m_mainThreadScheduler = blink::scheduler::WebThreadScheduler::CreateMainThreadScheduler(createMainThreadMessagePump());
+
+    //--
+//     std::string fonts;
+//     fonts = "C:\\Windows\\Fonts";
+// 
+//     sk_sp<SkFontMgr> fontMgr(SkFontMgr_New_Custom_Directory(fonts.c_str())); // FontCacheSkia.cpp, FontCache::getLastResortFallbackFont
+//     blink::WebFontRendering::SetSkiaFontManager(fontMgr);
+    //--
 
     mojo::BinderMap binders;
     RendererBlinkPlatformImpl* blinkPlatformImpl = new RendererBlinkPlatformImpl();

@@ -908,29 +908,29 @@ TEST(ASN1Test, SetTime)
         const char* generalized;
         const char* utc;
         const char* printed;
-    } kTests[]
-        = { { -631152001, "19491231235959Z", nullptr, "Dec 31 23:59:59 1949 GMT" },
-              { -631152000, "19500101000000Z", "500101000000Z", "Jan  1 00:00:00 1950 GMT" },
-              { 0, "19700101000000Z", "700101000000Z", "Jan  1 00:00:00 1970 GMT" },
-              { 981173106, "20010203040506Z", "010203040506Z", "Feb  3 04:05:06 2001 GMT" },
-              { 951804000, "20000229060000Z", "000229060000Z", "Feb 29 06:00:00 2000 GMT" },
-              // NASA says this is the correct time for posterity.
-              { -16751025, "19690621025615Z", "690621025615Z", "Jun 21 02:56:15 1969 GMT" },
-              // -1 is sometimes used as an error value. Ensure we correctly handle it.
-              { -1, "19691231235959Z", "691231235959Z", "Dec 31 23:59:59 1969 GMT" },
+    } kTests[] = {
+        { -631152001, "19491231235959Z", nullptr, "Dec 31 23:59:59 1949 GMT" },
+        { -631152000, "19500101000000Z", "500101000000Z", "Jan  1 00:00:00 1950 GMT" },
+        { 0, "19700101000000Z", "700101000000Z", "Jan  1 00:00:00 1970 GMT" },
+        { 981173106, "20010203040506Z", "010203040506Z", "Feb  3 04:05:06 2001 GMT" },
+        { 951804000, "20000229060000Z", "000229060000Z", "Feb 29 06:00:00 2000 GMT" },
+        // NASA says this is the correct time for posterity.
+        { -16751025, "19690621025615Z", "690621025615Z", "Jun 21 02:56:15 1969 GMT" },
+        // -1 is sometimes used as an error value. Ensure we correctly handle it.
+        { -1, "19691231235959Z", "691231235959Z", "Dec 31 23:59:59 1969 GMT" },
 #if defined(OPENSSL_64_BIT)
-              // TODO(https://crbug.com/boringssl/416): These cases overflow 32-bit
-              // |time_t| and do not consistently work on 32-bit platforms. For now,
-              // disable the tests on 32-bit. Re-enable them once the bug is fixed.
-              { 2524607999, "20491231235959Z", "491231235959Z", "Dec 31 23:59:59 2049 GMT" },
-              { 2524608000, "20500101000000Z", nullptr, "Jan  1 00:00:00 2050 GMT" },
-              // Test boundary conditions.
-              { -62167219200, "00000101000000Z", nullptr, "Jan  1 00:00:00 0 GMT" },
-              { -62167219201, nullptr, nullptr, nullptr },
-              { 253402300799, "99991231235959Z", nullptr, "Dec 31 23:59:59 9999 GMT" },
-              { 253402300800, nullptr, nullptr, nullptr },
+        // TODO(https://crbug.com/boringssl/416): These cases overflow 32-bit
+        // |time_t| and do not consistently work on 32-bit platforms. For now,
+        // disable the tests on 32-bit. Re-enable them once the bug is fixed.
+        { 2524607999, "20491231235959Z", "491231235959Z", "Dec 31 23:59:59 2049 GMT" },
+        { 2524608000, "20500101000000Z", nullptr, "Jan  1 00:00:00 2050 GMT" },
+        // Test boundary conditions.
+        { -62167219200, "00000101000000Z", nullptr, "Jan  1 00:00:00 0 GMT" },
+        { -62167219201, nullptr, nullptr, nullptr },
+        { 253402300799, "99991231235959Z", nullptr, "Dec 31 23:59:59 9999 GMT" },
+        { 253402300800, nullptr, nullptr, nullptr },
 #endif
-          };
+    };
     for (const auto& t : kTests) {
         time_t tt;
         SCOPED_TRACE(t.time);

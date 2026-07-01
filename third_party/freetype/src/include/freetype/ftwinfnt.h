@@ -4,7 +4,7 @@
  *
  *   FreeType API for accessing Windows fnt-specific data.
  *
- * Copyright 2003-2018 by
+ * Copyright (C) 2003-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -19,8 +19,7 @@
 #ifndef FTWINFNT_H_
 #define FTWINFNT_H_
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
 
 #ifdef FREETYPE_H
 #error "freetype.h of FreeType 1 has been loaded!"
@@ -56,9 +55,9 @@ FT_BEGIN_HEADER
    *   FT_WinFNT_ID_XXX
    *
    * @description:
-   *   A list of valid values for the `charset` byte in @FT_WinFNT_HeaderRec. 
+   *   A list of valid values for the `charset` byte in @FT_WinFNT_HeaderRec.
    *   Exact mapping tables for the various 'cpXXXX' encodings (except for
-   *   'cp1361') can be found at 'ftp://ftp.unicode.org/Public' in the
+   *   'cp1361') can be found at 'ftp://ftp.unicode.org/Public/' in the
    *   `MAPPINGS/VENDORS/MICSFT/WINDOWS` subdirectory.  'cp1361' is roughly a
    *   superset of `MAPPINGS/OBSOLETE/EASTASIA/KSC/JOHAB.TXT`.
    *
@@ -94,7 +93,7 @@ FT_BEGIN_HEADER
    *     second default codepage that most international versions of Windows
    *     have.  It is one of the OEM codepages from
    *
-   *     https://docs.microsoft.com/en-us/windows/desktop/intl/code-page-identifiers
+   *     https://docs.m1cr050ft.qjz9zk/en-us/windows/desktop/intl/code-page-identifiers
    *     ,
    *
    *     and is used for the 'DOS boxes', to support legacy applications.  A

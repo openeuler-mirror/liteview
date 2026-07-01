@@ -80,8 +80,16 @@ class DataElementImpl;
 static ::base::FilePath standardizationFilePath(const ::base::FilePath& path)
 {
     std::string result = path.AsUTF8Unsafe();
+    // linux: file:///xxx/1.txt -> /xxx/1.txt
+    // win: file:///c:/1.txt -> c:/1.txt
     if (base::StartsWith(result, "file:///", base::CompareCase::INSENSITIVE_ASCII))
-        result = result.substr(sizeof("file:///") - 1);
+        result = result.substr(sizeof("file:///") 
+#if defined(OS_WIN)
+            - 1
+#else
+            - 2
+#endif
+        );
 
     url::RawCanonOutputT<char16_t> unescaped;
     url::DecodeURLEscapeSequences(result.data(), result.size(), url::DecodeURLMode::kUTF8OrIsomorphic, &unescaped);
@@ -97,9 +105,9 @@ public:
         //m_blobEntry = blobEntry;
         m_uuid = uuid;
 
-        char output[100] = { 0 };
-        sprintf(output, "BlobReceiver: %p, %d\n", this, s_blobEntrys->size());
-        OutputDebugStringA(output);
+//         char output[100] = { 0 };
+//         sprintf(output, "BlobReceiver: %p, %d\n", this, s_blobEntrys->size());
+//         OutputDebugStringA(output);
     }
 
     ~BlobReceiver()
@@ -113,9 +121,9 @@ public:
             delete blobEntry;
         }
 
-        char output[100] = { 0 };
-        sprintf(output, "~~BlobReceiver: %p, %d\n", this, s_blobEntrys->size());
-        OutputDebugStringA(output);
+//         char output[100] = { 0 };
+//         sprintf(output, "~~BlobReceiver: %p, %d\n", this, s_blobEntrys->size());
+//         OutputDebugStringA(output);
     }
 
     void Clone(::mojo::PendingReceiver<::blink::mojom::blink::Blob> blob) override
@@ -185,10 +193,7 @@ public:
     }
 
     //using ReadSideDataCallback = base::OnceCallback<void(absl::optional<::mojo_base::BigBuffer>)>;
-    void ReadSideData(ReadSideDataCallback callback) override
-    {
-        content::printFuncName(__FUNCTION__, true, true);
-    }
+    void ReadSideData(ReadSideDataCallback callback) override;
 
     bool CaptureSnapshot(uint64_t* out_length, absl::optional<::base::Time>* out_modification_time) override
     {
@@ -337,6 +342,29 @@ void BlobReceiver::ReadAll(::mojo::ScopedDataPipeProducerHandle pipe, ::mojo::Pe
         onReadAllFinish(totalSize);
     else
         base::SequencedTaskRunnerHandle::Get()->PostTask(FROM_HERE, base::BindOnce(&BlobReceiver::onReadAllFinish, m_weakFactory.GetWeakPtr(), totalSize));
+}
+
+void BlobReceiver::ReadSideData(ReadSideDataCallback callback)
+{
+    // 目前只在LocalFrameHostImpl::DownloadURL里用到，所以本函数简化了实现
+    uint64_t totalSize = 0;
+
+    BlobEntry* blobEntry = BlobEntry::findByUuid(m_uuid);
+    CHECK(blobEntry->m_elements.size() == 1);
+
+    for (size_t i = 0; blobEntry && i < blobEntry->m_elements.size(); ++i) {
+        DataElementImpl* ele = blobEntry->m_elements[i];
+        if (ele->tag == DataElementType::kBytes) {
+            totalSize += ele->u.bytes->length;
+
+            uint32_t numBytes = ele->u.bytes->embeddedData.size();
+            ::mojo_base::BigBuffer buf(base::span<const uint8_t>(ele->u.bytes->embeddedData.data(), numBytes));
+            absl::optional<::mojo_base::BigBuffer> bufOpt(std::move(buf));
+            std::move(callback).Run(std::move(bufOpt));
+        } else {
+            CHECK(false);
+        }
+    }
 }
 
 struct WaitForDataInfo {
@@ -663,7 +691,7 @@ void BlobRegistryImpl::URLStoreForOrigin(
     //m_blobURLStoreReceiver = new mojo::AssociatedReceiver<::blink::mojom::blink::BlobURLStore>(new BlobURLStoreImpl(origin));
     //m_blobURLStoreReceiver->Bind(std::move(url_store));
 
-    createAndBindInterface<::blink::mojom::blink::BlobURLStore, BlobURLStoreImpl>(std::move(urlStore.PassPipe()), origin);
+    createAndBindInterface<::blink::mojom::blink::BlobURLStore, BlobURLStoreImpl>(std::move(urlStore.PassPipe()), origin->ToRawString().Utf8());
 }
 
 }

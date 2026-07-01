@@ -36,7 +36,13 @@ void ContextLifecycleNotifier::NotifyContextDestroyed()
     context_destroyed_ = true;
 
     ScriptForbiddenScope forbid_script;
-    observers_.ForEachObserver([](ContextLifecycleObserver* observer) { observer->NotifyContextDestroyed(); });
+    observers_.ForEachObserver([](ContextLifecycleObserver* observer) {
+        // todo(mb): release 版本偶现, 这里是看环境堆栈改的
+        // cli.im 验证码登录的时候, 这里会崩溃, 原因是 observer 的 notifier 是空(0), 但从设计上来看是不可能的, 需要找到根本原因
+        if (observer->GetContextLifecycleNotifier()) {
+            observer->NotifyContextDestroyed();
+        }
+    });
     observers_.Clear();
 }
 

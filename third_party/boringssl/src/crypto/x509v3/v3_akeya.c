@@ -62,7 +62,6 @@
 #include <openssl/conf.h>
 #include <openssl/x509v3.h>
 
-
 ASN1_SEQUENCE(AUTHORITY_KEYID) = {
     ASN1_IMP_OPT(AUTHORITY_KEYID, keyid, ASN1_OCTET_STRING, 0),
     ASN1_IMP_SEQUENCE_OF_OPT(AUTHORITY_KEYID, issuer, GENERAL_NAME, 1),

@@ -15,6 +15,9 @@
 
 #include "content/browser/MbWebview.h"
 #include "content/renderer/WebLocalFrameClientImpl.h"
+#include "content/common/ThreadCall.h"
+#include "content/common/LiveIdDetect.h"
+#include "base/task/sequenced_task_runner.h"
 
 void mbDestroyWebViewImpl(mbWebView webviewHandle);
 
@@ -32,6 +35,29 @@ void LocalMainFrameHostImpl::RequestClose()
         return;
     int64_t id = m_frameClient->getMbwebviewId();
     mbDestroyWebViewImpl(id);
+}
+
+void LocalMainFrameHostImpl::UpdateTargetURL(const ::blink::KURL& url, UpdateTargetURLCallback callback)
+{
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, base::BindOnce([](UpdateTargetURLCallback callback) {
+        std::move(callback).Run();
+    }, std::move(callback)));
+
+    if (!m_frameClient)
+        return;
+    int64_t id = m_frameClient->getMbwebviewId();
+    MbWebView* webview = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(id);
+    if (!webview || !webview->getClosure().m_MouseOverUrlChangedCallback)
+        return;
+    
+    std::string urlStr = url.GetString().Utf8();
+    
+    ThreadCall::callUiThreadAsync(MB_FROM_HERE, [id, urlStr]() {
+        MbWebView* webview = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(id);
+        if (webview && webview->getClosure().m_MouseOverUrlChangedCallback) {
+            webview->getClosure().m_MouseOverUrlChangedCallback(id, webview->getClosure().m_MouseOverUrlChangedParam, urlStr.c_str());
+        }
+    });
 }
 
 }

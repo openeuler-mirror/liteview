@@ -24,6 +24,7 @@
 #include "content/common/mbchar.h"
 #include "content/renderer/WebLocalFrameClientImpl.h"
 #include "content/renderer/RenderThreadImpl.h"
+#include "mbnet/cookies/WebCookieJarCurlImpl.h"
 #include "mbnet/WebURLLoaderInternal.h"
 #include "third_party/blink/public/web/web_frame_serializer.h"
 #include "third_party/blink/public/web/web_view.h"
@@ -38,9 +39,11 @@
 #ifdef OS_WIN
 #include "ui/display/win/screen_win.h"
 #endif
+#include "ui/display/screen.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/at_exit.h"
 #include "base/base64.h"
@@ -317,9 +320,9 @@ inline HRESULT SetProcessDpiAwarenessXp(XP_PROCESS_DPI_AWARENESS value)
 }
 #endif // OS_WIN
 
-//namespace content {
-//display::Screen* getScreenOrCreate();
-//}
+namespace content {
+display::Screen* getScreenOrCreate();
+}
 
 void MB_CALL_TYPE mbEnableHighDPISupport()
 {
@@ -433,6 +436,34 @@ void MB_CALL_TYPE mbGetWorldScriptContextByWebFrame(mbWebView webviewHandle, mbW
     }
     v8::Local<v8::Context>* contextOutPtr = (v8::Local<v8::Context>*)contextOut;
     *contextOutPtr = result;
+}
+
+void MB_CALL_TYPE mbClearCookie(mbWebView webView)
+{
+    mbPerformCookieCommand(webView, mbCookieCommandClearAllCookies);
+}
+
+void MB_CALL_TYPE mbPerformCookieCommand(mbWebView webviewHandle, mbCookieCommand command)
+{
+    content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [command](content::MbWebView* webview) {
+        webview->performCookieCommand(command);
+    });
+}
+
+void MB_CALL_TYPE mbSetCookieJarPath(mbWebView webviewHandle, const WCHAR* path)
+{
+    if (!path)
+        return;
+
+    std::u16string pathString((const char16_t*)path);
+    if (0 == pathString.size())
+        return;
+
+    if (mbu16('\\') != pathString[pathString.size() - 1])
+        pathString += (char16_t)mbu16('\\');
+    pathString += (const char16_t*)mbu16("cookies.dat");
+
+    mbSetCookieJarFullPath(webviewHandle, (const WCHAR*)pathString.c_str());
 }
 
 namespace content {

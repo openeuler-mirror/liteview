@@ -234,7 +234,7 @@ void SimpleFontData::PlatformGlyphInitVerticalUpright(Glyph cjk_water_glyph)
     //   const float size_per_unit = platform_data.size() / (units_per_em ? units_per_em : 1);
     //   vertical_data->SetScaleAndFallbackMetrics(size_per_unit, metrics.FloatAscent(), metrics.Height());
     //   font_metrics_.SetIdeographicFullWidth(vertical_data->AdvanceHeight(cjk_water_glyph));
-    *(int*)1 = 1;
+    printf("SimpleFontData::PlatformGlyphInitVerticalUpright is not impl");
 }
 
 const SimpleFontData* SimpleFontData::FontDataForCharacter(UChar32) const

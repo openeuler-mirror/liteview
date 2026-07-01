@@ -51,44 +51,42 @@
 
 #include "internal.h"
 
-
 static_assert(16 % sizeof(size_t) == 0, "block cannot be divided into size_t");
 
-void CRYPTO_ofb128_encrypt(const uint8_t *in, uint8_t *out, size_t len,
-                           const AES_KEY *key, uint8_t ivec[16], unsigned *num,
-                           block128_f block) {
-  assert(key != NULL && ivec != NULL && num != NULL);
-  assert(len == 0 || (in != NULL && out != NULL));
+void CRYPTO_ofb128_encrypt(const uint8_t* in, uint8_t* out, size_t len, const AES_KEY* key, uint8_t ivec[16], unsigned* num, block128_f block)
+{
+    assert(key != NULL && ivec != NULL && num != NULL);
+    assert(len == 0 || (in != NULL && out != NULL));
 
-  unsigned n = *num;
+    unsigned n = *num;
 
-  while (n && len) {
-    *(out++) = *(in++) ^ ivec[n];
-    --len;
-    n = (n + 1) % 16;
-  }
-
-  while (len >= 16) {
-    (*block)(ivec, ivec, key);
-    for (; n < 16; n += sizeof(size_t)) {
-      size_t a, b;
-      OPENSSL_memcpy(&a, in + n, sizeof(size_t));
-      OPENSSL_memcpy(&b, ivec + n, sizeof(size_t));
-
-      const size_t c = a ^ b;
-      OPENSSL_memcpy(out + n, &c, sizeof(size_t));
+    while (n && len) {
+        *(out++) = *(in++) ^ ivec[n];
+        --len;
+        n = (n + 1) % 16;
     }
-    len -= 16;
-    out += 16;
-    in += 16;
-    n = 0;
-  }
-  if (len) {
-    (*block)(ivec, ivec, key);
-    while (len--) {
-      out[n] = in[n] ^ ivec[n];
-      ++n;
+
+    while (len >= 16) {
+        (*block)(ivec, ivec, key);
+        for (; n < 16; n += sizeof(size_t)) {
+            size_t a, b;
+            OPENSSL_memcpy(&a, in + n, sizeof(size_t));
+            OPENSSL_memcpy(&b, ivec + n, sizeof(size_t));
+
+            const size_t c = a ^ b;
+            OPENSSL_memcpy(out + n, &c, sizeof(size_t));
+        }
+        len -= 16;
+        out += 16;
+        in += 16;
+        n = 0;
     }
-  }
-  *num = n;
+    if (len) {
+        (*block)(ivec, ivec, key);
+        while (len--) {
+            out[n] = in[n] ^ ivec[n];
+            ++n;
+        }
+    }
+    *num = n;
 }

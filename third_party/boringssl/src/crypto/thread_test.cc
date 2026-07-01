@@ -108,7 +108,7 @@ TEST(ThreadTest, ThreadLocal)
 
     // Create a no-op thread to test that the thread destructor function works
     // even if thread-local storage wasn't used for a thread.
-    thread = std::thread([] {});
+    thread = std::thread([] { });
     thread.join();
 }
 

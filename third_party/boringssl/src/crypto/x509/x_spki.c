@@ -61,7 +61,6 @@
 #include <openssl/asn1t.h>
 #include <openssl/x509.h>
 
-
 ASN1_SEQUENCE(NETSCAPE_SPKAC) = {
     ASN1_SIMPLE(NETSCAPE_SPKAC, pubkey, X509_PUBKEY),
     ASN1_SIMPLE(NETSCAPE_SPKAC, challenge, ASN1_IA5STRING),

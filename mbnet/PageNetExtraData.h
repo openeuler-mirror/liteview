@@ -44,6 +44,7 @@ public:
 
     void setLocalStorageDir(const std::string& localStorageDir);
     base::FilePath getLocalStorageDir();
+    base::FilePath getDownloadDirPath();
 
     void setProxy(const mbProxy* proxy);
     const mbProxy* getProxy() const;
@@ -52,6 +53,7 @@ private:
 
     WebCookieJarImpl* m_cookieJar;
     base::FilePath m_localStotageFullPath;
+    base::FilePath m_downloadDirPath;
 };
 
 }

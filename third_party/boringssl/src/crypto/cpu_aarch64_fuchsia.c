@@ -14,8 +14,7 @@
 
 #include "internal.h"
 
-#if defined(OPENSSL_AARCH64) && defined(OPENSSL_FUCHSIA) && \
-    !defined(OPENSSL_STATIC_ARMCAP)
+#if defined(OPENSSL_AARCH64) && defined(OPENSSL_FUCHSIA) && !defined(OPENSSL_STATIC_ARMCAP)
 
 #include <zircon/features.h>
 #include <zircon/syscalls.h>
@@ -25,32 +24,33 @@
 
 extern uint32_t OPENSSL_armcap_P;
 
-void OPENSSL_cpuid_setup(void) {
-  uint32_t hwcap;
-  zx_status_t rc = zx_system_get_features(ZX_FEATURE_KIND_CPU, &hwcap);
-  if (rc != ZX_OK || (hwcap & ZX_ARM64_FEATURE_ISA_ASIMD) == 0) {
-    // If NEON/ASIMD is missing, don't report other features either. This
-    // matches OpenSSL, and the other features depend on SIMD registers.
-    return;
-  }
+void OPENSSL_cpuid_setup(void)
+{
+    uint32_t hwcap;
+    zx_status_t rc = zx_system_get_features(ZX_FEATURE_KIND_CPU, &hwcap);
+    if (rc != ZX_OK || (hwcap & ZX_ARM64_FEATURE_ISA_ASIMD) == 0) {
+        // If NEON/ASIMD is missing, don't report other features either. This
+        // matches OpenSSL, and the other features depend on SIMD registers.
+        return;
+    }
 
-  OPENSSL_armcap_P |= ARMV7_NEON;
+    OPENSSL_armcap_P |= ARMV7_NEON;
 
-  if (hwcap & ZX_ARM64_FEATURE_ISA_AES) {
-    OPENSSL_armcap_P |= ARMV8_AES;
-  }
-  if (hwcap & ZX_ARM64_FEATURE_ISA_PMULL) {
-    OPENSSL_armcap_P |= ARMV8_PMULL;
-  }
-  if (hwcap & ZX_ARM64_FEATURE_ISA_SHA1) {
-    OPENSSL_armcap_P |= ARMV8_SHA1;
-  }
-  if (hwcap & ZX_ARM64_FEATURE_ISA_SHA256) {
-    OPENSSL_armcap_P |= ARMV8_SHA256;
-  }
-  if (hwcap & ZX_ARM64_FEATURE_ISA_SHA512) {
-    OPENSSL_armcap_P |= ARMV8_SHA512;
-  }
+    if (hwcap & ZX_ARM64_FEATURE_ISA_AES) {
+        OPENSSL_armcap_P |= ARMV8_AES;
+    }
+    if (hwcap & ZX_ARM64_FEATURE_ISA_PMULL) {
+        OPENSSL_armcap_P |= ARMV8_PMULL;
+    }
+    if (hwcap & ZX_ARM64_FEATURE_ISA_SHA1) {
+        OPENSSL_armcap_P |= ARMV8_SHA1;
+    }
+    if (hwcap & ZX_ARM64_FEATURE_ISA_SHA256) {
+        OPENSSL_armcap_P |= ARMV8_SHA256;
+    }
+    if (hwcap & ZX_ARM64_FEATURE_ISA_SHA512) {
+        OPENSSL_armcap_P |= ARMV8_SHA512;
+    }
 }
 
-#endif  // OPENSSL_AARCH64 && OPENSSL_FUCHSIA && !OPENSSL_STATIC_ARMCAP
+#endif // OPENSSL_AARCH64 && OPENSSL_FUCHSIA && !OPENSSL_STATIC_ARMCAP

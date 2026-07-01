@@ -63,27 +63,37 @@
 
 #include "../fipsmodule/cipher/internal.h"
 
+static int rc4_init_key(EVP_CIPHER_CTX* ctx, const uint8_t* key, const uint8_t* iv, int enc)
+{
+    RC4_KEY* rc4key = (RC4_KEY*)ctx->cipher_data;
 
-static int rc4_init_key(EVP_CIPHER_CTX *ctx, const uint8_t *key,
-                        const uint8_t *iv, int enc) {
-  RC4_KEY *rc4key = (RC4_KEY *)ctx->cipher_data;
-
-  RC4_set_key(rc4key, EVP_CIPHER_CTX_key_length(ctx), key);
-  return 1;
+    RC4_set_key(rc4key, EVP_CIPHER_CTX_key_length(ctx), key);
+    return 1;
 }
 
-static int rc4_cipher(EVP_CIPHER_CTX *ctx, uint8_t *out, const uint8_t *in,
-                      size_t in_len) {
-  RC4_KEY *rc4key = (RC4_KEY *)ctx->cipher_data;
+static int rc4_cipher(EVP_CIPHER_CTX* ctx, uint8_t* out, const uint8_t* in, size_t in_len)
+{
+    RC4_KEY* rc4key = (RC4_KEY*)ctx->cipher_data;
 
-  RC4(rc4key, in_len, in, out);
-  return 1;
+    RC4(rc4key, in_len, in, out);
+    return 1;
 }
 
 static const EVP_CIPHER rc4 = {
-    NID_rc4,             1 /* block_size */, 16 /* key_size */,
-    0 /* iv_len */,      sizeof(RC4_KEY),    EVP_CIPH_VARIABLE_LENGTH,
-    NULL /* app_data */, rc4_init_key,       rc4_cipher,
-    NULL /* cleanup */,  NULL /* ctrl */, };
+    NID_rc4,
+    1 /* block_size */,
+    16 /* key_size */,
+    0 /* iv_len */,
+    sizeof(RC4_KEY),
+    EVP_CIPH_VARIABLE_LENGTH,
+    NULL /* app_data */,
+    rc4_init_key,
+    rc4_cipher,
+    NULL /* cleanup */,
+    NULL /* ctrl */,
+};
 
-const EVP_CIPHER *EVP_rc4(void) { return &rc4; }
+const EVP_CIPHER* EVP_rc4(void)
+{
+    return &rc4;
+}

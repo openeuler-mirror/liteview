@@ -198,8 +198,8 @@ public:
 #else
 #define MBLOG_NAME "mbexelog.txt"
 #endif
-        //m_handle = fopen("/home/weolar/test/wpt-master/_venv3/bin/chrome/chromedriver/" MBLOG_NAME, mode);
-        m_handle = fopen("/home/daniel/Desktop/wkexe/" MBLOG_NAME, mode);
+        m_handle = fopen("home/weolar/test/selenium/" MBLOG_NAME, mode);
+        //m_handle = fopen("/home/daniel/Desktop/wkexe/" MBLOG_NAME, mode);
         if (!m_handle)
             m_handle = fopen("/tmp/mbdriver/" MBLOG_NAME, mode);
         if (!m_handle)
@@ -636,16 +636,57 @@ HMODULE LoadLibraryW(LPCWSTR lpLibFileName)
     printf("LoadLibraryW\n");
     return NULL;
 }
-int MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
-{
-    printf("MessageBoxA\n");
-    return 0;
-}
-int MessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
-{
-    printf("MessageBoxW\n");
-    return 0;
-}
+
+// int MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
+// {
+//     printf("MessageBoxA\n");
+//     return 0;
+// }
+// int MessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
+// {
+//     auto cb = [self]() {
+//         do {
+//             if (!HwndLinux::s_hwnds)
+//                 break;
+//             pthread_mutex_lock(&HwndLinux::s_hwndMutex);
+//             std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find((HWND)self);
+//             pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+//             if (it == HwndLinux::s_hwnds->end())
+//                 break;
+// 
+//             self->m_isPostDamageRect = false;
+// 
+//             pthread_mutex_lock(&self->m_damageRectLock);
+//             std::vector<RECT> damageRects = self->m_damageRects;
+//             self->m_damageRects.clear();
+//             pthread_mutex_unlock(&self->m_damageRectLock);
+// 
+//             //printf("InvalidateRect~: %p\n", self);
+//             if (self->m_glArea) {
+//                 gtk_gl_area_queue_render(GTK_GL_AREA(self->m_glArea));
+//             } else {
+//                 for (size_t i = 0; i < damageRects.size(); ++i) {
+//                     RECT rc = damageRects[i];
+//                     gtk_widget_queue_draw_area(self->m_drawingArea, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top);
+//                 }
+//             }
+//         } while (false);
+//     };
+// 
+//     if (content::ThreadCall::isUiThread()) {
+//         pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+//         cb();
+//     } else {
+//         if (!self->m_isPostDamageRect) {
+//             self->m_isPostDamageRect = true;
+//             content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, std::move(cb));
+//         }
+//     }
+// 
+// 
+//     return 0;
+// }
+
 int GetDeviceCaps(HDC hdc, int index)
 {
     printf("GetDeviceCaps\n");
@@ -1275,12 +1316,6 @@ BOOL GetClassInfoW(HINSTANCE hInstance, LPCWSTR lpClassName, LPWNDCLASSW lpWndCl
 void DragAcceptFiles(HWND hWnd, BOOL fAccept)
 {
     printf("DragAcceptFiles\n");
-}
-
-HANDLE RemovePropW(HWND hWnd, LPCWSTR lpString)
-{
-    printf("RemovePropW\n");
-    return NULL;
 }
 
 BOOL IntersectRect(LPRECT prcDst, CONST RECT *prcSrc1, CONST RECT *prcSrc2)

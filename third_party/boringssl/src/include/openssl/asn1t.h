@@ -188,26 +188,17 @@ typedef struct ASN1_TLC_st ASN1_TLC;
 
 /* This helps with the template wrapper form of ASN1_ITEM */
 
-#define ASN1_EX_TEMPLATE_TYPE(flags, tag, name, type)                                                                                                          \
-    {                                                                                                                                                          \
-        (flags), (tag), 0, #name, ASN1_ITEM_ref(type)                                                                                                          \
-    }
+#define ASN1_EX_TEMPLATE_TYPE(flags, tag, name, type) { (flags), (tag), 0, #name, ASN1_ITEM_ref(type) }
 
 /* These help with SEQUENCE or CHOICE components */
 
 /* used to declare other types */
 
-#define ASN1_EX_TYPE(flags, tag, stname, field, type)                                                                                                          \
-    {                                                                                                                                                          \
-        (flags), (tag), offsetof(stname, field), #field, ASN1_ITEM_ref(type)                                                                                   \
-    }
+#define ASN1_EX_TYPE(flags, tag, stname, field, type) { (flags), (tag), offsetof(stname, field), #field, ASN1_ITEM_ref(type) }
 
 /* used when the structure is combined with the parent */
 
-#define ASN1_EX_COMBINE(flags, tag, type)                                                                                                                      \
-    {                                                                                                                                                          \
-        (flags) | ASN1_TFLG_COMBINE, (tag), 0, NULL, ASN1_ITEM_ref(type)                                                                                       \
-    }
+#define ASN1_EX_COMBINE(flags, tag, type) { (flags) | ASN1_TFLG_COMBINE, (tag), 0, NULL, ASN1_ITEM_ref(type) }
 
 /* implicit and explicit helper macros */
 
@@ -217,10 +208,7 @@ typedef struct ASN1_TLC_st ASN1_TLC;
 
 /* Any defined by macros: the field used is in the table itself */
 
-#define ASN1_ADB_OBJECT(tblname)                                                                                                                               \
-    {                                                                                                                                                          \
-        ASN1_TFLG_ADB_OID, -1, 0, #tblname, (const ASN1_ITEM*)&(tblname##_adb)                                                                                 \
-    }
+#define ASN1_ADB_OBJECT(tblname) { ASN1_TFLG_ADB_OID, -1, 0, #tblname, (const ASN1_ITEM*)&(tblname##_adb) }
 /* Plain simple type */
 #define ASN1_SIMPLE(stname, field, type) ASN1_EX_TYPE(0, 0, stname, field, type)
 
@@ -276,10 +264,7 @@ typedef struct ASN1_TLC_st ASN1_TLC;
     ;                                                                                                                                                          \
     static const ASN1_ADB name##_adb = { flags, offsetof(name, field), app_table, name##_adbtbl, sizeof(name##_adbtbl) / sizeof(ASN1_ADB_TABLE), def, none }
 
-#define ADB_ENTRY(val, template)                                                                                                                               \
-    {                                                                                                                                                          \
-        val, template                                                                                                                                          \
-    }
+#define ADB_ENTRY(val, template) { val, template }
 
 #define ASN1_ADB_TEMPLATE(name) static const ASN1_TEMPLATE name##_tt
 

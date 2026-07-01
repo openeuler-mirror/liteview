@@ -72,7 +72,7 @@ void VizClient::destroy(std::function<void(void)>&& callback)
         self->m_sink.reset();
         //delete self; // TODO
 
-        ThreadCall::delayDestroySelf(self, s_vizClientThread->task_runner());
+        ThreadCall::delayDestroySelf(self, s_vizClientThread->task_runner(), 2000);
 
         (callback)();
         OutputDebugStringA("VizClient::destroy\n");

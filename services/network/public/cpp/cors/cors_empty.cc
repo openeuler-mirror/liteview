@@ -21,10 +21,10 @@
 // #include "net/http/http_util.h"
 // #include "services/network/public/cpp/is_potentially_trustworthy.h"
 // #include "services/network/public/cpp/request_mode.h"
-// #include "url/gurl.h"
-// #include "url/origin.h"
-// #include "url/url_constants.h"
-// #include "url/url_util.h"
+#include "url/gurl.h"
+#include "url/origin.h"
+#include "url/url_constants.h"
+#include "url/url_util.h"
 
 // String conversion from blink::String to std::string for header name/value
 // should be latin-1, not utf-8, as per HTTP. Note that as we use ByteString
@@ -34,6 +34,21 @@
 namespace network {
 
 namespace cors {
+
+bool ShouldCheckCors(const GURL& request_url, const absl::optional<url::Origin>& request_initiator, mojom::RequestMode request_mode)
+{
+    if (request_mode == network::mojom::RequestMode::kNavigate || request_mode == network::mojom::RequestMode::kNoCors) {
+        return false;
+    }
+
+    // CORS needs a proper origin (including a unique opaque origin). If the
+    // request doesn't have one, CORS should not work.
+    DCHECK(request_initiator);
+
+    if (request_initiator->IsSameOriginWith(request_url))
+        return false;
+    return true;
+}
 
 std::vector<std::string> CorsUnsafeRequestHeaderNames(std::vector<net::HttpRequestHeaders::HeaderKeyValuePair> const&)
 {

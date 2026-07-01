@@ -350,7 +350,7 @@ bool ParseLegacyVp9CodecID(base::StringPiece codec_id, VideoCodecProfile* profil
     return false;
 }
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 bool ParseAv1CodecId(base::StringPiece codec_id, VideoCodecProfile* profile, uint8_t* level_idc, VideoColorSpace* color_space)
 {
     // The codecs parameter string for the AOM AV1 codec is as follows:
@@ -536,7 +536,7 @@ bool ParseAv1CodecId(base::StringPiece codec_id, VideoCodecProfile* profile, uin
 
     return true;
 }
-#endif // BUILDFLAG(ENABLE_AV1_DECODER)
+#endif // BUILDFLAG(ENABLE_AV1_DECODER)  && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 
 bool ParseAVCCodecId(base::StringPiece codec_id, VideoCodecProfile* profile, uint8_t* level_idc)
 {
@@ -947,7 +947,7 @@ void ParseCodec(base::StringPiece codec_id, VideoCodec& codec, VideoCodecProfile
         return;
     }
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     if (ParseAv1CodecId(codec_id, &profile, &level, &color_space)) {
         codec = VideoCodec::kAV1;
         return;

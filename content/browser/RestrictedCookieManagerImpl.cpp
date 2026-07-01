@@ -98,16 +98,26 @@ static mbnet::WebCookieJarImpl* getCookieJar(int64_t webviewId)
 
 void RestrictedCookieManagerImpl::GetAllForUrl(
     const ::blink::KURL& url,
-    const ::net::SiteForCookies& site_for_cookies, 
-    const ::scoped_refptr<const ::blink::SecurityOrigin>& top_frame_origin,
+    const ::net::SiteForCookies& siteForCookies,
+    const ::scoped_refptr<const ::blink::SecurityOrigin>& topFrameOrigin,
     ::network::mojom::blink::CookieManagerGetOptionsPtr options,
-    bool partitioned_cookies_runtime_feature_enabled, 
+    bool partitionedCookiesRuntimeFeatureEnabled,
     GetAllForUrlCallback callback)
 {
-    printFuncName(__FUNCTION__, true, true);
-    mbnet::WebCookieJarImpl* cookieJar = mbnet::WebURLLoaderManager::sharedInstance()->getShareCookieJar();
-    VisitAllCookies* visit = new VisitAllCookies();
-    cookieJar->visitAllCookie(visit, &VisitAllCookies::cookieVisitor);
+//     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, base::BindOnce([](
+//         int64_t webviewId,
+//         const ::blink::KURL& url, 
+//         const ::net::SiteForCookies& siteForCookies,
+//         const ::scoped_refptr<const ::blink::SecurityOrigin>& topFrameOrigin,
+//         ::network::mojom::blink::CookieManagerGetOptionsPtr options,
+//         bool partitionedCookiesRuntimeFeatureEnabled, 
+//         network::mojom::blink::RestrictedCookieManager::GetAllForUrlCallback callback) {
+//         mbnet::WebCookieJarImpl* cookieJar = getCookieJar(webviewId);
+//         cookieJar->getAllCookies(url, siteForCookies, 
+//             topFrameOrigin, std::move(options), partitionedCookiesRuntimeFeatureEnabled, std::move(callback));
+//     },
+//     m_webviewId, url, siteForCookies, topFrameOrigin, std::move(options), partitionedCookiesRuntimeFeatureEnabled,
+//     std::move(callback)));
 }
 
 void RestrictedCookieManagerImpl::SetCanonicalCookie(
@@ -118,7 +128,14 @@ void RestrictedCookieManagerImpl::SetCanonicalCookie(
     ::net::CookieInclusionStatus status, 
     SetCanonicalCookieCallback callback)
 {
-    printFuncName(__FUNCTION__, true, true);
+//     std::string ckLine = net::CanonicalCookie::BuildCookieAttributesLine(cookie);
+// 
+//     mbnet::WebCookieJarImpl* cookieJar = getCookieJar(m_webviewId);
+//     cookieJar->setCookiesFromDOM(blink::KURL(), url, ckLine);
+// 
+//     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE, base::BindOnce([](SetCanonicalCookieCallback callback) {
+//         std::move(callback).Run(true);
+//     }, std::move(callback)));
 }
 
 void RestrictedCookieManagerImpl::AddChangeListener(
@@ -171,7 +188,7 @@ bool RestrictedCookieManagerImpl::GetCookiesString(
     WTF::String* out_cookies)
 {
     mbnet::WebCookieJarImpl* cookieJar = getCookieJar(m_webviewId);
-    std::string result = cookieJar->getCookiesForSession(blink::KURL(), url, /*bool httponly*/ false);
+    std::string result = cookieJar->getCookiesForSession(url, /*bool httponly*/ false);
     *out_cookies = WTF::String::FromUTF8((const uint8_t*)result.c_str(), result.size());
     return true;
 }

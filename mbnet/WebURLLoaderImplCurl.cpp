@@ -23,6 +23,9 @@
 #include "third_party/blink/public/platform/resource_load_info_notifier_wrapper.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/cors/cors.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
+#include "url/origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "base/strings/string_util.h"
 #include <windows.h>
@@ -202,6 +205,59 @@ static bool checkIsResURL(const GURL& url)
     return false;
 }
 
+
+static bool checkCorsFlagIfNeeded(network::ResourceRequest* request)
+{
+    if (!network::cors::ShouldCheckCors(request->url, request->request_initiator, request->mode))
+        return false;
+
+    //if (HasSpecialAccessToDestination())
+    //    return false;
+
+    return true;
+}
+
+static void addOriginHeaderIfNeeded(network::ResourceRequest* request)
+{
+    // services/network/cors/cors_url_loader.cc
+    auto shouldIncludeOriginHeader = [request]() -> bool {
+        if (!request->request_initiator)
+            return false;
+
+        //if (request->credentials_mode == network::mojom::CredentialsMode::kInclude
+        //   && GetStorageAccessStatus() == net::cookie_util::StorageAccessStatus::kInactive
+        //   ) {
+        //    // Lower layers will add the Sec-Fetch-Storage-Access header, and the
+        //    // server may respond with a "retry" header. The server needs to know the
+        //    // origin in that event.
+        //    return true;
+        //}
+
+        // If the `CORS flag` is set, `httpRequest`’s method is neither `GET` nor
+        // `HEAD`, or `httpRequest`’s mode is "websocket", then append
+        // `Origin`/the result of serializing a request origin with `httpRequest`,
+        // to `httpRequest`’s header list.
+        //
+        // We exclude navigation requests to keep the existing behavior.
+        // TODO(yhirano): Reconsider this.
+        if (request->mode == network::mojom::RequestMode::kNavigate)
+            return false;
+
+        if (checkCorsFlagIfNeeded(request))
+            return true;
+        return request->method != net::HttpRequestHeaders::kGetMethod && request->method != net::HttpRequestHeaders::kHeadMethod;
+    };
+
+    if (shouldIncludeOriginHeader()) {
+        //         if (tainted_) {
+        //             request_.headers.SetHeader(net::HttpRequestHeaders::kOrigin, url::Origin().Serialize());
+        //         } else {
+        //             request_.headers.SetHeader(net::HttpRequestHeaders::kOrigin, request_.request_initiator->Serialize());
+        //         }
+        request->headers.SetHeader(net::HttpRequestHeaders::kOrigin, request->request_initiator->Serialize());
+    }
+}
+
 void WebURLLoaderImplCurl::LoadSynchronously(
     std::unique_ptr<network::ResourceRequest> request,
     scoped_refptr<blink::WebURLRequestExtraData> urlRequestExtraData,
@@ -224,6 +280,8 @@ void WebURLLoaderImplCurl::LoadSynchronously(
     init();
 
     GURL url = request->url;
+    addOriginHeaderIfNeeded(request.get());
+
     if (url.SchemeIs("blob")) {
 //         ::mojo::Remote<::blink::mojom::blink::Blob>* blob = content::BlobURLStoreSet::get()->getBlobByUrl(url.possibly_invalid_spec());
 //         if (!blob)
@@ -231,7 +289,8 @@ void WebURLLoaderImplCurl::LoadSynchronously(
 // 
 //         m_blobLoader = mbnet::BlobResourceLoader::createAsync(url, client);
 //         m_blobLoader->start();
-        DebugBreak();
+        //DebugBreak();
+        printf("LoadSynchronously Scheme blob not impl\n");
         return;
     }
 
@@ -265,6 +324,7 @@ void WebURLLoaderImplCurl::LoadAsynchronously(
     init();
 
     GURL url = request->url;
+    addOriginHeaderIfNeeded(request.get());
     mbnet::WebURLLoaderManager::IoThreadType type = checkIsResURL(url) ? mbnet::WebURLLoaderManager::kIoThreadTypeRes : mbnet::WebURLLoaderManager::kIoThreadTypeOther;
 
     int64_t mbwebviewId = extraDataWrap->mbwebviewId;
@@ -278,6 +338,8 @@ void WebURLLoaderImplCurl::LoadAsynchronously(
         return;
     }
 
+    addOriginHeaderIfNeeded(request.get());
+
     WebURLLoaderInternal* job = new WebURLLoaderInternal(netManager->getIoThread(type), this, std::move(request), client, false, shouldContentSniffURL(url));
     job->m_mbwebviewId = mbwebviewId;
     job->m_dataPipeProducerHandle = extraDataWrap->dataPipeProducerHandle;
@@ -285,13 +347,6 @@ void WebURLLoaderImplCurl::LoadAsynchronously(
     job->m_downloadName = extraDataWrap->releaseDownloadName();
 
     int jobIds = 0;
-//     if (WTF::IsMainThread()) {
-//         jobIds = netManager->addAsynchronousJob(job);
-//     } else {
-//         content::ThreadCall::callBlinkThreadAsync(FROM_HERE, [] {
-//             
-//         });
-//     }
     jobIds = netManager->addAsynchronousJob(job);
     if (0 == jobIds)
         return;
@@ -299,15 +354,6 @@ void WebURLLoaderImplCurl::LoadAsynchronously(
     job->m_jobId = m_jobId;
 
     // 执行完add后，this可能被销毁，当dataurl的时候
-#if 0
-//     blink::KURL url = (blink::KURL)requestNew.url();
-//     Vector<UChar> host = WTF::ensureUTF16UChar(url.host());
-// 
-//     if (!url.isValid() || !url.protocolIsData()) {
-//         WTF::String outstr = String::format("WebURLLoaderImpl.loadAsynchronously: %p %ws\n", this, WTF::ensureUTF16UChar(url.string()).data());
-//         OutputDebugStringW(outstr.charactersWithNullTermination().data());
-//     }
-#endif
 }
 
 void WebURLLoaderImplCurl::DidChangePriority(blink::WebURLRequest::Priority, int intra_priority_value)

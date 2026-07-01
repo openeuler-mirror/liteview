@@ -350,8 +350,17 @@ void TextResourceDecoder::AutoDetectEncodingIfAllowed(const char* data, wtf_size
     // todo(mb): 临时, 后续需要实现一个比较靠谱的编码检测机制
     // https://search.yesky.com/searchproduct.do  这个网页, meta 里面设置了 utf8, 但是实际是 gbk, 并且 base::IsStringUTF8 是 true
     // 进入方式: https://search.yesky.com/product.html 输入任意字符点搜索
-    if (this->options_.HintURL() == "https://search.yesky.com/searchproduct.do") {
+    // i.taobao.com/my_itaobao 这个是淘宝个人中心左侧乱码, 同样也是 base::IsStringUTF8 为 true
+    if (this->options_.HintURL() == "https://search.yesky.com/searchproduct.do" || this->options_.HintURL().GetString().Contains("i.taobao.com/my_itaobao")) {
         SetEncoding(WTF::TextEncoding("GBK"), kEncodingFromContentSniffing);
+        return;
+    }
+
+    // todo(mb): 同上
+    // 这个网站 meta 中设置 gbk 编码, 实际是 utf8, 
+    // 首次访问 base::IsStringUTF8 为 true 正常, 点击一个内部工具再点返回 base::IsStringUTF8 就为 false, 此时乱码
+    if (this->options_.HintURL() == "https://tool.oschina.net/") {
+        SetEncoding(UTF8Encoding(), kEncodingFromContentSniffing);
         return;
     }
 

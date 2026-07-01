@@ -18,19 +18,19 @@
 #include "crypto/openssl_util.h"
 #include "third_party/blink/public/platform/web_crypto_algorithm_params.h"
 #include "third_party/blink/public/platform/web_crypto_key_algorithm.h"
-// #include "third_party/boringssl/src/include/openssl/bn.h"
-// #include "third_party/boringssl/src/include/openssl/bytestring.h"
-// #include "third_party/boringssl/src/include/openssl/ec.h"
-// #include "third_party/boringssl/src/include/openssl/ec_key.h"
-// #include "third_party/boringssl/src/include/openssl/evp.h"
-// #include "third_party/boringssl/src/include/openssl/mem.h"
-#include "third_party/openssl/openssl/include/openssl/bn.h"
-//#include "third_party/openssl/openssl/include/openssl/bytestring.h"
-#include "third_party/openssl/openssl/include/openssl/mem.h"
-#include "third_party/openssl/openssl/include/openssl/ec.h"
-#include "third_party/openssl/openssl/include/openssl/ec_key.h"
-#include "third_party/openssl/openssl/include/openssl/evp.h"
-#include "third_party/openssl/openssl/include/openssl/mem.h"
+#include "third_party/boringssl/src/include/openssl/bn.h"
+#include "third_party/boringssl/src/include/openssl/bytestring.h"
+#include "third_party/boringssl/src/include/openssl/ec.h"
+#include "third_party/boringssl/src/include/openssl/ec_key.h"
+#include "third_party/boringssl/src/include/openssl/evp.h"
+#include "third_party/boringssl/src/include/openssl/mem.h"
+// #include "third_party/openssl/openssl/include/openssl/bn.h"
+// #include "third_party/openssl/openssl/include/openssl/bytestring.h"
+// #include "third_party/openssl/openssl/include/openssl/mem.h"
+// #include "third_party/openssl/openssl/include/openssl/ec.h"
+// #include "third_party/openssl/openssl/include/openssl/ec_key.h"
+// #include "third_party/openssl/openssl/include/openssl/evp.h"
+// #include "third_party/openssl/openssl/include/openssl/mem.h"
 
 #include <windows.h>
 
@@ -168,11 +168,10 @@ Status CreateEC_KEY(blink::WebCryptoNamedCurve named_curve, bssl::UniquePtr<EC_K
 // |padded_length|.
 Status WritePaddedBIGNUM(const std::string& member_name, const BIGNUM* value, size_t padded_length, JwkWriter* jwk)
 {
-//     std::vector<uint8_t> padded_bytes(padded_length);
-//     if (!BN_bn2bin_padded(padded_bytes.data(), padded_bytes.size(), value))
-//         return Status::OperationError();
-//     jwk->SetBytes(member_name, padded_bytes);
-    *(int*)1 = 1;
+    std::vector<uint8_t> padded_bytes(padded_length);
+    if (!BN_bn2bin_padded(padded_bytes.data(), padded_bytes.size(), value))
+        return Status::OperationError();
+    jwk->SetBytes(member_name, padded_bytes);
     return Status::Success();
 }
 
@@ -508,36 +507,32 @@ Status EcAlgorithm::ImportKeyJwk(base::span<const uint8_t> key_data, const blink
 
 Status EcAlgorithm::ExportKeyRaw(const blink::WebCryptoKey& key, std::vector<uint8_t>* buffer) const
 {
-    OutputDebugStringA("EcAlgorithm::ExportKeyRaw not impl\n");
-    DebugBreak();
-    return Status::ErrorUnexpectedKeyType();
+    crypto::OpenSSLErrStackTracer err_tracer(FROM_HERE);
 
-    //   crypto::OpenSSLErrStackTracer err_tracer(FROM_HERE);
-    //
-    //   if (key.GetType() != blink::kWebCryptoKeyTypePublic)
-    //     return Status::ErrorUnexpectedKeyType();
-    //
-    //   EVP_PKEY* pkey = GetEVP_PKEY(key);
-    //
-    //   EC_KEY* ec = EVP_PKEY_get0_EC_KEY(pkey);
-    //   if (!ec)
-    //     return Status::ErrorUnexpected();
-    //
-    //   // Serialize the public key as an uncompressed point in X9.62 form.
-    //   uint8_t* raw;
-    //   size_t raw_len;
-    //   bssl::ScopedCBB cbb;
-    //   if (!CBB_init(cbb.get(), 0) ||
-    //       !EC_POINT_point2cbb(cbb.get(), EC_KEY_get0_group(ec),
-    //                           EC_KEY_get0_public_key(ec),
-    //                           POINT_CONVERSION_UNCOMPRESSED, nullptr) ||
-    //       !CBB_finish(cbb.get(), &raw, &raw_len)) {
-    //     return Status::OperationError();
-    //   }
-    //   buffer->assign(raw, raw + raw_len);
-    //   OPENSSL_free(raw);
-    //
-    //   return Status::Success();
+    if (key.GetType() != blink::kWebCryptoKeyTypePublic)
+        return Status::ErrorUnexpectedKeyType();
+
+    EVP_PKEY* pkey = GetEVP_PKEY(key);
+
+    EC_KEY* ec = EVP_PKEY_get0_EC_KEY(pkey);
+    if (!ec)
+        return Status::ErrorUnexpected();
+
+    // Serialize the public key as an uncompressed point in X9.62 form.
+    uint8_t* raw;
+    size_t raw_len;
+    bssl::ScopedCBB cbb;
+    if (!CBB_init(cbb.get(), 0) ||
+        !EC_POINT_point2cbb(cbb.get(), EC_KEY_get0_group(ec),
+            EC_KEY_get0_public_key(ec),
+            POINT_CONVERSION_UNCOMPRESSED, nullptr) ||
+        !CBB_finish(cbb.get(), &raw, &raw_len)) {
+        return Status::OperationError();
+    }
+    buffer->assign(raw, raw + raw_len);
+    OPENSSL_free(raw);
+
+    return Status::Success();
 }
 
 Status EcAlgorithm::ExportKeyPkcs8(const blink::WebCryptoKey& key, std::vector<uint8_t>* buffer) const

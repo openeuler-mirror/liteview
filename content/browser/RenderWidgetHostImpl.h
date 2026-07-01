@@ -101,21 +101,9 @@ public:
 
     void destroy();
 
-    void wasShown()
-    {
-        base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE, base::BindOnce([](base::WeakPtr<RenderWidgetHostImpl> self) {
-            self->wasShownImpl();
-        }, m_weakPtr.GetWeakPtr()));
-    }
+    void wasShown();
 
-    void wasShownImpl()
-    {
-        if (!m_blinkWidget.get()) {
-            wasShown();
-            return;
-        }
-        m_blinkWidget->WasShown(false /*was_evicted*/, ::blink::mojom::blink::RecordContentToVisibleTimeRequestPtr());
-    }
+    void wasShownImpl();
 
     void setHostFrameSinkManager(viz::HostFrameSinkManager* hostFrameSinkManager)
     {

@@ -13,6 +13,7 @@
 
 #include "content/renderer/WebDedicatedWorkerHostFactoryClientImpl.h"
 
+#include "content/browser/BroadcastChannelProviderImpl.h"
 #include "content/renderer/BlobURLStoreImpl.h"
 #include "content/common/CreateAndBindTempl.h"
 #include "third_party/blink/public/platform/web_worker_fetch_context.h"
@@ -38,17 +39,19 @@ public:
 
     void DidGenerateCacheableMetadata(::blink::mojom::blink::CodeCacheType cache_type, const ::blink::KURL& url, ::base::Time expected_response_time, ::mojo_base::BigBuffer data) override
     {
-        DebugBreak();
+        OutputDebugStringA("CodeCacheHostImpl::DidGenerateCacheableMetadata fail\n");
     }
 
     //using FetchCachedCodeCallback = base::OnceCallback<void(::base::Time, ::mojo_base::BigBuffer)>;
     void FetchCachedCode(::blink::mojom::blink::CodeCacheType cache_type, const ::blink::KURL& url, ::blink::mojom::blink::CodeCacheHost::FetchCachedCodeCallback callback) override
     {
+        OutputDebugStringA("CodeCacheHostImpl::FetchCachedCode fail\n");
         DebugBreak();
     }
 
     void ClearCodeCacheEntry(::blink::mojom::blink::CodeCacheType cache_type, const ::blink::KURL& url) override
     {
+        OutputDebugStringA("CodeCacheHostImpl::ClearCodeCacheEntry fail\n");
         DebugBreak();
     }
 
@@ -59,6 +62,7 @@ public:
         const ::scoped_refptr<const ::blink::SecurityOrigin>& cache_storage_origin,
         const WTF::String& cache_storage_cache_name) override
     {
+        OutputDebugStringA("CodeCacheHostImpl::DidGenerateCacheableMetadataInCacheStorage fail\n");
         DebugBreak();
     }
 };
@@ -105,7 +109,7 @@ public:
 
     }
 
-    void setOrgin(::scoped_refptr<const ::blink::SecurityOrigin> origin)
+    void setOrgin(const std::string& origin)
     {
         m_origin = origin;
     }
@@ -125,11 +129,13 @@ private:
             createAndBindBrokerProxy<::blink::mojom::blink::ReportingServiceProxy, ReportingServiceProxyImpl>(receiver.PassPipe());
         } else if ("blink.mojom.BlobURLStore" == name) {
             createAndBindInterface<::blink::mojom::blink::BlobURLStore, BlobURLStoreImpl>(std::move(receiver.PassPipe()), m_origin);
+        } else if ("blink.mojom.BroadcastChannelProvider" == name) {
+            createAndBindInterface<::blink::mojom::blink::BroadcastChannelProvider, BroadcastChannelProviderImpl>(receiver.PassPipe(), m_origin);
         } else
             DebugBreak();
     }
 
-    ::scoped_refptr<const ::blink::SecurityOrigin> m_origin;
+    std::string m_origin;
 };
 
 class DedicatedWorkerHostImpl : public blink::mojom::blink::DedicatedWorkerHost {
@@ -140,10 +146,10 @@ class DedicatedWorkerHostImpl : public blink::mojom::blink::DedicatedWorkerHost 
 };
 
 WebDedicatedWorkerHostFactoryClientImpl::WebDedicatedWorkerHostFactoryClientImpl(blink::WebDedicatedWorker* worker) 
-    : m_browserInterfaceBrokerImpl(new DedicatedWorkerHostBrowserInterfaceBroker())
-    , m_browserInterfaceBroker(new DedicatedWorkerHostBrowserInterfaceBroker())
-    , m_dedicatedWorkerHost(new DedicatedWorkerHostImpl())
-    , m_weakFactory(this)
+    //: m_browserInterfaceBrokerImpl(new DedicatedWorkerHostBrowserInterfaceBroker())
+    //, m_browserInterfaceBroker(new DedicatedWorkerHostBrowserInterfaceBroker())
+    //, m_dedicatedWorkerHost(new DedicatedWorkerHostImpl())
+    : m_weakFactory(this)
 {
     m_worker = worker;
 }
@@ -162,12 +168,15 @@ void WebDedicatedWorkerHostFactoryClientImpl::CreateWorkerHostDeprecated(
     mojo::PendingRemote<blink::mojom::BrowserInterfaceBroker> browserInterfaceBroker;
 
     blink::WebSecurityOrigin origin = blink::WebSecurityOrigin::Create(scriptUrl);
-    m_browserInterfaceBrokerImpl->setOrgin(origin);
-    mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> pendingBroker = browserInterfaceBroker.InitWithNewPipeAndPassReceiver();
-    m_browserInterfaceBroker.Bind(std::move(pendingBroker));
 
+    CHECK(!m_browserInterfaceBrokerImpl);
+    mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> pendingBroker = browserInterfaceBroker.InitWithNewPipeAndPassReceiver();
+    m_browserInterfaceBrokerImpl = createAndBindBrokerProxy<::blink::mojom::BrowserInterfaceBroker, DedicatedWorkerHostBrowserInterfaceBroker>(pendingBroker.PassPipe());
+    m_browserInterfaceBrokerImpl->setOrgin(origin.Get()->ToRawString().Utf8());
+
+    CHECK(!m_dedicatedWorkerHost);
     mojo::PendingReceiver<blink::mojom::blink::DedicatedWorkerHost> pendingWorkerHost = dedicatedWorkerHost.InitWithNewPipeAndPassReceiver();
-    m_dedicatedWorkerHost.Bind(std::move(pendingWorkerHost));
+    m_dedicatedWorkerHost = createAndBindBrokerProxy<::blink::mojom::blink::DedicatedWorkerHost, DedicatedWorkerHostImpl>(pendingWorkerHost.PassPipe());
 
     m_worker->OnWorkerHostCreated(std::move(browserInterfaceBroker), std::move(dedicatedWorkerHost));
 

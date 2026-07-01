@@ -821,15 +821,16 @@ void ResourceScriptStreamer::OnDataPipeReadable(MojoResult result, const mojo::H
     uint32_t data_size;
     MojoReadDataFlags flags_to_pass = MOJO_READ_DATA_FLAG_NONE;
     MojoResult begin_read_result = data_pipe_->BeginReadData(&data, &data_size, flags_to_pass);
-    if (begin_read_result != MOJO_RESULT_OK) {
-//         char* output = (char*)malloc(400);
-//         sprintf(output, "OnDataPipeReadable fail: %d\n", data_pipe_->value());
-//         OutputDebugStringA(output);
-//         free(output);
-        DCHECK(false);
-    }
+//     if (begin_read_result != MOJO_RESULT_OK) {
+// //         char* output = (char*)malloc(400);
+// //         sprintf(output, "OnDataPipeReadable fail: %d\n", data_pipe_->value());
+// //         OutputDebugStringA(output);
+// //         free(output);
+//         DCHECK(false);
+//     }
     // There should be data, so this read should succeed.
-    DCHECK_EQ(begin_read_result, MOJO_RESULT_OK);
+    //DCHECK_EQ(begin_read_result, MOJO_RESULT_OK);
+    CHECK(begin_read_result == MOJO_RESULT_OK || begin_read_result == MOJO_RESULT_FAILED_PRECONDITION || begin_read_result == MOJO_RESULT_SHOULD_WAIT);
 
     response_body_loader_client_->DidReceiveData(base::make_span(reinterpret_cast<const char*>(data), data_size));
     if (DecodingEnabled()) {

@@ -140,6 +140,7 @@ private:
 class BodyLoaderClient : public blink::WebURLLoaderClient {
 public:
     BodyLoaderClient(
+        int64_t mbwebviewId,
         bool isDownload,
         std::unique_ptr<blink::WebNavigationInfo> info, 
         const blink::LocalFrameToken& navigationControlToken,
@@ -173,6 +174,7 @@ public:
         int64_t total_decoded_body_length) override;
 
 protected:
+    int64_t m_mbwebviewId = 0;
     blink::FrameToken m_frameToken;
     std::unique_ptr<blink::WebNavigationInfo> m_info;
     blink::LocalFrameToken m_navigationControlId;

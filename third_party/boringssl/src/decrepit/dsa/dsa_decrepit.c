@@ -53,53 +53,51 @@
 #include <openssl/bn.h>
 #include <openssl/dsa.h>
 
-
 struct wrapped_callback {
-  void (*callback)(int, int, void *);
-  void *arg;
+    void (*callback)(int, int, void*);
+    void* arg;
 };
 
 // callback_wrapper converts an “old” style generation callback to the newer
 // |BN_GENCB| form.
-static int callback_wrapper(int event, int n, BN_GENCB *gencb) {
-  struct wrapped_callback *wrapped = (struct wrapped_callback *) gencb->arg;
-  wrapped->callback(event, n, wrapped->arg);
-  return 1;
+static int callback_wrapper(int event, int n, BN_GENCB* gencb)
+{
+    struct wrapped_callback* wrapped = (struct wrapped_callback*)gencb->arg;
+    wrapped->callback(event, n, wrapped->arg);
+    return 1;
 }
 
-DSA *DSA_generate_parameters(int bits, uint8_t *seed_in, int seed_len,
-                             int *counter_ret, unsigned long *h_ret,
-                             void (*callback)(int, int, void *), void *cb_arg) {
-  if (bits < 0 || seed_len < 0) {
-      return NULL;
-  }
+DSA* DSA_generate_parameters(int bits, uint8_t* seed_in, int seed_len, int* counter_ret, unsigned long* h_ret, void (*callback)(int, int, void*), void* cb_arg)
+{
+    if (bits < 0 || seed_len < 0) {
+        return NULL;
+    }
 
-  DSA *ret = DSA_new();
-  if (ret == NULL) {
-      return NULL;
-  }
+    DSA* ret = DSA_new();
+    if (ret == NULL) {
+        return NULL;
+    }
 
-  BN_GENCB gencb_storage;
-  BN_GENCB *cb = NULL;
+    BN_GENCB gencb_storage;
+    BN_GENCB* cb = NULL;
 
-  struct wrapped_callback wrapped;
+    struct wrapped_callback wrapped;
 
-  if (callback != NULL) {
-    wrapped.callback = callback;
-    wrapped.arg = cb_arg;
+    if (callback != NULL) {
+        wrapped.callback = callback;
+        wrapped.arg = cb_arg;
 
-    cb = &gencb_storage;
-    BN_GENCB_set(cb, callback_wrapper, &wrapped);
-  }
+        cb = &gencb_storage;
+        BN_GENCB_set(cb, callback_wrapper, &wrapped);
+    }
 
-  if (!DSA_generate_parameters_ex(ret, bits, seed_in, seed_len, counter_ret,
-                                  h_ret, cb)) {
-    goto err;
-  }
+    if (!DSA_generate_parameters_ex(ret, bits, seed_in, seed_len, counter_ret, h_ret, cb)) {
+        goto err;
+    }
 
-  return ret;
+    return ret;
 
 err:
-  DSA_free(ret);
-  return NULL;
+    DSA_free(ret);
+    return NULL;
 }

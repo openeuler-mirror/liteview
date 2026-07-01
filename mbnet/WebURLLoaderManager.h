@@ -65,6 +65,7 @@ struct BlobTempFileInfo;
 struct InitializeHandleInfo;
 struct MainTaskArgs;
 class WebURLLoaderManagerMainTask;
+class SyncJob;
 
 class AutoLockJob {
 public:
@@ -119,7 +120,7 @@ public:
     void handleDidReceiveResponse(WebURLLoaderInternal* job);
     void handleDidSentData(WebURLLoaderInternal* job, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
 
-    void continueJob(WebURLLoaderInternal* job);
+    void continueJob(WebURLLoaderInternal* job, bool forceGoHookAsynTask);
     void cancelWithHookRedirect(WebURLLoaderInternal* job);
 
     String handleHeaderForBlobOnMainThread(WebURLLoaderInternal* job, size_t totalSize);
@@ -160,7 +161,7 @@ private:
     void startOnIoThread(int jobId);
     void timeoutOnMainThread(int jobId);
 
-    void dispatchSynchronousJobOnIoThread(WebURLLoaderInternal* job, InitializeHandleInfo* info, CURLcode* ret, int* isCallFinish);
+    void dispatchSynchronousJobOnIoThread(WebURLLoaderInternal* job, InitializeHandleInfo* info, SyncJob* syncJob);
 
     void initCookieSession(const char* cookiePath);
 

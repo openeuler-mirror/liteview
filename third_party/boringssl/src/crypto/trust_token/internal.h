@@ -95,7 +95,7 @@ int pmbtoken_exp1_issuer_key_from_bytes(TRUST_TOKEN_ISSUER_KEY* key, const uint8
 STACK_OF(TRUST_TOKEN_PRETOKEN) * pmbtoken_exp1_blind(CBB* cbb, size_t count);
 int pmbtoken_exp1_sign(const TRUST_TOKEN_ISSUER_KEY* key, CBB* cbb, CBS* cbs, size_t num_requested, size_t num_to_issue, uint8_t private_metadata);
 STACK_OF(TRUST_TOKEN)
-    * pmbtoken_exp1_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
+*pmbtoken_exp1_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
 int pmbtoken_exp1_read(
     const TRUST_TOKEN_ISSUER_KEY* key, uint8_t out_nonce[TRUST_TOKEN_NONCE_SIZE], uint8_t* out_private_metadata, const uint8_t* token, size_t token_len);
 
@@ -113,7 +113,7 @@ int pmbtoken_exp2_issuer_key_from_bytes(TRUST_TOKEN_ISSUER_KEY* key, const uint8
 STACK_OF(TRUST_TOKEN_PRETOKEN) * pmbtoken_exp2_blind(CBB* cbb, size_t count);
 int pmbtoken_exp2_sign(const TRUST_TOKEN_ISSUER_KEY* key, CBB* cbb, CBS* cbs, size_t num_requested, size_t num_to_issue, uint8_t private_metadata);
 STACK_OF(TRUST_TOKEN)
-    * pmbtoken_exp2_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
+*pmbtoken_exp2_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
 int pmbtoken_exp2_read(
     const TRUST_TOKEN_ISSUER_KEY* key, uint8_t out_nonce[TRUST_TOKEN_NONCE_SIZE], uint8_t* out_private_metadata, const uint8_t* token, size_t token_len);
 
@@ -140,7 +140,7 @@ int voprf_exp2_issuer_key_from_bytes(TRUST_TOKEN_ISSUER_KEY* key, const uint8_t*
 STACK_OF(TRUST_TOKEN_PRETOKEN) * voprf_exp2_blind(CBB* cbb, size_t count);
 int voprf_exp2_sign(const TRUST_TOKEN_ISSUER_KEY* key, CBB* cbb, CBS* cbs, size_t num_requested, size_t num_to_issue, uint8_t private_metadata);
 STACK_OF(TRUST_TOKEN)
-    * voprf_exp2_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
+*voprf_exp2_unblind(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
 int voprf_exp2_read(
     const TRUST_TOKEN_ISSUER_KEY* key, uint8_t out_nonce[TRUST_TOKEN_NONCE_SIZE], uint8_t* out_private_metadata, const uint8_t* token, size_t token_len);
 
@@ -193,7 +193,7 @@ struct trust_token_method_st {
     //
     // This function implements the AT.Usr1 operation.
     STACK_OF(TRUST_TOKEN)
-        * (*unblind)(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
+    *(*unblind)(const TRUST_TOKEN_CLIENT_KEY* key, const STACK_OF(TRUST_TOKEN_PRETOKEN) * pretokens, CBS* cbs, size_t count, uint32_t key_id);
 
     // read parses a PMBToken from |token| and verifies it using |key|. On
     // success, it returns one and stores the nonce and private metadata bit in

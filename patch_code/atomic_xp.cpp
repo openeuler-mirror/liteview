@@ -1,3 +1,15 @@
+//
+// Copyright (c) 2025 Institute of Software, Chinese Academy of Sciences (ISCAS)
+// LiteView is licensed under Mulan PSL v2.
+// You can use this software according to the terms and conditions of the Mulan PSL v2.
+// You may obtain a copy of Mulan PSL v2 at:
+//          http://license.coscl.org.cn/MulanPSL2
+// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+// EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+// MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+// See the Mulan PSL v2 for more details.
+//
+
 
 #include <windows.h>
 #include <stdio.h>
@@ -159,27 +171,27 @@ extern "C" long MB_InterlockedCompareExchange(long volatile* _Destination, long 
 #elif defined(_M_X64) || defined(__x86_64__)
 extern "C" long MB_InterlockedIncrement(long volatile* _Target)
 {
-    return _InterlockedIncrement((int volatile*)_Target);
+    return _InterlockedIncrement((LONG volatile*)_Target);
 }
 
 extern "C" long MB_InterlockedExchange(long volatile* _Target, long _Value)
 {
-    return _InterlockedExchange((int volatile*)_Target, _Value);
+    return _InterlockedExchange((LONG volatile*)_Target, _Value);
 }
 
 extern "C" long MB_InterlockedExchangeAdd(long volatile* _Addend, long _Value)
 {
-    return _InterlockedExchangeAdd((int volatile*)_Addend, _Value);
+    return _InterlockedExchangeAdd((LONG volatile*)_Addend, _Value);
 }
 
 extern "C" long MB_InterlockedDecrement(long volatile* _Target)
 {
-    return _InterlockedDecrement((int volatile*)_Target);
+    return _InterlockedDecrement((LONG volatile*)_Target);
 }
 
 extern "C" long MB_InterlockedCompareExchange(long volatile* _Destination, long _Exchange, long _Comparand)
 {
-    return _InterlockedCompareExchange((int volatile*)_Destination, _Exchange, _Comparand);
+    return _InterlockedCompareExchange((LONG volatile*)_Destination, _Exchange, _Comparand);
 }
 #else
 extern "C" long MB_InterlockedIncrement(long volatile* _Target)

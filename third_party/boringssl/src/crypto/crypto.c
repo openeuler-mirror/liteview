@@ -18,11 +18,8 @@
 #include "fipsmodule/rand/internal.h"
 #include "internal.h"
 
-
-#if !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_STATIC_ARMCAP) && \
-    (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || \
-     defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64) || \
-     defined(OPENSSL_PPC64LE))
+#if !defined(OPENSSL_NO_ASM) && !defined(OPENSSL_STATIC_ARMCAP)                                                                                                \
+    && (defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64) || defined(OPENSSL_PPC64LE))
 // x86, x86_64, the ARMs and ppc64le need to record the result of a
 // cpuid/getauxval call for the asm to work correctly, unless compiled without
 // asm code.
@@ -36,9 +33,8 @@
 #define BORINGSSL_NO_STATIC_INITIALIZER
 #endif
 
-#endif  // !NO_ASM && !STATIC_ARMCAP &&
-        // (X86 || X86_64 || ARM || AARCH64 || PPC64LE)
-
+#endif // !NO_ASM && !STATIC_ARMCAP &&                                                                                                                         \
+    // (X86 || X86_64 || ARM || AARCH64 || PPC64LE)
 
 // Our assembly does not use the GOT to reference symbols, which means
 // references to visible symbols will often require a TEXTREL. This is
@@ -50,7 +46,6 @@
 #else
 #define HIDDEN __attribute__((visibility("hidden")))
 #endif
-
 
 // The capability variables are defined in this file in order to work around a
 // linker bug. When linking with a .a, if no symbols in a .o are referenced
@@ -68,13 +63,13 @@
 // archive, linking on OS X will fail to resolve common symbols. By
 // initialising it to zero, it becomes a "data symbol", which isn't so
 // affected.
-HIDDEN uint8_t BORINGSSL_function_hit[7] = {0};
+HIDDEN uint8_t BORINGSSL_function_hit[7] = { 0 };
 #endif
 
 #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64)
 
 // This value must be explicitly initialized to zero. See similar comment above.
-HIDDEN uint32_t OPENSSL_ia32cap_P[4] = {0};
+HIDDEN uint32_t OPENSSL_ia32cap_P[4] = { 0 };
 
 #elif defined(OPENSSL_PPC64LE)
 
@@ -117,8 +112,9 @@ HIDDEN uint32_t OPENSSL_armcap_P =
 #else
 HIDDEN uint32_t OPENSSL_armcap_P = 0;
 
-uint32_t *OPENSSL_get_armcap_pointer_for_test(void) {
-  return &OPENSSL_armcap_P;
+uint32_t* OPENSSL_get_armcap_pointer_for_test(void)
+{
+    return &OPENSSL_armcap_P;
 }
 #endif
 
@@ -141,93 +137,123 @@ static CRYPTO_once_t once = CRYPTO_ONCE_INIT;
 #elif defined(_MSC_VER)
 #pragma section(".CRT$XCU", read)
 static void __cdecl do_library_init(void);
-__declspec(allocate(".CRT$XCU")) void(*library_init_constructor)(void) =
-    do_library_init;
+__declspec(allocate(".CRT$XCU")) void (*library_init_constructor)(void) = do_library_init;
 #else
-static void do_library_init(void) __attribute__ ((constructor));
+static void do_library_init(void) __attribute__((constructor));
 #endif
 
 // do_library_init is the actual initialization function. If
 // BORINGSSL_NO_STATIC_INITIALIZER isn't defined, this is set as a static
 // initializer. Otherwise, it is called by CRYPTO_library_init.
-static void OPENSSL_CDECL do_library_init(void) {
- // WARNING: this function may only configure the capability variables. See the
- // note above about the linker bug.
+static void OPENSSL_CDECL do_library_init(void)
+{
+    // WARNING: this function may only configure the capability variables. See the
+    // note above about the linker bug.
 #if defined(NEED_CPUID)
-  OPENSSL_cpuid_setup();
+    OPENSSL_cpuid_setup();
 #endif
 }
 
-void CRYPTO_library_init(void) {
-  // TODO(davidben): It would be tidier if this build knob could be replaced
-  // with an internal lazy-init mechanism that would handle things correctly
-  // in-library. https://crbug.com/542879
+void CRYPTO_library_init(void)
+{
+    // TODO(davidben): It would be tidier if this build knob could be replaced
+    // with an internal lazy-init mechanism that would handle things correctly
+    // in-library. https://crbug.com/542879
 #if defined(BORINGSSL_NO_STATIC_INITIALIZER)
-  CRYPTO_once(&once, do_library_init);
+    CRYPTO_once(&once, do_library_init);
 #endif
 }
 
-int CRYPTO_is_confidential_build(void) {
+int CRYPTO_is_confidential_build(void)
+{
 #if defined(BORINGSSL_CONFIDENTIAL)
-  return 1;
+    return 1;
 #else
-  return 0;
+    return 0;
 #endif
 }
 
-int CRYPTO_has_asm(void) {
+int CRYPTO_has_asm(void)
+{
 #if defined(OPENSSL_NO_ASM)
-  return 0;
+    return 0;
 #else
-  return 1;
+    return 1;
 #endif
 }
 
-void CRYPTO_pre_sandbox_init(void) {
-  // Read from /proc/cpuinfo if needed.
-  CRYPTO_library_init();
-  // Open /dev/urandom if needed.
-  CRYPTO_init_sysrand();
-  // Set up MADV_WIPEONFORK state if needed.
-  CRYPTO_get_fork_generation();
+void CRYPTO_pre_sandbox_init(void)
+{
+    // Read from /proc/cpuinfo if needed.
+    CRYPTO_library_init();
+    // Open /dev/urandom if needed.
+    CRYPTO_init_sysrand();
+    // Set up MADV_WIPEONFORK state if needed.
+    CRYPTO_get_fork_generation();
 }
 
-const char *SSLeay_version(int which) { return OpenSSL_version(which); }
+const char* SSLeay_version(int which)
+{
+    return OpenSSL_version(which);
+}
 
-const char *OpenSSL_version(int which) {
-  switch (which) {
+const char* OpenSSL_version(int which)
+{
+    switch (which) {
     case OPENSSL_VERSION:
-      return "BoringSSL";
+        return "BoringSSL";
     case OPENSSL_CFLAGS:
-      return "compiler: n/a";
+        return "compiler: n/a";
     case OPENSSL_BUILT_ON:
-      return "built on: n/a";
+        return "built on: n/a";
     case OPENSSL_PLATFORM:
-      return "platform: n/a";
+        return "platform: n/a";
     case OPENSSL_DIR:
-      return "OPENSSLDIR: n/a";
+        return "OPENSSLDIR: n/a";
     default:
-      return "not available";
-  }
+        return "not available";
+    }
 }
 
-unsigned long SSLeay(void) { return OPENSSL_VERSION_NUMBER; }
-
-unsigned long OpenSSL_version_num(void) { return OPENSSL_VERSION_NUMBER; }
-
-int CRYPTO_malloc_init(void) { return 1; }
-
-int OPENSSL_malloc_init(void) { return 1; }
-
-void ENGINE_load_builtin_engines(void) {}
-
-int ENGINE_register_all_complete(void) { return 1; }
-
-void OPENSSL_load_builtin_modules(void) {}
-
-int OPENSSL_init_crypto(uint64_t opts, const OPENSSL_INIT_SETTINGS *settings) {
-  CRYPTO_library_init();
-  return 1;
+unsigned long SSLeay(void)
+{
+    return OPENSSL_VERSION_NUMBER;
 }
 
-void OPENSSL_cleanup(void) {}
+unsigned long OpenSSL_version_num(void)
+{
+    return OPENSSL_VERSION_NUMBER;
+}
+
+int CRYPTO_malloc_init(void)
+{
+    return 1;
+}
+
+int OPENSSL_malloc_init(void)
+{
+    return 1;
+}
+
+void ENGINE_load_builtin_engines(void)
+{
+}
+
+int ENGINE_register_all_complete(void)
+{
+    return 1;
+}
+
+void OPENSSL_load_builtin_modules(void)
+{
+}
+
+int OPENSSL_init_crypto(uint64_t opts, const OPENSSL_INIT_SETTINGS* settings)
+{
+    CRYPTO_library_init();
+    return 1;
+}
+
+void OPENSSL_cleanup(void)
+{
+}

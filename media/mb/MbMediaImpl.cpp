@@ -26,6 +26,7 @@
 #include "media/mb/batching_media_log.h"
 #include "media/mb/renderer_webmediaplayer_delegate.h"
 #include "media/renderers/default_renderer_factory.h"
+#include "third_party/blink/renderer/platform/media/web_media_player_impl.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/media/resource_fetch_context.h"
 #include "third_party/blink/public/platform/media/url_index.h"
@@ -93,7 +94,7 @@ int64_t emptyAdjustAmountOfExternalAllocatedMemory(int64_t change_in_bytes)
 
 void RequestRoutingTokenCallback(media::RoutingTokenCallback cb)
 {
-    *(int*)1 = 1;
+    //*(int*)1 = 1;
 }
 
 std::unique_ptr<blink::WebSurfaceLayerBridge> emptyBridgeCreate(
@@ -105,9 +106,46 @@ std::unique_ptr<blink::WebSurfaceLayerBridge> emptyBridgeCreate(
     return nullptr;
 }
 
+class WebMediaPlayerSaver : public media::MediaObserver {
+public:
+    void OnMetadataChanged(const media::PipelineMetadata& metadata) override {}
+
+    void OnRemotePlaybackDisabled(bool disabled) override {}
+
+    void OnHlsManifestDetected() override {}
+
+    // Called when the media is playing/paused.
+    void OnPlaying() override {}
+    void OnPaused() override {}
+
+    // Called when the media is frozen.
+    void OnFrozen() override {}
+
+    // Called when the data source is asynchronously initialized.
+    void OnDataSourceInitialized(const GURL& url_after_redirects) override {}
+
+    // Set the MediaObserverClient. May be called with nullptr to disconnect the client from the observer.
+    void SetClient(media::MediaObserverClient* client) override
+    {
+        m_client = (blink::WebMediaPlayerImpl*)client;
+    }
+
+    base::WeakPtr<WebMediaPlayerSaver> asWeakPtr()
+    {
+        return weak_ptr_factory_.GetWeakPtr();
+    }
+
+private:
+    friend void setAudioMuteWebMediaPlayer(MbMediaImpl* mediaImpl, WebMediaPlayerSaver* saver, bool mute);
+    blink::WebMediaPlayerImpl* m_client = nullptr;
+    base::WeakPtrFactory<WebMediaPlayerSaver> weak_ptr_factory_{ this };
+};
+
 MbMediaImpl::~MbMediaImpl()
 {
+    m_webFrameClient->removeWebMediaPlayerSaver(m_webMediaPlayerSaver);
     m_webFrameClient = nullptr;
+
     if (m_delegate) {
         delete m_delegate;
         m_delegate = nullptr;
@@ -115,6 +153,26 @@ MbMediaImpl::~MbMediaImpl()
     if (m_mediaThread) {
         m_mediaThread->Stop();
     }
+
+    if (m_webMediaPlayerSaver)
+        delete m_webMediaPlayerSaver;
+}
+
+void setAudioMuteWebMediaPlayer(MbMediaImpl* mediaImpl, WebMediaPlayerSaver* saver, bool mute)
+{
+    if (!mediaImpl->getWebMediaPlayerMainTaskRunner().get())
+        return;
+    mediaImpl->getWebMediaPlayerMainTaskRunner()
+        ->PostTask(FROM_HERE, base::BindOnce([] (WebMediaPlayerSaver* saver, bool mute) {
+        if (!saver->m_client)
+            return;
+        saver->m_client->SetVolumeMultiplier(mute ? 0 : 1);
+    }, base::Unretained(saver), mute));
+}
+
+scoped_refptr<base::SingleThreadTaskRunner> MbMediaImpl::getWebMediaPlayerMainTaskRunner() const
+{
+    return m_webMediaPlayerMainTaskRunner;
 }
 
 std::unique_ptr<blink::WebMediaPlayer> MbMediaImpl::createMediaPlayer(
@@ -127,7 +185,6 @@ std::unique_ptr<blink::WebMediaPlayer> MbMediaImpl::createMediaPlayer(
     const cc::LayerTreeSettings& settings,
     scoped_refptr<base::TaskRunner> compositorWorkerTaskRunner)
 {
-
     if (source.IsMediaStream()) { // todo(mb): 目前不支持流形式
         *(int*)1 = 1;
     }
@@ -171,18 +228,33 @@ std::unique_ptr<blink::WebMediaPlayer> MbMediaImpl::createMediaPlayer(
 
     m_delegate = new media::RendererWebMediaPlayerDelegate(m_webFrameClient);
 
+    m_webMediaPlayerSaver = new WebMediaPlayerSaver();
+    m_webFrameClient->addWebMediaPlayerSaver(m_webMediaPlayerSaver);
+
+    m_webMediaPlayerMainTaskRunner = m_webFrameClient->getFrame()->GetTaskRunner(blink::TaskType::kMediaElementEvent);
+
     return base::WrapUnique(blink::WebMediaPlayerBuilder::Build(
-        m_webFrameClient->getFrame(), client, encryptedClient, m_delegate,
-        std::move(factorySelector), m_urlIndex.get(), std::move(vfc),
-        std::move(mediaLog), playerId,
+        m_webFrameClient->getFrame(), 
+        client, 
+        encryptedClient, 
+        m_delegate,
+        std::move(factorySelector),
+        m_urlIndex.get(), 
+        std::move(vfc),
+        std::move(mediaLog), 
+        playerId,
         base::BindRepeating(&emptyCB),
-        std::move(audioRendererSink), std::move(mediaTaskRunner),
+        std::move(audioRendererSink), 
+        std::move(mediaTaskRunner),
         std::move(compositorWorkerTaskRunner),
         nullptr,
         std::move(videoFrameCompositorTaskRunner),
         base::BindRepeating(&emptyAdjustAmountOfExternalAllocatedMemory),
-        initialCdm, base::BindRepeating(&RequestRoutingTokenCallback), nullptr,
-        false, false,
+        initialCdm, 
+        base::BindRepeating(&RequestRoutingTokenCallback), 
+        m_webMediaPlayerSaver->asWeakPtr(),
+        false, 
+        false,
         std::move(metricsProvider),
         base::BindOnce(&emptyBridgeCreate),
         nullptr,

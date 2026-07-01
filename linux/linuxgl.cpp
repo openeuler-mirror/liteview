@@ -19,6 +19,7 @@
 #include "content/common/ThreadCall.h"
 #include "linux/shadergl.h"
 #define STB_IMAGE_IMPLEMENTATION 1
+//#include "G:/test/sln_test/LearnOpenGL-master/includes/stb_image.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,6 +54,18 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
   return 0;
 }
 #else
+
+namespace {
+// glShader �� glTexture ��ʵ�����Ǹ��� GlArea ���������ߵ�, HwndLinux ʵ���Ǹ��� window �ߵ�, ���ｫ���ݷŽ� GlArea
+typedef struct {
+    ShaderGl* glShader = nullptr;
+    unsigned int glTexture = 0;
+    unsigned int VBO = 0;
+    unsigned int VAO = 0;
+} GlAreaGlData;
+
+constexpr const char kGlDataKey[] = "glAreaGlData";
+}
 
 unsigned char kImgData[5490] = {
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
@@ -403,6 +416,8 @@ unsigned char kImgData[5490] = {
 
 extern "C" void GL_APIENTRY glGenVertexArrays(GLsizei n, GLuint * arrays);
 extern "C" void GL_APIENTRY glBindVertexArray(GLuint array);
+extern "C" void GL_APIENTRY glDeleteTextures(GLsizei n, const GLuint* textures);
+extern "C" void GL_APIENTRY glDeleteVertexArrays(GLsizei n, const GLuint* arrays);
 
 const char* kTextureFs =
 "#version 330 core\n"
@@ -700,7 +715,9 @@ void onRealizeGlTextures(GtkWidget* widget, gpointer data)
     if (gtk_gl_area_get_error(GTK_GL_AREA(widget)) != NULL)
         return;
 
-    self->m_glShader = new ShaderGl(kTextureVs, kTextureFs);
+    GlAreaGlData* glData = g_new0(GlAreaGlData, 1);
+    g_object_set_data(G_OBJECT(widget), kGlDataKey, glData);
+    glData->glShader = new ShaderGl(kTextureVs, kTextureFs);
 
     float vertices[] = {
         // positions          // colors           // texture coords
@@ -710,11 +727,11 @@ void onRealizeGlTextures(GtkWidget* widget, gpointer data)
         -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1 - 1.0f    // ����
     };
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &glData->VAO);
+    glBindVertexArray(glData->VAO);
 
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glGenBuffers(1, &glData->VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, glData->VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // position attribute
@@ -731,7 +748,7 @@ void onRealizeGlTextures(GtkWidget* widget, gpointer data)
 
     //stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
 
-    glGenTextures(1, &self->m_glTexture); //��������
+    glGenTextures(1, &glData->glTexture); // ��������
     gtk_gl_area_queue_render(GTK_GL_AREA(widget));
 }
 
@@ -739,6 +756,10 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
 {
     HwndLinux* self = (HwndLinux*)data;
     if (!IsWindow((HWND)self))
+        return TRUE;
+
+    GlAreaGlData* glData = (GlAreaGlData*)g_object_get_data(G_OBJECT(area), kGlDataKey);
+    if (!glData)
         return TRUE;
 
     gint width = 0;
@@ -759,11 +780,11 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
     glClear(GL_COLOR_BUFFER_BIT);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    self->m_glShader->use();
-    glBindVertexArray(VAO);
+    glData->glShader->use();
+    glBindVertexArray(glData->VAO);
 
     //--
-    glBindTexture(GL_TEXTURE_2D, self->m_glTexture);//�󶨵�texture[i]�������id��
+    glBindTexture(GL_TEXTURE_2D, glData->glTexture); // �󶨵�texture[i]�������id��
     // set the texture wrapping parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	// set texture wrapping to GL_REPEAT (default wrapping method)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -783,7 +804,7 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
     //--
 
     PAINTSTRUCT paintStrct = { 0 };
-    paintStrct.hdc = (HDC)(self->m_glTexture);
+    paintStrct.hdc = (HDC)(glData->glTexture);
     paintStrct.fErase = TRUE;
     paintStrct.rcPaint.left = 0;
     paintStrct.rcPaint.top = 0;
@@ -793,14 +814,57 @@ gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer dat
     paintStrct.fIncUpdate = FALSE;
 
     self->m_msgPtr = &paintStrct;
-    self->m_wndProc(self, WM_PAINT, (WPARAM)(self->m_glTexture), 0); // -> MbWebView::onPaint
+    self->m_wndProc(self, WM_PAINT, (WPARAM)(glData->glTexture), 0); // -> MbWebView::onPaint
     self->m_msgPtr = nullptr;
 
-    glBindTexture(GL_TEXTURE_2D, self->m_glTexture);
+    glBindTexture(GL_TEXTURE_2D, glData->glTexture);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glFlush();
 
     return TRUE;
+}
+
+void onUnrealizeGlTextures(GtkWidget* widget, gpointer data)
+{
+    HwndLinux* self = (HwndLinux*)data;
+    gtk_gl_area_make_current(GTK_GL_AREA(widget));
+
+    if (gtk_gl_area_get_error(GTK_GL_AREA(widget)) != NULL)
+        return;
+
+    GlAreaGlData* glData = (GlAreaGlData*)g_object_get_data(G_OBJECT(widget), kGlDataKey);
+    if (!glData)
+        return;
+
+    if (glData->glTexture) {
+        glDeleteTextures(1, &glData->glTexture);
+        glData->glTexture = 0;
+    }
+
+    if (glData->VBO != 0) {
+        glDeleteBuffers(1, &glData->VBO);
+        glData->VBO = 0;
+    }
+        
+
+    if (glData->VAO != 0) {
+        glDeleteVertexArrays(1, &glData->VAO);
+        glData->VAO = 0;
+    }
+
+    if (glData->glShader) {
+        delete glData->glShader;
+        glData->glShader = nullptr;
+    }
+    g_free(glData);
+    g_object_set_data(G_OBJECT(widget), kGlDataKey, NULL);
+
+    g_signal_handlers_disconnect_by_data(widget, self);
+
+    gtk_gl_area_set_has_depth_buffer(GTK_GL_AREA(widget), FALSE);
+    gtk_gl_area_set_has_stencil_buffer(GTK_GL_AREA(widget), FALSE);
+    gdk_gl_context_clear_current();
+    gtk_gl_area_set_error(GTK_GL_AREA(widget), NULL);
 }
 
 #endif // __USE_OPENGL__

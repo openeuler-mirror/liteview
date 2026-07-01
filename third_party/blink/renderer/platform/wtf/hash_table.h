@@ -92,6 +92,12 @@
 #endif
 #endif
 
+#if defined(__clang_major__) && __clang_major__ >= 23
+#define _TEMPLATE_KEYWORD_
+#else
+#define _TEMPLATE_KEYWORD_ template
+#endif
+
 namespace WTF {
 
 // This is for tracing inside collections that have special support for weak
@@ -1477,7 +1483,7 @@ Value* HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Alloca
         }
     }
     table_ = temporary_table;
-    Allocator::template BackingWriteBarrier(&table_);
+    Allocator::_TEMPLATE_KEYWORD_ BackingWriteBarrier(&table_);
 
     if (Traits::kEmptyValueIsZero) {
         AtomicMemzero(original_table, new_table_size * sizeof(ValueType));
@@ -1527,7 +1533,7 @@ Value* HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Alloca
     // This swaps the newly allocated buffer with the current one. The store to
     // the current table has to be atomic to prevent races with concurrent marker.
     AsAtomicPtr(&table_)->store(new_hash_table.table_, std::memory_order_relaxed);
-    Allocator::template BackingWriteBarrier(&table_);
+    Allocator::_TEMPLATE_KEYWORD_ BackingWriteBarrier(&table_);
     table_size_ = new_table_size;
 
     new_hash_table.table_ = old_table;
@@ -1647,8 +1653,8 @@ void HashTable<Key, Value, Extractor, HashFunctions, Traits, KeyTraits, Allocato
     // on the mutator thread, which is also the only one that writes to them, so
     // there is *no* risk of data races when reading.
     AtomicWriteSwap(table_, other.table_);
-    Allocator::template BackingWriteBarrier(&table_);
-    Allocator::template BackingWriteBarrier(&other.table_);
+    Allocator::_TEMPLATE_KEYWORD_ BackingWriteBarrier(&table_);
+    Allocator::_TEMPLATE_KEYWORD_ BackingWriteBarrier(&other.table_);
     if (IsWeak<ValueType>::value) {
         // Weak processing is omitted when no backing store is present. In case such
         // an empty table is later on used it needs to be strongified.

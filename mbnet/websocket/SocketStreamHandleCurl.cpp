@@ -46,8 +46,8 @@ extern "C" long MB_InterlockedExchange(long volatile* _Target, long _Value);
 
 namespace mbnet {
 
-SocketStreamHandle::SocketStreamHandle(const blink::KURL& url, SocketStreamHandleClient* client)
-    : SocketStreamHandleBase(url, client)
+SocketStreamHandle::SocketStreamHandle(const blink::KURL& url, const ProxyInfo& proxy, SocketStreamHandleClient* client)
+    : SocketStreamHandleBase(url, proxy, client)
     , m_workerThread(0)
     , m_stopThread(0)
     , m_readDataTaskCount(0)
@@ -401,6 +401,27 @@ void SocketStreamHandle::threadFunction()
     curl_easy_setopt(curlHandle, CURLOPT_PROTOCOLS, kAllowedProtocols);
     curl_easy_setopt(curlHandle, CURLOPT_REDIR_PROTOCOLS, kAllowedProtocols);
 
+    curl_easy_setopt(curlHandle, CURLOPT_DEBUGDATA, this);
+    curl_easy_setopt(curlHandle, CURLOPT_AUTOREFERER, 1);
+    curl_easy_setopt(curlHandle, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(curlHandle, CURLOPT_MAXREDIRS, 30);
+    curl_easy_setopt(curlHandle, CURLOPT_HTTPAUTH, CURLAUTH_ANY);
+    curl_easy_setopt(curlHandle, CURLOPT_BUFFERSIZE, 32768); // 32KB of FFmpeg
+    // https://github.com/lwthiker/curl-impersonate/blob/main/chrome/curl_chrome100
+    curl_easy_setopt(curlHandle, CURLOPT_SSL_CERT_COMPRESSION, "brotli");
+    curl_easy_setopt(curlHandle, CURLOPT_SSL_ENABLE_ALPS, 1L);
+    curl_easy_setopt(curlHandle, CURLOPT_SSH_COMPRESSION, 1L);
+    curl_easy_setopt(curlHandle, CURLOPT_SSL_CIPHER_LIST, "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA");
+    curl_easy_setopt(curlHandle, CURLOPT_ACCEPT_ENCODING, "");
+    curl_easy_setopt(curlHandle, CURLOPT_SSL_PERMUTE_EXTENSIONS, 1L);
+    curl_easy_setopt(curlHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
+
+    if (!m_proxy.proxy.empty()) {
+        curl_easy_setopt(curlHandle, CURLOPT_PROXY, m_proxy.proxy.c_str()); // "161.77.0.109:50100"
+        curl_easy_setopt(curlHandle, CURLOPT_PROXYTYPE, m_proxy.proxyType);
+        curl_easy_setopt(curlHandle, CURLOPT_PROXYUSERPWD, m_proxy.proxyUserNamePassword.c_str()); // "ipProxy:BarZEkqTn"
+        curl_easy_setopt(curlHandle, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
+    }
     //curl_easy_setopt(curlHandle, CURLOPT_OPENSOCKETFUNCTION, OnOpensocket);
    
     // Connect to host
@@ -429,6 +450,12 @@ void SocketStreamHandle::threadFunction()
     INetworkListManager* pNetworkListManager = getNetworkList(&pUnknown);
 #endif
 
+    // todo(mb): 部分环境 release 版本偶发, debug 版本一直遇不到, 案例为 cli.im 登录, 可能是多线程问题, 此时可能线程已经停止了
+    // 看测试环境报错堆栈改的, 后面可能需要梳理一下执行的时机, 线程已经停止了这里还在执行, 怀疑是跟页面跳转导致的 stop 有关
+    if (m_stopThread) { 
+        curl_easy_cleanup(curlHandle);
+        return;
+    }
     AddRef();
 
     //WTF::internal::callOnMainThread(s_mainThreadRun, this);
@@ -447,8 +474,10 @@ void SocketStreamHandle::threadFunction()
         int waitResult = waitForAvailableData(curlHandle, 50);
 
         if (1 == waitResult) {
-            if (m_stopThread) // 因为 waitForAvailableData 中有个等待，这里可能因为已经停止, 数据失效导致崩溃
+            if (m_stopThread) { // 因为 waitForAvailableData 中有个等待，这里可能因为已经停止, 数据失效导致崩溃
+                curl_easy_cleanup(curlHandle);
                 return;
+            }
 
             if (!readData(curlHandle))
                 retryCount++;

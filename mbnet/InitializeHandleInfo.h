@@ -15,6 +15,7 @@
 #define net_InitializeHandleInfo_h
 
 #include "mbnet/ProxyType.h"
+#include "mbnet/ProxyInfo.h"
 #include "mbnet/PageNetExtraData.h"
 #include "third_party/libcurl/include/curl/curl.h"
 #include "base/memory/scoped_refptr.h"
@@ -29,12 +30,11 @@ struct InitializeHandleInfo {
     std::string method;
     curl_slist* headers;
     scoped_refptr<PageNetExtraData> pageNetExtraData;
-    std::string proxy;
-    std::string proxyUserNamePassword;
+    ProxyInfo proxy;
 
     std::string range;
     std::string wkeNetInterface;
-    ProxyType proxyType;
+
     SetupHttpMethodInfo* methodInfo;
 
     InitializeHandleInfo() {

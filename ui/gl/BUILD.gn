@@ -43,7 +43,7 @@ static_library("webgl") {
     "//gen/blink/bindings/modules/v8",
     "//gen/blink/bindings/core/v8",
     "//third_party/libyuv/include",
-    "//third_party/openssl/openssl/include",
+    "//third_party/boringssl/src/include",
     "//third_party/khronos",
     "//third_party/libxml/src/include",
     "//third_party/libxml/win32/include",
@@ -65,6 +65,9 @@ static_library("webgl") {
     "//third_party/icu/source/common",
     "//third_party/mesa_headers",
     "//third_party/libyuv/include",
+    "//third_party/khronos",
+    "//third_party/khronos/EGL",
+    "//third_party/khronos/noninclude",
     "//third_party/skia/include/third_party/vulkan",
     "//gpu",
 
@@ -92,7 +95,7 @@ static_library("webgl") {
     # "-DSK_G32_SHIFT=8",
     # "-DSK_R32_SHIFT=16",
     # "-DSK_A32_SHIFT=24",
-
+    
     #  opengl
     # "-DSK_B32_SHIFT=16",
     # "-DSK_G32_SHIFT=8",
@@ -137,7 +140,7 @@ static_library("webgl") {
     # -----
     "-DV8_HAVE_TARGET_OS",
     "-DV8_TARGET_OS_LINUX",
-
+    
     # "-DOS_LINUX",
     "-DUSE_OZONE",
     "-DUSE_GLIB",
@@ -582,24 +585,10 @@ static_library("webgl") {
     "//ui/ozone/common/native_pixmap_egl_binding.cc",
     "//ui/ozone/common/stub_client_native_pixmap_factory.cc",
     "//ui/ozone/common/stub_overlay_manager.cc",
-
     "//ui/ozone/platform_selection.cc",
-    # "//ui/ozone/public/client_native_pixmap_factory_ozone.cc",
-    # "//ui/ozone/public/gpu_platform_support_host.cc",
-    # "//ui/ozone/public/input_controller.cc",
-    # "//ui/ozone/public/native_pixmap_gl_binding.cc",
-    # "//ui/ozone/public/overlay_candidates_ozone.cc",
-    # "//ui/ozone/public/overlay_plane.cc",
-    # "//ui/ozone/public/overlay_surface.cc",
-    # "//ui/ozone/public/overlay_surface_candidate.cc",
     "//ui/ozone/public/ozone_platform.cc",
     "//ui/ozone/public/ozone_switches.cc",
-    # "//ui/ozone/public/platform_global_shortcut_listener.cc",
-    # "//ui/ozone/public/platform_gl_egl_utility.cc",
     "//ui/ozone/public/platform_keyboard_hook.cc",
-    # "//ui/ozone/public/platform_menu_utils.cc",
-    # "//ui/ozone/public/platform_screen.cc",
-    # "//ui/ozone/public/platform_user_input_monitor.cc",
     "//ui/ozone/public/surface_factory_ozone.cc",
     "//ui/ozone/public/surface_ozone_canvas.cc",
     "//gen/ui/ozone/constructor_list.cc",

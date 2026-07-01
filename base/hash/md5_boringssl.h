@@ -7,8 +7,8 @@
 
 #include <stdint.h>
 
-//#include "third_party/boringssl/src/include/openssl/md5.h"
-#include "third_party/openssl/openssl/include/openssl/md5.h"
+#include "third_party/boringssl/src/include/openssl/md5.h"
+//#include "third_party/openssl/openssl/include/openssl/md5.h"
 // #define MD5_DIGEST_LENGTH 16
 // typedef struct md5_state_st MD5_CTX;
 

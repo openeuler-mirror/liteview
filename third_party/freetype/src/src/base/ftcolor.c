@@ -4,7 +4,7 @@
  *
  *   FreeType's glyph color management (body).
  *
- * Copyright 2018 by
+ * Copyright (C) 2018-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -16,14 +16,14 @@
  */
 
 
-#include <ft2build.h>
-#include FT_INTERNAL_DEBUG_H
-#include FT_INTERNAL_SFNT_H
-#include FT_INTERNAL_TRUETYPE_TYPES_H
-#include FT_COLOR_H
+#include <freetype/internal/ftdebug.h>
+#include <freetype/internal/sfnt.h>
+#include <freetype/internal/tttypes.h>
+#include <freetype/ftcolor.h>
 
 
 #ifdef TT_CONFIG_OPTION_COLOR_LAYERS
+
   static
   const FT_Palette_Data  null_palette_data = { 0, NULL, NULL, 0, NULL };
 
@@ -53,12 +53,13 @@
   FT_EXPORT_DEF( FT_Error )
   FT_Palette_Select( FT_Face     face,
                      FT_UShort   palette_index,
-                     FT_Color*  *apalette)
+                     FT_Color*  *apalette )
   {
     FT_Error  error;
 
     TT_Face       ttface;
     SFNT_Service  sfnt;
+
 
     if ( !face )
       return FT_THROW( Invalid_Face_Handle );
@@ -111,43 +112,43 @@
   }
 
 #else /* !TT_CONFIG_OPTION_COLOR_LAYERS */
-asdas
-//   FT_EXPORT_DEF( FT_Error )
-//   FT_Palette_Data_Get( FT_Face           face,
-//                        FT_Palette_Data  *apalette_data )
-//   {
-//     FT_UNUSED( face );
-//     FT_UNUSED( apalette_data );
-// 
-// 
-//     return FT_THROW( Unimplemented_Feature );
-//   }
-// 
-// 
-//   FT_EXPORT_DEF( FT_Error )
-//   FT_Palette_Select( FT_Face     face,
-//                      FT_UShort   palette_index,
-//                      FT_Color*  *apalette )
-//   {
-//     FT_UNUSED( face );
-//     FT_UNUSED( palette_index );
-//     FT_UNUSED( apalette );
-// 
-//     asdasd
-//     return FT_THROW( Unimplemented_Feature );
-//   }
-// 
-// 
-//   FT_EXPORT_DEF( FT_Error )
-//   FT_Palette_Set_Foreground_Color( FT_Face   face,
-//                                    FT_Color  foreground_color )
-//   {
-//     FT_UNUSED( face );
-//     FT_UNUSED( foreground_color );
-// 
-// 
-//     return FT_THROW( Unimplemented_Feature );
-//   }
+
+  FT_EXPORT_DEF( FT_Error )
+  FT_Palette_Data_Get( FT_Face           face,
+                       FT_Palette_Data  *apalette_data )
+  {
+    FT_UNUSED( face );
+    FT_UNUSED( apalette_data );
+
+
+    return FT_THROW( Unimplemented_Feature );
+  }
+
+
+  FT_EXPORT_DEF( FT_Error )
+  FT_Palette_Select( FT_Face     face,
+                     FT_UShort   palette_index,
+                     FT_Color*  *apalette )
+  {
+    FT_UNUSED( face );
+    FT_UNUSED( palette_index );
+    FT_UNUSED( apalette );
+
+
+    return FT_THROW( Unimplemented_Feature );
+  }
+
+
+  FT_EXPORT_DEF( FT_Error )
+  FT_Palette_Set_Foreground_Color( FT_Face   face,
+                                   FT_Color  foreground_color )
+  {
+    FT_UNUSED( face );
+    FT_UNUSED( foreground_color );
+
+
+    return FT_THROW( Unimplemented_Feature );
+  }
 
 #endif /* !TT_CONFIG_OPTION_COLOR_LAYERS */
 

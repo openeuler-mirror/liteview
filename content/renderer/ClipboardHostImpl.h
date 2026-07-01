@@ -115,7 +115,7 @@ private:
     void writeTextInternal(const WTF::String& string);
 
 #if defined(OS_LINUX)
-    base::Lock m_readTextLockLinux;
+    mutable base::Lock m_readTextLockLinux;
 #endif // OS_LINUX
     
     static HWND m_clipboardOwner;

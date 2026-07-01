@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined( _WIN32 )
+//#if defined( _WIN32 )
 #include "config_dav1d.h"
 #include "../../version/vcs_version.h"
 
@@ -759,11 +759,11 @@ void dav1d_data_props_unref(Dav1dDataProps* const props)
     dav1d_data_props_unref_internal(props);
 }
 
-#else
+//#else
+#if 0
 
 //#include "third_party/dav1d/libdav1d/include/common/attributes.h"
 #include "dav1d/dav1d.h"
-#include <stdio.h>
 
 /*COLD*/ const char* dav1d_version(void) 
 {

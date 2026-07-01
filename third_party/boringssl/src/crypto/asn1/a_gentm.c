@@ -64,85 +64,85 @@
 
 #include "internal.h"
 
-int asn1_generalizedtime_to_tm(struct tm *tm, const ASN1_GENERALIZEDTIME *d) {
-  if (d->type != V_ASN1_GENERALIZEDTIME) {
-    return 0;
-  }
-  CBS cbs;
-  CBS_init(&cbs, d->data, (size_t)d->length);
-  if (!CBS_parse_generalized_time(&cbs, tm, /*allow_timezone_offset=*/0)) {
-    return 0;
-  }
-  return 1;
-}
-
-int ASN1_GENERALIZEDTIME_check(const ASN1_GENERALIZEDTIME *d) {
-  return asn1_generalizedtime_to_tm(NULL, d);
-}
-
-int ASN1_GENERALIZEDTIME_set_string(ASN1_GENERALIZEDTIME *s, const char *str) {
-  ASN1_GENERALIZEDTIME t;
-
-  t.type = V_ASN1_GENERALIZEDTIME;
-  t.length = strlen(str);
-  t.data = (unsigned char *)str;
-  if (ASN1_GENERALIZEDTIME_check(&t)) {
-    if (s != NULL) {
-      if (!ASN1_STRING_set((ASN1_STRING *)s, (unsigned char *)str, t.length)) {
+int asn1_generalizedtime_to_tm(struct tm* tm, const ASN1_GENERALIZEDTIME* d)
+{
+    if (d->type != V_ASN1_GENERALIZEDTIME) {
         return 0;
-      }
-      s->type = V_ASN1_GENERALIZEDTIME;
+    }
+    CBS cbs;
+    CBS_init(&cbs, d->data, (size_t)d->length);
+    if (!CBS_parse_generalized_time(&cbs, tm, /*allow_timezone_offset=*/0)) {
+        return 0;
     }
     return 1;
-  } else {
-    return 0;
-  }
 }
 
-ASN1_GENERALIZEDTIME *ASN1_GENERALIZEDTIME_set(ASN1_GENERALIZEDTIME *s,
-                                               time_t t) {
-  return ASN1_GENERALIZEDTIME_adj(s, t, 0, 0);
+int ASN1_GENERALIZEDTIME_check(const ASN1_GENERALIZEDTIME* d)
+{
+    return asn1_generalizedtime_to_tm(NULL, d);
 }
 
-ASN1_GENERALIZEDTIME *ASN1_GENERALIZEDTIME_adj(ASN1_GENERALIZEDTIME *s,
-                                               time_t t, int offset_day,
-                                               long offset_sec) {
-  struct tm data;
-  if (!OPENSSL_gmtime(&t, &data)) {
-    return NULL;
-  }
+int ASN1_GENERALIZEDTIME_set_string(ASN1_GENERALIZEDTIME* s, const char* str)
+{
+    ASN1_GENERALIZEDTIME t;
 
-  if (offset_day || offset_sec) {
-    if (!OPENSSL_gmtime_adj(&data, offset_day, offset_sec)) {
-      return NULL;
+    t.type = V_ASN1_GENERALIZEDTIME;
+    t.length = strlen(str);
+    t.data = (unsigned char*)str;
+    if (ASN1_GENERALIZEDTIME_check(&t)) {
+        if (s != NULL) {
+            if (!ASN1_STRING_set((ASN1_STRING*)s, (unsigned char*)str, t.length)) {
+                return 0;
+            }
+            s->type = V_ASN1_GENERALIZEDTIME;
+        }
+        return 1;
+    } else {
+        return 0;
     }
-  }
+}
 
-  if (data.tm_year < 0 - 1900 || data.tm_year > 9999 - 1900) {
-    OPENSSL_PUT_ERROR(ASN1, ASN1_R_ILLEGAL_TIME_VALUE);
-    return NULL;
-  }
+ASN1_GENERALIZEDTIME* ASN1_GENERALIZEDTIME_set(ASN1_GENERALIZEDTIME* s, time_t t)
+{
+    return ASN1_GENERALIZEDTIME_adj(s, t, 0, 0);
+}
 
-  char buf[16];
-  BIO_snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d%02dZ",
-               data.tm_year + 1900, data.tm_mon + 1, data.tm_mday, data.tm_hour,
-               data.tm_min, data.tm_sec);
+ASN1_GENERALIZEDTIME* ASN1_GENERALIZEDTIME_adj(ASN1_GENERALIZEDTIME* s, time_t t, int offset_day, long offset_sec)
+{
+    struct tm data;
+    if (!OPENSSL_gmtime(&t, &data)) {
+        return NULL;
+    }
 
-  int free_s = 0;
-  if (s == NULL) {
-    free_s = 1;
-    s = ASN1_UTCTIME_new();
+    if (offset_day || offset_sec) {
+        if (!OPENSSL_gmtime_adj(&data, offset_day, offset_sec)) {
+            return NULL;
+        }
+    }
+
+    if (data.tm_year < 0 - 1900 || data.tm_year > 9999 - 1900) {
+        OPENSSL_PUT_ERROR(ASN1, ASN1_R_ILLEGAL_TIME_VALUE);
+        return NULL;
+    }
+
+    char buf[16];
+    BIO_snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d%02dZ", data.tm_year + 1900, data.tm_mon + 1, data.tm_mday, data.tm_hour, data.tm_min, data.tm_sec);
+
+    int free_s = 0;
     if (s == NULL) {
-      return NULL;
+        free_s = 1;
+        s = ASN1_UTCTIME_new();
+        if (s == NULL) {
+            return NULL;
+        }
     }
-  }
 
-  if (!ASN1_STRING_set(s, buf, strlen(buf))) {
-    if (free_s) {
-      ASN1_UTCTIME_free(s);
+    if (!ASN1_STRING_set(s, buf, strlen(buf))) {
+        if (free_s) {
+            ASN1_UTCTIME_free(s);
+        }
+        return NULL;
     }
-    return NULL;
-  }
-  s->type = V_ASN1_GENERALIZEDTIME;
-  return s;
+    s->type = V_ASN1_GENERALIZEDTIME;
+    return s;
 }

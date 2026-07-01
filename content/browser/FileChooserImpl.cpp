@@ -24,6 +24,9 @@
 #include <shlobj.h>
 #include <process.h>
 #include <commdlg.h>
+#ifdef OS_LINUX
+#include <gtk/gtk.h>
+#endif
 
 namespace content {
 
@@ -338,6 +341,173 @@ static HWND createHideWindow()
 
     return hWnd;
 }
+
+#else // linux
+
+// void showMultiFileChooser(GtkWindow* parent)
+// {
+//     GtkWidget* dialog;
+// 
+//     // 1. 创建文件选择框（打开模式）
+//     dialog = gtk_file_chooser_dialog_new(
+//         "选择多个文件",        // 标题
+//         parent,               // 父窗口
+//         GTK_FILE_CHOOSER_ACTION_OPEN,  // 打开文件
+//         "_取消", GTK_RESPONSE_CANCEL,
+//         "_打开", GTK_RESPONSE_OK,
+//         NULL
+//     );
+// 
+//     // 2. **关键：开启多选模式**
+//     gtk_file_chooser_set_select_multiple(GTK_FILE_CHOOSER(dialog), TRUE);
+// 
+//     // 可选：添加文件过滤器
+//     GtkFileFilter* filter = gtk_file_filter_new();
+//     gtk_file_filter_set_name(filter, "所有文件");
+//     gtk_file_filter_add_pattern(filter, "*");
+//     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+// 
+//     // 3. 运行对话框
+//     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+//         // 获取**所有选中的文件路径列表**
+//         GSList* files = gtk_file_chooser_get_filenames(GTK_FILE_CHOOSER(dialog));
+// 
+//         // 遍历并打印每个文件
+//         g_print("===== 选中的文件 =====\n");
+//         for (GSList* f = files; f != NULL; f = f->next) {
+//             gchar* path = (gchar*)f->data;
+//             g_print("📄 %s\n", path);
+//             g_free(path);  // 必须释放每个路径
+//         }
+// 
+//         g_slist_free(files);  // 释放列表
+//     }
+// 
+//     // 销毁对话框
+//     gtk_widget_destroy(dialog);
+// }
+
+struct ShowSelectFileParams {
+    ShowSelectFileParams(::blink::mojom::blink::FileChooserParamsPtr params, ::blink::mojom::blink::FileChooser::OpenFileChooserCallback completion)
+        : m_params(std::move(params))
+        , m_completion(std::move(completion))
+    {
+
+    }
+    ::blink::mojom::blink::FileChooserParamsPtr m_params;
+    ::blink::mojom::blink::FileChooser::OpenFileChooserCallback m_completion;
+
+    ::blink::mojom::blink::FileChooserResultPtr fileChooserResult;
+};
+
+static void addOneFile(const gchar* path, ::blink::mojom::blink::FileChooserResultPtr* fileChooserResult)
+{
+    int64_t fileSizeResult = 0;
+    base::FilePath filePath((const base::FilePath::CharType*)path);
+    base::File fileObj(filePath, base::File::FLAG_OPEN_ALWAYS | base::File::FLAG_READ);
+    base::File::Info fileObjInfo;
+    if (!fileObj.GetInfo(&fileObjInfo))
+        fileSizeResult = 0;
+    else
+        fileSizeResult = fileObjInfo.size;
+
+    std::string fileSystemURL = "file://";
+    fileSystemURL += path;
+    blink::KURL url(WTF::String::FromUTF8(fileSystemURL));
+    ::blink::mojom::blink::FileSystemFileInfoPtr systemFileInfo(absl::in_place, url, fileObjInfo.last_modified, fileSizeResult);
+
+    ::blink::mojom::blink::FileChooserFileInfoPtr info(absl::in_place);
+    info->set_file_system(std::move(std::move(systemFileInfo)));
+
+    (*fileChooserResult)->files.push_back(std::move(info));
+}
+
+static void showSelectFileAsDialog(ShowSelectFileParams* params)
+{
+    GtkWidget* dialog;
+    gchar* filename;
+
+    bool saveAs = params->m_params->mode == blink::mojom::FileChooserParams_Mode::kSave;
+    bool multiSelect = params->m_params->mode == blink::mojom::FileChooserParams_Mode::kOpenMultiple;
+
+
+    // 创建文件选择对话框（打开文件模式）
+    dialog = gtk_file_chooser_dialog_new(
+        "Select File~",
+        NULL,              // 父窗口
+        GTK_FILE_CHOOSER_ACTION_OPEN,  // 打开文件模式
+        ("_cancel"), GTK_RESPONSE_CANCEL,
+        ("_open"), GTK_RESPONSE_OK,
+        NULL
+    );
+
+    if (multiSelect)
+        gtk_file_chooser_set_select_multiple(GTK_FILE_CHOOSER(dialog), TRUE);
+
+    printf("accept_types: %d\n", params->m_params->accept_types.size());
+
+    // ================== 可选：添加文件过滤器 ==================
+    GtkFileFilter* filter = nullptr;
+    filter = gtk_file_filter_new();
+
+    for (size_t i = 0; i < params->m_params->accept_types.size(); ++i) {
+        String mimeType = params->m_params->accept_types[i];
+        if (mimeType.empty()) // ".gif"
+            continue;
+
+        std::string mimeTypeStr = mimeType.Utf8();
+        printf("mimeType: %s\n", mimeTypeStr.c_str());
+        mimeTypeStr = "*" + mimeTypeStr;
+       
+        gtk_file_filter_set_name(filter, "File Select");
+        gtk_file_filter_add_pattern(filter, mimeTypeStr.c_str());
+        gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    }
+
+    // ================== 可选：添加文件过滤器 ==================
+//     GtkFileFilter* filter;
+//     filter = gtk_file_filter_new();
+//     gtk_file_filter_set_name(filter, "所有图片文件");
+//     gtk_file_filter_add_mime_type(filter, "image/png");
+//     gtk_file_filter_add_mime_type(filter, "image/jpeg");
+//     gtk_file_filter_add_mime_type(filter, "image/gif");
+//     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+// 
+//     // 所有文件过滤器
+//     filter = gtk_file_filter_new();
+//     gtk_file_filter_set_name(filter, "所有文件");
+//     gtk_file_filter_add_pattern(filter, "*");
+//     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+    // ========================================================
+
+    params->fileChooserResult = ::blink::mojom::blink::FileChooserResult::New();
+
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+        if (multiSelect) {
+            GSList* files = gtk_file_chooser_get_filenames(GTK_FILE_CHOOSER(dialog));
+            for (GSList* f = files; f != NULL; f = f->next) {
+                filename = (gchar*)f->data;
+                g_print("select file 1 ::: %s\n", filename);
+                addOneFile(filename, &params->fileChooserResult);
+                g_free(filename);
+            }
+
+            g_slist_free(files);
+        } else {
+            filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+            g_print("select file 2 ::: %s\n", filename);
+            addOneFile(filename, &params->fileChooserResult);
+            g_free(filename);
+        }
+    }
+    gtk_widget_destroy(dialog);
+
+    ThreadCall::callBlinkThreadAsync(FROM_HERE, [params]() {
+        std::move(params->m_completion).Run(std::move(params->fileChooserResult));
+        delete params;
+    });
+}
+
 #endif
 
 static bool runFileChooserImpl(
@@ -419,12 +589,19 @@ void FileChooserImpl::OpenFileChooser(::blink::mojom::blink::FileChooserParamsPt
     if (!webview)
         return;
 
+#if defined(OS_WIN)
     std::function<void(void)>* callback = new std::function<void(void)>([/*self, id*/] {
-//         if (net::ActivatingObjCheck::inst()->isActivating(id))
-//         self->setIsMouseKeyMessageEnable(true);
+        //         if (net::ActivatingObjCheck::inst()->isActivating(id))
+        //         self->setIsMouseKeyMessageEnable(true);
     });
 
     runFileChooserImpl(webview->getHostWnd(), std::move(params), std::move(completion), m_webviewId, callback);
+#else
+    ShowSelectFileParams* paramsWrap = new ShowSelectFileParams(std::move(params), std::move(completion));
+    content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webview, paramsWrap] {
+        showSelectFileAsDialog(paramsWrap);
+    });
+#endif
 }
 
 void FileChooserImpl::EnumerateChosenDirectory(const ::base::FilePath& directory_path, ::blink::mojom::blink::FileChooser::EnumerateChosenDirectoryCallback callback)

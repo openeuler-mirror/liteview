@@ -62,7 +62,6 @@
 
 #include "internal.h"
 
-
 ASN1_SEQUENCE(X509_VAL) = {
     ASN1_SIMPLE(X509_VAL, notBefore, ASN1_TIME),
     ASN1_SIMPLE(X509_VAL, notAfter, ASN1_TIME),

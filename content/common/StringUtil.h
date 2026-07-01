@@ -62,6 +62,11 @@ std::u16string getPluginDirectory();
 unsigned int hashStringA(const std::string& p);
 unsigned int hashStringW(const std::u16string& p);
 
+bool isValidUtf8(const std::string& str);
+bool looksLikeGbk(const std::string& str);
+bool convertToUtf8(const std::string& input, const char* from_charset, std::string& output);
+std::string autoGbkToUtf8(const std::string& input);
+double detectGbkConfidence(const std::string& data);
 }
 
 #endif // base_StringUtil_h

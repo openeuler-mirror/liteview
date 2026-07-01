@@ -64,114 +64,116 @@
 
 #include "internal.h"
 
-int asn1_utctime_to_tm(struct tm *tm, const ASN1_UTCTIME *d,
-                       int allow_timezone_offset) {
-  if (d->type != V_ASN1_UTCTIME) {
-    return 0;
-  }
-  CBS cbs;
-  CBS_init(&cbs, d->data, (size_t)d->length);
-  if (!CBS_parse_utc_time(&cbs, tm, allow_timezone_offset)) {
-    return 0;
-  }
-  return 1;
-}
-
-int ASN1_UTCTIME_check(const ASN1_UTCTIME *d) {
-  return asn1_utctime_to_tm(NULL, d, /*allow_timezone_offset=*/1);
-}
-
-int ASN1_UTCTIME_set_string(ASN1_UTCTIME *s, const char *str) {
-  ASN1_UTCTIME t;
-
-  t.type = V_ASN1_UTCTIME;
-  t.length = strlen(str);
-  t.data = (unsigned char *)str;
-  if (ASN1_UTCTIME_check(&t)) {
-    if (s != NULL) {
-      if (!ASN1_STRING_set((ASN1_STRING *)s, (unsigned char *)str, t.length)) {
+int asn1_utctime_to_tm(struct tm* tm, const ASN1_UTCTIME* d, int allow_timezone_offset)
+{
+    if (d->type != V_ASN1_UTCTIME) {
         return 0;
-      }
-      s->type = V_ASN1_UTCTIME;
+    }
+    CBS cbs;
+    CBS_init(&cbs, d->data, (size_t)d->length);
+    if (!CBS_parse_utc_time(&cbs, tm, allow_timezone_offset)) {
+        return 0;
     }
     return 1;
-  } else {
-    return 0;
-  }
 }
 
-ASN1_UTCTIME *ASN1_UTCTIME_set(ASN1_UTCTIME *s, time_t t) {
-  return ASN1_UTCTIME_adj(s, t, 0, 0);
+int ASN1_UTCTIME_check(const ASN1_UTCTIME* d)
+{
+    return asn1_utctime_to_tm(NULL, d, /*allow_timezone_offset=*/1);
 }
 
-ASN1_UTCTIME *ASN1_UTCTIME_adj(ASN1_UTCTIME *s, time_t t, int offset_day,
-                               long offset_sec) {
-  struct tm data;
-  if (!OPENSSL_gmtime(&t, &data)) {
-    return NULL;
-  }
+int ASN1_UTCTIME_set_string(ASN1_UTCTIME* s, const char* str)
+{
+    ASN1_UTCTIME t;
 
-  if (offset_day || offset_sec) {
-    if (!OPENSSL_gmtime_adj(&data, offset_day, offset_sec)) {
-      return NULL;
+    t.type = V_ASN1_UTCTIME;
+    t.length = strlen(str);
+    t.data = (unsigned char*)str;
+    if (ASN1_UTCTIME_check(&t)) {
+        if (s != NULL) {
+            if (!ASN1_STRING_set((ASN1_STRING*)s, (unsigned char*)str, t.length)) {
+                return 0;
+            }
+            s->type = V_ASN1_UTCTIME;
+        }
+        return 1;
+    } else {
+        return 0;
     }
-  }
+}
 
-  if (data.tm_year < 50 || data.tm_year >= 150) {
-    return NULL;
-  }
+ASN1_UTCTIME* ASN1_UTCTIME_set(ASN1_UTCTIME* s, time_t t)
+{
+    return ASN1_UTCTIME_adj(s, t, 0, 0);
+}
 
-  char buf[14];
-  BIO_snprintf(buf, sizeof(buf), "%02d%02d%02d%02d%02d%02dZ",
-               data.tm_year % 100, data.tm_mon + 1, data.tm_mday, data.tm_hour,
-               data.tm_min, data.tm_sec);
+ASN1_UTCTIME* ASN1_UTCTIME_adj(ASN1_UTCTIME* s, time_t t, int offset_day, long offset_sec)
+{
+    struct tm data;
+    if (!OPENSSL_gmtime(&t, &data)) {
+        return NULL;
+    }
 
-  int free_s = 0;
-  if (s == NULL) {
-    free_s = 1;
-    s = ASN1_UTCTIME_new();
+    if (offset_day || offset_sec) {
+        if (!OPENSSL_gmtime_adj(&data, offset_day, offset_sec)) {
+            return NULL;
+        }
+    }
+
+    if (data.tm_year < 50 || data.tm_year >= 150) {
+        return NULL;
+    }
+
+    char buf[14];
+    BIO_snprintf(buf, sizeof(buf), "%02d%02d%02d%02d%02d%02dZ", data.tm_year % 100, data.tm_mon + 1, data.tm_mday, data.tm_hour, data.tm_min, data.tm_sec);
+
+    int free_s = 0;
     if (s == NULL) {
-      return NULL;
+        free_s = 1;
+        s = ASN1_UTCTIME_new();
+        if (s == NULL) {
+            return NULL;
+        }
     }
-  }
 
-  if (!ASN1_STRING_set(s, buf, strlen(buf))) {
-    if (free_s) {
-      ASN1_UTCTIME_free(s);
+    if (!ASN1_STRING_set(s, buf, strlen(buf))) {
+        if (free_s) {
+            ASN1_UTCTIME_free(s);
+        }
+        return NULL;
     }
-    return NULL;
-  }
-  s->type = V_ASN1_UTCTIME;
-  return s;
+    s->type = V_ASN1_UTCTIME;
+    return s;
 }
 
-int ASN1_UTCTIME_cmp_time_t(const ASN1_UTCTIME *s, time_t t) {
-  struct tm stm, ttm;
-  int day, sec;
+int ASN1_UTCTIME_cmp_time_t(const ASN1_UTCTIME* s, time_t t)
+{
+    struct tm stm, ttm;
+    int day, sec;
 
-  if (!asn1_utctime_to_tm(&stm, s, /*allow_timezone_offset=*/1)) {
-    return -2;
-  }
+    if (!asn1_utctime_to_tm(&stm, s, /*allow_timezone_offset=*/1)) {
+        return -2;
+    }
 
-  if (!OPENSSL_gmtime(&t, &ttm)) {
-    return -2;
-  }
+    if (!OPENSSL_gmtime(&t, &ttm)) {
+        return -2;
+    }
 
-  if (!OPENSSL_gmtime_diff(&day, &sec, &ttm, &stm)) {
-    return -2;
-  }
+    if (!OPENSSL_gmtime_diff(&day, &sec, &ttm, &stm)) {
+        return -2;
+    }
 
-  if (day > 0) {
-    return 1;
-  }
-  if (day < 0) {
-    return -1;
-  }
-  if (sec > 0) {
-    return 1;
-  }
-  if (sec < 0) {
-    return -1;
-  }
-  return 0;
+    if (day > 0) {
+        return 1;
+    }
+    if (day < 0) {
+        return -1;
+    }
+    if (sec > 0) {
+        return 1;
+    }
+    if (sec < 0) {
+        return -1;
+    }
+    return 0;
 }

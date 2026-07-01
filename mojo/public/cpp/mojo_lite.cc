@@ -84,15 +84,10 @@
 #pragma comment(lib, "dbghelp.lib")
 #endif // DEBUG
 
-// #if !defined(NDEBUG) && !defined(COMPONENT_BUILD)
-// sasdf
-// #endif
-
 //#include "electron/common/ipc/UtilityProcessMsgs.h"
 
 static int s_MojoHandleEntryCount = 0;
 static void onConnectorClose(void* ptr);
-//#pragma clang optimize off
 
 namespace content {
 void printCallstack();
@@ -336,8 +331,9 @@ public:
         ~MojoHandleEntry()
         {
             s_MojoHandleEntryCount--;
+
             //char output[50] = { 0 };
-            //sprintf(output, "MojoHandleEntry count: %d\n", s_MojoHandleEntryCount);
+            //sprintf(output, "~MojoHandleEntry: %p, %d\n", this, s_MojoHandleEntryCount);
             //OutputDebugStringA(output);
         }
         EntryType m_type; // 这个必须放头部
@@ -379,7 +375,13 @@ public:
 
         //---给data pipe用的
         std::vector<char> m_dataPipe;
-        bool m_isBeginReadingData = false;
+
+        enum BeginReadingDataState {
+            kNotBeginReading,
+            kBeginReadingButFail,
+            kBeginReading,
+        };
+        BeginReadingDataState m_beginReadingData = kNotBeginReading;
         size_t m_readPos = 0;
         enum DataTrapState {
             kNotDataNotTrap,
@@ -498,7 +500,7 @@ public:
             return;
         }
 
-        armTrapEventDelayNotLock(entry, MOJO_HANDLE_SIGNAL_PEER_CLOSED);
+        armTrapEventDelayNotLock(FROM_HERE, entry, MOJO_HANDLE_SIGNAL_PEER_CLOSED);
     }
 
     void handleBlinkMessagePortClose(MojoHandle handle, MojoHandleEntry* entry)
@@ -671,6 +673,13 @@ public:
         int count = 0;
     };
 
+    void setDebugMojoHandleStr(MojoHandle handle, const std::string& str)
+    {
+        WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
+        MojoHandleEntryDummy* entry = (MojoHandleEntryDummy*)findEntryNotLock(handle);
+        entry->callstack = str;
+    }
+
     void printStackTraceHash()
     {
         std::map<uint32_t, HandleEntryTrace*> entrys;
@@ -794,7 +803,7 @@ public:
 
         if (entry) {
             MojoHandleEntryDummy* dummy = (MojoHandleEntryDummy*)entry;
-            dummy->callstack = callstack;
+            //dummy->callstack = callstack;
 
             if (std::string::npos != dummy->callstack.find("StorageAreaObserver>::PendingReceiver")) {
                 OutputDebugStringA("recordCall, StorageAreaObserver\n");
@@ -835,31 +844,55 @@ public:
         m_handle1ToEntrys.insert(std::pair<MojoHandle, MojoHandleEntry*>(*dataPipeConsumerHandle, entry));
     }
 
+    bool checkAssociatedHandleIsClosed(MojoHandle handle)
+    {
+        if (0 == handle)
+            return false;
+        MojoHandleEntry* entry = findEntryNotLock(handle);
+        if (!entry)
+            return false;
+
+        if (entry->m_handle0HadClosed)
+            return true;
+        if (entry->m_handle1HadClosed)
+            return true;
+        return false;
+    }
+
     // 写入数据，或者close的时候，会trap. signals表示是写入还是关闭的原因
     void armTrapImpl(MojoHandle trapHandler, MojoHandleSignals signals) // MOJO_HANDLE_SIGNAL_READABLE
     {
         MojoResult result = MOJO_RESULT_OK;
         TrapEventEntry* info = nullptr;
-
+        MojoHandleMgr::MojoHandleEntry* entry = nullptr;
         do {
             WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
             info = findTrapEventEntryNotLock(trapHandler);
-            if (!info)
+            if (!info) {
                 return;
+            }
             CHECK(info->m_type == kTrapEventHandler);
-            if (0 == info->m_associatedHandle)
+            if (0 == info->m_associatedHandle) {
                 return;
-            MojoHandleMgr::MojoHandleEntry* entry = findEntryNotLock(info->m_associatedHandle);
-            if (!entry)
+            }
+            entry = findEntryNotLock(info->m_associatedHandle);
+            if (!entry) {
                 return;
+            }
 
             //if (MOJO_HANDLE_SIGNAL_READABLE == signals && !entry->m_readTrapDirty)
             //    return;
-            if (MOJO_HANDLE_SIGNAL_READABLE == signals && !(info->m_signals & MOJO_HANDLE_SIGNAL_READABLE))
+            if (MOJO_HANDLE_SIGNAL_READABLE == signals && !(info->m_signals & MOJO_HANDLE_SIGNAL_READABLE)) {
                 return; // 如果不包含读的标志，就不trap了
+            }
 
-            if (MOJO_HANDLE_SIGNAL_READABLE == signals && entry->m_dataPipe.size() == entry->m_readPos)
-                return; // 如果没啥可读的，就不发trap了
+            // 如果没啥可读的，一般不要trap，除非是还空数据，不然空的iframe会不能产生父的iframe.onload事件
+            if (MOJO_HANDLE_SIGNAL_READABLE == signals && entry->m_dataPipe.size() == entry->m_readPos) {
+                if (entry->m_readPos != 0) {
+                    //if (!checkAssociatedHandleIsClosed(info->m_associatedHandle))
+                    return;
+                }
+            }
 
             if (MOJO_HANDLE_SIGNAL_PEER_CLOSED == signals) {
                 // 有一种情况：mojo::Wait在等待新数据的时候，这边关闭了。此时虽然mojo::Wait没设置MOJO_HANDLE_SIGNAL_PEER_CLOSED标志，但
@@ -890,8 +923,9 @@ public:
                     [](MojoHandleMgr* mgr, MojoTrapEvent event, MojoHandle trapHandler) {
                         WTF::Locker<WTF::RecursiveMutex> locker(mgr->m_lock);
                         TrapEventEntry* info = mgr->findTrapEventEntryNotLock(trapHandler);
-                        if (!info)
+                        if (!info) {
                             return;
+                        }
                         info->m_callback(&event);
                     },
                     this, event, trapHandler));
@@ -903,7 +937,7 @@ public:
             return;
         if (0 == info->m_associatedHandle)
             return;
-        MojoHandleMgr::MojoHandleEntry* entry = findEntryNotLock(info->m_associatedHandle);
+        entry = findEntryNotLock(info->m_associatedHandle);
         if (!entry)
             return;
         if (MOJO_HANDLE_SIGNAL_READABLE == signals)
@@ -937,40 +971,69 @@ public:
                 trapHandler));
     }
 
-    void armTrapEventDelayNotLock(MojoHandleEntry* entry, MojoHandleSignals signals)
+    void armTrapEventDelayNotLock(const base::Location& fromHere, MojoHandleEntry* entry, MojoHandleSignals signals)
     {
         if (MOJO_HANDLE_SIGNAL_READABLE == signals && entry->m_readTrapDirty)
             return;
         if (MOJO_HANDLE_SIGNAL_READABLE == signals)
             entry->m_readTrapDirty = true;
 
-        entry->m_receiverRunner->PostTask(FROM_HERE,
-            base::BindOnce(
-                [](MojoHandle handle, MojoHandleSignals signals) {
-                    MojoHandleMgr* self = MojoHandleMgr::GetInst();
-                    self->m_lock.lock();
-                    MojoHandleMgr::MojoHandleEntry* entry = self->findEntryNotLock(handle);
-                    if (!entry) {
-                        self->m_lock.unlock();
-                        return;
-                    }
+        auto func = base::BindOnce([](MojoHandle handle, MojoHandleSignals signals) {
+            MojoHandleMgr* self = MojoHandleMgr::GetInst();
+            self->m_lock.lock();
+            MojoHandleMgr::MojoHandleEntry* entry = self->findEntryNotLock(handle);
 
-                    if (MOJO_HANDLE_SIGNAL_PEER_CLOSED == signals)
-                        entry->m_closeTrapDirty = true;
-                    std::vector<TrapEventEntry*> trapEventEntrys = entry->m_trapEventEntrys; // 拷贝一份，防止entry被销毁了
-                    self->m_lock.unlock();
+            if (!entry) {
+                self->m_lock.unlock();
+                return;
+            }
 
-                    for (size_t i = 0; i < trapEventEntrys.size(); ++i) {
-                        self->armTrapImpl(trapEventEntrys[i]->m_trapHandler, signals);
-                    }
+            if (MOJO_HANDLE_SIGNAL_PEER_CLOSED == signals)
+                entry->m_closeTrapDirty = true;
+            std::vector<TrapEventEntry*> trapEventEntrys = entry->m_trapEventEntrys; // 拷贝一份，防止entry被销毁了
+            self->m_lock.unlock();
 
-                    self->m_lock.lock();
-                    entry = self->findEntryNotLock(handle);
-                    if (entry && MOJO_HANDLE_SIGNAL_READABLE == signals)
-                        entry->m_readTrapDirty = false;
-                    self->m_lock.unlock();
-                },
-                entry->m_handle0, signals));
+            for (size_t i = 0; i < trapEventEntrys.size(); ++i) {
+                self->armTrapImpl(trapEventEntrys[i]->m_trapHandler, signals);
+            }
+
+            self->m_lock.lock();
+            entry = self->findEntryNotLock(handle);
+            if (entry && MOJO_HANDLE_SIGNAL_READABLE == signals)
+                entry->m_readTrapDirty = false;
+            self->m_lock.unlock();
+        }, entry->m_handle0, signals);
+
+        m_lock.lock();
+        std::map<base::SequencedTaskRunner*, std::vector<base::OnceClosure>*>::iterator it = m_runnerToTrapEvt.find(entry->m_receiverRunner.get());
+        std::vector<base::OnceClosure>* armTrapEventTasks = nullptr;
+        if (it == m_runnerToTrapEvt.end()) {
+            armTrapEventTasks = new std::vector<base::OnceClosure>();
+            m_runnerToTrapEvt[entry->m_receiverRunner.get()] = armTrapEventTasks;
+        } else {
+            armTrapEventTasks = it->second;
+        }
+        armTrapEventTasks->push_back(std::move(func));
+        
+        if (armTrapEventTasks->size() > 1) {
+            m_lock.unlock();
+            return;
+        }
+        m_lock.unlock();
+
+        entry->m_receiverRunner->PostTask(fromHere, base::BindOnce([](scoped_refptr<base::SequencedTaskRunner> runner) {
+            MojoHandleMgr* self = MojoHandleMgr::GetInst();
+            self->m_lock.lock();
+            std::vector<base::OnceClosure>* tasks = self->m_runnerToTrapEvt[runner.get()];
+            self->m_runnerToTrapEvt.erase(runner.get());
+            self->m_lock.unlock();
+
+            for (size_t i = 0; tasks && i < tasks->size(); ++i) {
+                std::move(tasks->at(i)).Run();
+            }
+            if (tasks)
+                delete tasks;
+            }, entry->m_receiverRunner));
     }
 
     void writeData(MojoHandle dataPipeProducerHandle, const void* elements, uint32_t* numBytes, const MojoWriteDataOptions* options)
@@ -984,7 +1047,7 @@ public:
                 m_lock.unlock();
                 return;
             }
-            if (entry->m_isBeginReadingData) {
+            if (entry->m_beginReadingData == MojoHandleEntry::kBeginReading) {
                 m_lock.unlock();
                 base::PlatformThread::Sleep(base::Milliseconds(1));
                 continue;
@@ -1000,7 +1063,7 @@ public:
         if (MojoHandleEntry::kNotDataNotTrap == entry->m_dataTrapState)
             entry->m_dataTrapState = MojoHandleEntry::kHasDataNotTrap;
 
-        armTrapEventDelayNotLock(entry, MOJO_HANDLE_SIGNAL_READABLE);
+        armTrapEventDelayNotLock(FROM_HERE, entry, MOJO_HANDLE_SIGNAL_READABLE);
         m_lock.unlock();
     }
 
@@ -1049,13 +1112,13 @@ public:
 
         if (isDataPipeProducerHandleClosed(entry, dataPipeConsumerHandle)) {
             if (entry->m_dataPipe.size() == entry->m_readPos) {
-                entry->m_isBeginReadingData = false;
+                entry->m_beginReadingData = MojoHandleEntry::kBeginReadingButFail;
                 return MOJO_RESULT_FAILED_PRECONDITION;
             } else
                 return MOJO_RESULT_OK;
         } else {
             if (entry->m_dataPipe.size() == entry->m_readPos) {
-                entry->m_isBeginReadingData = false;
+                entry->m_beginReadingData = MojoHandleEntry::kBeginReadingButFail;
                 return MOJO_RESULT_SHOULD_WAIT;
             } else
                 return MOJO_RESULT_OK;
@@ -1067,25 +1130,29 @@ public:
 
     MojoResult beginReadData(MojoHandle dataPipeConsumerHandle, const MojoBeginReadDataOptions* options, const void** buffer, uint32_t* bufferNumBytes)
     {
+        *bufferNumBytes = 0;
+
         WTF::Locker<WTF::RecursiveMutex> locker(m_lock);
         MojoHandleEntry* entry = findEntryNotLock(dataPipeConsumerHandle);
         if (!entry)
             return MOJO_RESULT_INVALID_ARGUMENT;
 
-        CHECK(entry->m_type == EntryType::kData && !entry->m_isBeginReadingData);
+        CHECK(entry->m_type == EntryType::kData &&
+            (entry->m_beginReadingData == MojoHandleEntry::kNotBeginReading ||
+            entry->m_beginReadingData == MojoHandleEntry::kBeginReadingButFail));
         CHECK(!options || (options->flags == MOJO_READ_DATA_FLAG_NONE));
 
         if (entry->m_readPos >= entry->m_dataPipe.size()) {
             if (entry->m_handle0HadClosed || entry->m_handle1HadClosed) {
+                entry->m_beginReadingData = MojoHandleEntry::kBeginReadingButFail;
                 return MOJO_RESULT_FAILED_PRECONDITION;
             } else {
-                // if (0 == entry->m_dataPipe.size())
-                //     entry->m_isBeginReadingData = true;
+                entry->m_beginReadingData = MojoHandleEntry::kBeginReadingButFail;
                 return MOJO_RESULT_SHOULD_WAIT;
             }
         }
 
-        entry->m_isBeginReadingData = true;
+        entry->m_beginReadingData = MojoHandleEntry::kBeginReading;
         *buffer = entry->m_dataPipe.data() + entry->m_readPos;
         *bufferNumBytes = entry->m_dataPipe.size() - entry->m_readPos;
 
@@ -1127,11 +1194,13 @@ public:
         MojoHandleEntry* entry = findEntryNotLock(dataPipeConsumerHandle);
         if (!entry)
             return;
-        CHECK(entry->m_type == EntryType::kData && entry->m_isBeginReadingData);
+        CHECK(entry->m_type == EntryType::kData && 
+            (entry->m_beginReadingData == MojoHandleEntry::kBeginReading ||
+            entry->m_beginReadingData == MojoHandleEntry::kBeginReadingButFail));
         CHECK(!options || (options->flags & MOJO_READ_DATA_FLAG_NONE));
         CHECK(entry->m_readPos + numBytesRead <= entry->m_dataPipe.size());
 
-        entry->m_isBeginReadingData = false;
+        entry->m_beginReadingData = MojoHandleEntry::kNotBeginReading;
         entry->m_readPos += numBytesRead;
 
         // 删除被读了的数据
@@ -1297,8 +1366,10 @@ private:
     int m_totalMsgConnelEntryCount = 0;
     base::Time m_gcTime;
 
-    //std::map<size_t, void*> m_connectors; // id查Connector
-    std::set<void*> m_connectors;
+    // 缓解armTrapEventDelayNotLock太频繁用的
+    std::map<base::SequencedTaskRunner*, std::vector<base::OnceClosure>*> m_runnerToTrapEvt;
+
+    std::set<void*> m_connectors; // id查Connector
 
     scoped_refptr<base::SequencedTaskRunner> m_mojoRunner;
 
@@ -1365,8 +1436,17 @@ MojoResult MojoMakeDelayCloseFlag(MojoHandle handle)
     return MOJO_RESULT_OK;
 }
 
+MojoResult MojoSetDebugMojoHandleStr(MojoHandle handle, const std::string& str)
+{
+#ifdef _DEBUG
+    MojoHandleMgr* mgr = MojoHandleMgr::GetInst();
+    mgr->setDebugMojoHandleStr(handle, str);
+#endif
+    return MOJO_RESULT_OK;
+}
+
 // 标记是js的MessageChannel
-extern "C" MojoResult MojoMakeIsMessageChannelFlag(MojoHandle handle)
+MojoResult MojoMakeIsMessageChannelFlag(MojoHandle handle)
 {
     MojoHandleMgr* mgr = MojoHandleMgr::GetInst();
     mgr->makeIsMessageChannelFlag(handle);
@@ -2026,9 +2106,9 @@ mojo::ScopedHandleBase<mojo::MessagePipeHandle> mojo::Connector::PassMessagePipe
 
 mojo::Connector::~Connector(void)
 {
-    char output[100] = { 0 };
-    sprintf(output, "~Connector: %p\n", this);
-    OutputDebugStringA(output);
+//     char output[100] = { 0 };
+//     sprintf(output, "~Connector: %p\n", this);
+//     OutputDebugStringA(output);
 
     clearConnector(message_pipe_, this, true);
 }
@@ -2052,9 +2132,9 @@ mojo::Connector::Connector(mojo::ScopedHandleBase<mojo::MessagePipeHandle> pipe,
     MojoHandleMgr::MojoHandleEntry* entry = mgr->findEntryNotLock(message_pipe_->value());
     CHECK(entry);
 
-    char output[100] = { 0 };
-    sprintf(output, "Connector 1: %p\n", this);
-    OutputDebugStringA(output);
+//     char output[100] = { 0 };
+//     sprintf(output, "Connector 1: %p\n", this);
+//     OutputDebugStringA(output);
 
     //     static int s_idGen = 1;
     //     mojo_lite_id_ = s_idGen++; // 这个字段冒充id了

@@ -61,7 +61,6 @@
 
 #include "internal.h"
 
-
 ASN1_SEQUENCE(X509_EXTENSION) = {
     ASN1_SIMPLE(X509_EXTENSION, object, ASN1_OBJECT),
     ASN1_OPT(X509_EXTENSION, critical, ASN1_BOOLEAN),

@@ -12,6 +12,10 @@
 
 U_NAMESPACE_BEGIN
 
+ByteSink::ByteSink()
+{
+}
+
 ByteSink::~ByteSink()
 {
 }

@@ -14,25 +14,26 @@
 
 #include "internal.h"
 
-#if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && \
-    !defined(OPENSSL_STATIC_ARMCAP)
+#if (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) && !defined(OPENSSL_STATIC_ARMCAP)
 
 #include <openssl/arm_arch.h>
 
-
 extern uint32_t OPENSSL_armcap_P;
 
-int CRYPTO_is_NEON_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV7_NEON) != 0;
+int CRYPTO_is_NEON_capable_at_runtime(void)
+{
+    return (OPENSSL_armcap_P & ARMV7_NEON) != 0;
 }
 
-int CRYPTO_is_ARMv8_AES_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV8_AES) != 0;
+int CRYPTO_is_ARMv8_AES_capable_at_runtime(void)
+{
+    return (OPENSSL_armcap_P & ARMV8_AES) != 0;
 }
 
-int CRYPTO_is_ARMv8_PMULL_capable_at_runtime(void) {
-  return (OPENSSL_armcap_P & ARMV8_PMULL) != 0;
+int CRYPTO_is_ARMv8_PMULL_capable_at_runtime(void)
+{
+    return (OPENSSL_armcap_P & ARMV8_PMULL) != 0;
 }
 
-#endif  /* (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) &&
+#endif /* (defined(OPENSSL_ARM) || defined(OPENSSL_AARCH64)) &&
            !defined(OPENSSL_STATIC_ARMCAP) */

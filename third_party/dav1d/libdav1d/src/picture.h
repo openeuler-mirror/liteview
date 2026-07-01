@@ -28,7 +28,11 @@
 #ifndef DAV1D_SRC_PICTURE_H
 #define DAV1D_SRC_PICTURE_H
 
+#if defined(_WIN32)
 #include "../stdatomic_dav1d.h"
+#else
+#include <stdatomic.h>
+#endif
 
 #include "src/thread.h"
 #include "dav1d/picture.h"

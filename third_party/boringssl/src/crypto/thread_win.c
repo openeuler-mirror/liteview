@@ -27,61 +27,71 @@ OPENSSL_MSVC_PRAGMA(warning(pop))
 #include <openssl/mem.h>
 #include "patch_code/sync_xp.h" // SUPPORT_XP_CODE
 
-static_assert(sizeof(CRYPTO_MUTEX) >= sizeof(SRWLOCK),
-              "CRYPTO_MUTEX is too small");
-static_assert(alignof(CRYPTO_MUTEX) >= alignof(SRWLOCK),
-              "CRYPTO_MUTEX has insufficient alignment");
+static_assert(sizeof(CRYPTO_MUTEX) >= sizeof(SRWLOCK), "CRYPTO_MUTEX is too small");
+static_assert(alignof(CRYPTO_MUTEX) >= alignof(SRWLOCK), "CRYPTO_MUTEX has insufficient alignment");
 
-static BOOL CALLBACK call_once_init(INIT_ONCE *once, void *arg, void **out) {
-  void (**init)(void) = (void (**)(void))arg;
-  (**init)();
-  return TRUE;
+static BOOL CALLBACK call_once_init(INIT_ONCE* once, void* arg, void** out)
+{
+    void (**init)(void) = (void (**)(void))arg;
+    (**init)();
+    return TRUE;
 }
 
-void CRYPTO_once(CRYPTO_once_t *once, void (*init)(void)) {
-  if (!InitOnceExecuteOnceXp(once, call_once_init, &init, NULL)) {
-    abort();
-  }
+void CRYPTO_once(CRYPTO_once_t* once, void (*init)(void))
+{
+    if (!InitOnceExecuteOnceXp(once, call_once_init, &init, NULL)) {
+        abort();
+    }
 }
 
-void CRYPTO_MUTEX_init(CRYPTO_MUTEX *lock) {
-  InitializeSRWLockXp((SRWLOCK *) lock);
+void CRYPTO_MUTEX_init(CRYPTO_MUTEX* lock)
+{
+    InitializeSRWLockXp((SRWLOCK*)lock);
 }
 
-void CRYPTO_MUTEX_lock_read(CRYPTO_MUTEX *lock) {
-  AcquireSRWLockSharedXp((SRWLOCK *) lock);
+void CRYPTO_MUTEX_lock_read(CRYPTO_MUTEX* lock)
+{
+    AcquireSRWLockSharedXp((SRWLOCK*)lock);
 }
 
-void CRYPTO_MUTEX_lock_write(CRYPTO_MUTEX *lock) {
-  AcquireSRWLockExclusiveXp((SRWLOCK *) lock);
+void CRYPTO_MUTEX_lock_write(CRYPTO_MUTEX* lock)
+{
+    AcquireSRWLockExclusiveXp((SRWLOCK*)lock);
 }
 
-void CRYPTO_MUTEX_unlock_read(CRYPTO_MUTEX *lock) {
-  ReleaseSRWLockSharedXp((SRWLOCK *) lock);
+void CRYPTO_MUTEX_unlock_read(CRYPTO_MUTEX* lock)
+{
+    ReleaseSRWLockSharedXp((SRWLOCK*)lock);
 }
 
-void CRYPTO_MUTEX_unlock_write(CRYPTO_MUTEX *lock) {
-  ReleaseSRWLockExclusiveXp((SRWLOCK *) lock);
+void CRYPTO_MUTEX_unlock_write(CRYPTO_MUTEX* lock)
+{
+    ReleaseSRWLockExclusiveXp((SRWLOCK*)lock);
 }
 
-void CRYPTO_MUTEX_cleanup(CRYPTO_MUTEX *lock) {
-  // SRWLOCKs require no cleanup.
+void CRYPTO_MUTEX_cleanup(CRYPTO_MUTEX* lock)
+{
+    // SRWLOCKs require no cleanup.
 }
 
-void CRYPTO_STATIC_MUTEX_lock_read(struct CRYPTO_STATIC_MUTEX *lock) {
-  AcquireSRWLockSharedXp(&lock->lock);
+void CRYPTO_STATIC_MUTEX_lock_read(struct CRYPTO_STATIC_MUTEX* lock)
+{
+    AcquireSRWLockSharedXp(&lock->lock);
 }
 
-void CRYPTO_STATIC_MUTEX_lock_write(struct CRYPTO_STATIC_MUTEX *lock) {
-  AcquireSRWLockExclusiveXp(&lock->lock);
+void CRYPTO_STATIC_MUTEX_lock_write(struct CRYPTO_STATIC_MUTEX* lock)
+{
+    AcquireSRWLockExclusiveXp(&lock->lock);
 }
 
-void CRYPTO_STATIC_MUTEX_unlock_read(struct CRYPTO_STATIC_MUTEX *lock) {
-  ReleaseSRWLockSharedXp(&lock->lock);
+void CRYPTO_STATIC_MUTEX_unlock_read(struct CRYPTO_STATIC_MUTEX* lock)
+{
+    ReleaseSRWLockSharedXp(&lock->lock);
 }
 
-void CRYPTO_STATIC_MUTEX_unlock_write(struct CRYPTO_STATIC_MUTEX *lock) {
-  ReleaseSRWLockExclusiveXp(&lock->lock);
+void CRYPTO_STATIC_MUTEX_unlock_write(struct CRYPTO_STATIC_MUTEX* lock)
+{
+    ReleaseSRWLockExclusiveXp(&lock->lock);
 }
 
 static SRWLOCK g_destructors_lock = SRWLOCK_INIT;
@@ -91,45 +101,46 @@ static CRYPTO_once_t g_thread_local_init_once = CRYPTO_ONCE_INIT;
 static DWORD g_thread_local_key;
 static int g_thread_local_failed;
 
-static void thread_local_init(void) {
-  g_thread_local_key = TlsAlloc();
-  g_thread_local_failed = (g_thread_local_key == TLS_OUT_OF_INDEXES);
+static void thread_local_init(void)
+{
+    g_thread_local_key = TlsAlloc();
+    g_thread_local_failed = (g_thread_local_key == TLS_OUT_OF_INDEXES);
 }
 
-static void NTAPI thread_local_destructor(PVOID module, DWORD reason,
-                                          PVOID reserved) {
-  // Only free memory on |DLL_THREAD_DETACH|, not |DLL_PROCESS_DETACH|. In
-  // VS2015's debug runtime, the C runtime has been unloaded by the time
-  // |DLL_PROCESS_DETACH| runs. See https://crbug.com/575795. This is consistent
-  // with |pthread_key_create| which does not call destructors on process exit,
-  // only thread exit.
-  if (reason != DLL_THREAD_DETACH) {
-    return;
-  }
-
-  CRYPTO_once(&g_thread_local_init_once, thread_local_init);
-  if (g_thread_local_failed) {
-    return;
-  }
-
-  void **pointers = (void**) TlsGetValue(g_thread_local_key);
-  if (pointers == NULL) {
-    return;
-  }
-
-  thread_local_destructor_t destructors[NUM_OPENSSL_THREAD_LOCALS];
-
-  AcquireSRWLockExclusiveXp(&g_destructors_lock);
-  OPENSSL_memcpy(destructors, g_destructors, sizeof(destructors));
-  ReleaseSRWLockExclusiveXp(&g_destructors_lock);
-
-  for (unsigned i = 0; i < NUM_OPENSSL_THREAD_LOCALS; i++) {
-    if (destructors[i] != NULL) {
-      destructors[i](pointers[i]);
+static void NTAPI thread_local_destructor(PVOID module, DWORD reason, PVOID reserved)
+{
+    // Only free memory on |DLL_THREAD_DETACH|, not |DLL_PROCESS_DETACH|. In
+    // VS2015's debug runtime, the C runtime has been unloaded by the time
+    // |DLL_PROCESS_DETACH| runs. See https://crbug.com/575795. This is consistent
+    // with |pthread_key_create| which does not call destructors on process exit,
+    // only thread exit.
+    if (reason != DLL_THREAD_DETACH) {
+        return;
     }
-  }
 
-  OPENSSL_free(pointers);
+    CRYPTO_once(&g_thread_local_init_once, thread_local_init);
+    if (g_thread_local_failed) {
+        return;
+    }
+
+    void** pointers = (void**)TlsGetValue(g_thread_local_key);
+    if (pointers == NULL) {
+        return;
+    }
+
+    thread_local_destructor_t destructors[NUM_OPENSSL_THREAD_LOCALS];
+
+    AcquireSRWLockExclusiveXp(&g_destructors_lock);
+    OPENSSL_memcpy(destructors, g_destructors, sizeof(destructors));
+    ReleaseSRWLockExclusiveXp(&g_destructors_lock);
+
+    for (unsigned i = 0; i < NUM_OPENSSL_THREAD_LOCALS; i++) {
+        if (destructors[i] != NULL) {
+            destructors[i](pointers[i]);
+        }
+    }
+
+    OPENSSL_free(pointers);
 }
 
 // Thread Termination Callbacks.
@@ -148,13 +159,9 @@ static void NTAPI thread_local_destructor(PVOID module, DWORD reason,
 #define STRINGIFY(x) #x
 #define EXPAND_AND_STRINGIFY(x) STRINGIFY(x)
 #ifdef _WIN64
-__pragma(comment(linker, "/INCLUDE:_tls_used"))
-__pragma(comment(
-    linker, "/INCLUDE:" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
+__pragma(comment(linker, "/INCLUDE:_tls_used")) __pragma(comment(linker, "/INCLUDE:" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
 #else
-__pragma(comment(linker, "/INCLUDE:__tls_used"))
-__pragma(comment(
-    linker, "/INCLUDE:_" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
+__pragma(comment(linker, "/INCLUDE:__tls_used")) __pragma(comment(linker, "/INCLUDE:_" EXPAND_AND_STRINGIFY(p_thread_callback_boringssl)))
 #endif
 
 // .CRT$XLA to .CRT$XLZ is an array of PIMAGE_TLS_CALLBACK pointers that are
@@ -177,9 +184,9 @@ __pragma(comment(
 
 // .CRT section is merged with .rdata on x64 so it must be constant data.
 #pragma const_seg(".CRT$XLC")
-// When defining a const variable, it must have external linkage to be sure the
-// linker doesn't discard it.
-extern const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl;
+    // When defining a const variable, it must have external linkage to be sure the
+    // linker doesn't discard it.
+    extern const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl;
 const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
 // Reset the default section.
 #pragma const_seg()
@@ -187,72 +194,75 @@ const PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
 #else
 
 #pragma data_seg(".CRT$XLC")
-PIMAGE_TLS_CALLBACK p_thread_callback_boringssl = thread_local_destructor;
+    PIMAGE_TLS_CALLBACK p_thread_callback_boringssl
+    = thread_local_destructor;
 // Reset the default section.
 #pragma data_seg()
 
-#endif  // _WIN64
+#endif // _WIN64
 
-static void **get_thread_locals(void) {
-  // |TlsGetValue| clears the last error even on success, so that callers may
-  // distinguish it successfully returning NULL or failing. It is documented to
-  // never fail if the argument is a valid index from |TlsAlloc|, so we do not
-  // need to handle this.
-  //
-  // However, this error-mangling behavior interferes with the caller's use of
-  // |GetLastError|. In particular |SSL_get_error| queries the error queue to
-  // determine whether the caller should look at the OS's errors. To avoid
-  // destroying state, save and restore the Windows error.
-  //
-  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms686812(v=vs.85).aspx
-  DWORD last_error = GetLastError();
-  void **ret = TlsGetValue(g_thread_local_key);
-  SetLastError(last_error);
-  return ret;
+static void** get_thread_locals(void)
+{
+    // |TlsGetValue| clears the last error even on success, so that callers may
+    // distinguish it successfully returning NULL or failing. It is documented to
+    // never fail if the argument is a valid index from |TlsAlloc|, so we do not
+    // need to handle this.
+    //
+    // However, this error-mangling behavior interferes with the caller's use of
+    // |GetLastError|. In particular |SSL_get_error| queries the error queue to
+    // determine whether the caller should look at the OS's errors. To avoid
+    // destroying state, save and restore the Windows error.
+    //
+    // https://msdn.microsoft.com/en-us/library/windows/desktop/ms686812(v=vs.85).aspx
+    DWORD last_error = GetLastError();
+    void** ret = TlsGetValue(g_thread_local_key);
+    SetLastError(last_error);
+    return ret;
 }
 
-void *CRYPTO_get_thread_local(thread_local_data_t index) {
-  CRYPTO_once(&g_thread_local_init_once, thread_local_init);
-  if (g_thread_local_failed) {
-    return NULL;
-  }
+void* CRYPTO_get_thread_local(thread_local_data_t index)
+{
+    CRYPTO_once(&g_thread_local_init_once, thread_local_init);
+    if (g_thread_local_failed) {
+        return NULL;
+    }
 
-  void **pointers = get_thread_locals();
-  if (pointers == NULL) {
-    return NULL;
-  }
-  return pointers[index];
-}
-
-int CRYPTO_set_thread_local(thread_local_data_t index, void *value,
-                            thread_local_destructor_t destructor) {
-  CRYPTO_once(&g_thread_local_init_once, thread_local_init);
-  if (g_thread_local_failed) {
-    destructor(value);
-    return 0;
-  }
-
-  void **pointers = get_thread_locals();
-  if (pointers == NULL) {
-    pointers = OPENSSL_malloc(sizeof(void *) * NUM_OPENSSL_THREAD_LOCALS);
+    void** pointers = get_thread_locals();
     if (pointers == NULL) {
-      destructor(value);
-      return 0;
+        return NULL;
     }
-    OPENSSL_memset(pointers, 0, sizeof(void *) * NUM_OPENSSL_THREAD_LOCALS);
-    if (TlsSetValue(g_thread_local_key, pointers) == 0) {
-      OPENSSL_free(pointers);
-      destructor(value);
-      return 0;
-    }
-  }
-
-  AcquireSRWLockExclusiveXp(&g_destructors_lock);
-  g_destructors[index] = destructor;
-  ReleaseSRWLockExclusiveXp(&g_destructors_lock);
-
-  pointers[index] = value;
-  return 1;
+    return pointers[index];
 }
 
-#endif  // OPENSSL_WINDOWS_THREADS
+int CRYPTO_set_thread_local(thread_local_data_t index, void* value, thread_local_destructor_t destructor)
+{
+    CRYPTO_once(&g_thread_local_init_once, thread_local_init);
+    if (g_thread_local_failed) {
+        destructor(value);
+        return 0;
+    }
+
+    void** pointers = get_thread_locals();
+    if (pointers == NULL) {
+        pointers = OPENSSL_malloc(sizeof(void*) * NUM_OPENSSL_THREAD_LOCALS);
+        if (pointers == NULL) {
+            destructor(value);
+            return 0;
+        }
+        OPENSSL_memset(pointers, 0, sizeof(void*) * NUM_OPENSSL_THREAD_LOCALS);
+        if (TlsSetValue(g_thread_local_key, pointers) == 0) {
+            OPENSSL_free(pointers);
+            destructor(value);
+            return 0;
+        }
+    }
+
+    AcquireSRWLockExclusiveXp(&g_destructors_lock);
+    g_destructors[index] = destructor;
+    ReleaseSRWLockExclusiveXp(&g_destructors_lock);
+
+    pointers[index] = value;
+    return 1;
+}
+
+#endif // OPENSSL_WINDOWS_THREADS

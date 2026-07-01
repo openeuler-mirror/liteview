@@ -2282,7 +2282,7 @@ String Node::ToString() const
     return builder.ReleaseString();
 }
 
-#if DCHECK_IS_ON()
+#if 1 // DCHECK_IS_ON()
 
 String Node::ToTreeStringForThis() const
 {

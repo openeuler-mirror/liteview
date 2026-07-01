@@ -16,15 +16,23 @@
 #include "content/browser/MbWebview.h"
 #include "content/common/LiveIdDetect.h"
 #include "api/download/DownloadUtil.h"
+#include "mbnet/WebURLLoaderManager.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
+#include "base/threading/thread.h"
+#include "base/atomic_sequence_num.h"
 #include <process.h>
 #include <shlwapi.h>
 #include <commdlg.h>
+#ifdef OS_LINUX
+#include <gtk/gtk.h>
+#endif
 
 namespace download {
+
+base::AtomicSequenceNumber g_nextDownloadId;
 
 size_t c16len(const char16_t* s)
 {
@@ -40,70 +48,6 @@ int SimpleDownload::getDialogCount()
     return m_dialogCount;
 }
 
-// void SimpleDownload::onSimpleDownloadWillRedirectCallback(wkeWebView webView, void* param, wkeWebUrlRequestPtr oldRequest, wkeWebUrlRequestPtr request, wkeWebUrlResponsePtr redirectResponse)
-// {
-// }
-// 
-// void SimpleDownload::onSimpleDownloadDidReceiveResponseCallback(wkeWebView webView, void* param, wkeWebUrlRequestPtr request, wkeWebUrlResponsePtr response)
-// {
-//     SimpleDownload* self = (SimpleDownload*)param;
-//     __int64 expectedContentLength = wkeNetGetExpectedContentLength(response);
-//     if (expectedContentLength > 0x00ffffff) {
-//         self->m_handleOfSave = nullptr;
-//         return;
-//     }
-// 
-//     self->m_totalSize = (size_t)expectedContentLength; // may be -1
-//     self->m_downloadedSize = 0;
-// }
-// 
-// void SimpleDownload::onSimpleDownloadDidReceiveDataCallback(wkeWebView webView, void* param, wkeWebUrlRequestPtr request, const char* data, int dataLength)
-// {
-//     SimpleDownload* self = (SimpleDownload*)param;
-// 
-// //     HANDLE hFile = self->m_handleOfSave;
-// //     if (!hFile || INVALID_HANDLE_VALUE == hFile)
-// //         return;
-// // 
-// //     DWORD numberOfBytesWrite = 0;
-// //     BOOL b = ::WriteFile(hFile, data, dataLength, &numberOfBytesWrite, nullptr);
-// //     if (!b) {
-// //         ::CloseHandle(hFile);
-// //         self->m_handleOfSave = nullptr;
-// //         return;
-// //     }
-//     if (!self->m_handleOfSave)
-//         return;
-// 
-//     DWORD numberOfBytesWrite = self->m_handleOfSave->WriteAtCurrentPos(data, dataLength);
-// 
-//     self->m_handleOfSave->Close();
-//     delete self->m_handleOfSave;
-// 
-//     self->m_downloadedSize += numberOfBytesWrite;
-// }
-// 
-// void SimpleDownload::onSimpleDownloadDidFailCallback(wkeWebView webView, void* param, wkeWebUrlRequestPtr request, const utf8* error)
-// {
-//     SimpleDownload* self = (SimpleDownload*)param;
-//     if (self->m_handleOfSave)
-//         delete self->m_handleOfSave;
-//     self->m_handleOfSave = nullptr;
-// 
-//     delete self;
-// }
-// 
-// void SimpleDownload::onSimpleDownloadDidFinishLoadingCallback(wkeWebView webView, void* param, wkeWebUrlRequestPtr request, double finishTime)
-// {
-//     SimpleDownload* self = (SimpleDownload*)param;
-//     if (self->m_handleOfSave)
-//         delete self->m_handleOfSave;
-//     self->m_handleOfSave = nullptr;
-//     self->m_totalSize = self->m_downloadedSize;
-// 
-//     delete self;
-// }
-
 void SimpleDownload::onDataRecv(void* param, mbNetJob job, const char* data, int length)
 {
     SimpleDownload* self = (SimpleDownload*)param;
@@ -118,14 +62,8 @@ void SimpleDownload::onDataFinish(void* param, mbNetJob job, mbLoadingResult res
 
 int SimpleDownload::m_dialogCount = 0;
 
-SimpleDownload::SimpleDownload(mbWebView mbView,
-    size_t expectedContentLength,
-    const char* url,
-    const char* mime,
-    const char* disposition,
-    mbNetJob job,
-    mbNetJobDataBind* dataBind,
-    mbDownloadBind* callbackBind)
+SimpleDownload::SimpleDownload(mbWebView mbView, size_t expectedContentLength, const char* url, const char* mime, const char* disposition, mbNetJob job,
+    mbNetJobDataBind* dataBind, mbDownloadBind* callbackBind)
 {
     m_totalSize = expectedContentLength;
     m_url = url;
@@ -133,17 +71,23 @@ SimpleDownload::SimpleDownload(mbWebView mbView,
     m_contentDisposition = disposition;
     m_handleOfSave = nullptr;
     m_mbView = mbView;
-    m_hasFinish = false;
+    m_hadCallDataFinish = false;
     m_loadingResult = (mbLoadingResult)-1;
+
+    m_thread = mbnet::WebURLLoaderManager::sharedInstance()->getIoThread(mbnet::WebURLLoaderManager::kIoThreadTypeRes);
 
     dataBind->param = this;
     dataBind->recvCallback = onDataRecv;
     dataBind->finishCallback = onDataFinish;
 
-    m_callbackBind.param = nullptr;
-    m_callbackBind.recvCallback = nullptr;
-    m_callbackBind.finishCallback = nullptr;
-    m_callbackBind.saveNameCallback = nullptr;
+    memset(&m_callbackBind, 0, sizeof(mbDownloadBind));
+
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)m_mbView);
+    m_saveTempFullPath = webview->getDownloadDirPath();
+
+    char temp[150] = { 0 };
+    sprintf(temp, "%p_%p_%p.tmp", &mbView, &expectedContentLength, g_nextDownloadId.GetNext());
+    m_saveTempFullPath = m_saveTempFullPath.AppendASCII(temp);
 
     if (callbackBind)
         m_callbackBind = *callbackBind;
@@ -151,23 +95,31 @@ SimpleDownload::SimpleDownload(mbWebView mbView,
 
 SimpleDownload::~SimpleDownload()
 {
-
+    if (m_cacheData)
+        delete m_cacheData;
+    m_cacheData = nullptr;
 }
 
-SimpleDownload* SimpleDownload::create(mbWebView webView,
-    const WCHAR* savePath,
-    const mbDialogOptions* dialogOpt,
-    const mbDownloadOptions* downloadOpt,
-    size_t expectedContentLength,
-    const char* url,
-    const char* mime,
-    const char* disposition,
-    mbNetJob job,
-    mbNetJobDataBind* dataBind,
+SimpleDownload* SimpleDownload::create(mbWebView webView, const WCHAR* savePath, const mbDialogOptions* dialogOpt, const mbDownloadOptions* downloadOpt,
+    size_t expectedContentLength, const char* url, const char* mime, const char* disposition, mbNetJob job, mbNetJobDataBind* dataBind,
     mbDownloadBind* callbackBind)
 {
     if (m_dialogCount > 0)
         return nullptr;
+
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webView);
+    base::FilePath saveTempFullPath = webview->getDownloadDirPath();
+
+    if (!base::PathExists(saveTempFullPath)) {
+        base::File::Error error;
+        if (!base::CreateDirectoryAndGetError(saveTempFullPath, &error)) {
+            std::string temp = "CreateDirectoryAndGetError fail:";
+            temp += saveTempFullPath.AsUTF8Unsafe();
+            temp += "\n";
+            OutputDebugStringA(temp.c_str());
+            return nullptr;
+        }
+    }
 
     SimpleDownload* self = new SimpleDownload(webView, expectedContentLength, url, mime, disposition, job, dataBind, callbackBind);
 
@@ -175,26 +127,31 @@ SimpleDownload* SimpleDownload::create(mbWebView webView,
         self->dialogOpt.defaultPath = dialogOpt->defaultPath;
 
     if (savePath) {
-        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webView);
         webview->setIsMouseKeyMessageEnable(true);
 
         std::vector<WCHAR>* fileResult = nullptr;
         size_t pathLen = c16len((const char16_t*)savePath);
-        if (pathLen > 0) {
-            fileResult = new std::vector<WCHAR>();
-            fileResult->resize(MAX_PATH * 2);
-
-            memcpy(fileResult->data(), savePath, pathLen * sizeof(WCHAR));
-
-            if (!(downloadOpt && downloadOpt->magic == 'mbdo' && downloadOpt->saveAsPathAndName)) {
-                std::u16string defaultSaveName = getSaveName(self->m_contentDisposition, self->m_url);
-                PathAppendW((LPWSTR)(fileResult->data()), (LPCWSTR)(defaultSaveName.c_str()));
-            }
+        if (pathLen == 0) {
+            delete self;
+            return nullptr;
         }
 
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [self, fileResult] {
-            self->startSave(fileResult);
-        });
+        fileResult = new std::vector<WCHAR>();
+        fileResult->resize(MAX_PATH * 2);
+
+        memcpy(fileResult->data(), savePath, pathLen * sizeof(WCHAR));
+
+        if (!(downloadOpt && downloadOpt->magic == 'mbdo' && downloadOpt->saveAsPathAndName)) {
+            std::u16string defaultSaveName = getSaveName(self->m_contentDisposition, self->m_url);
+            PathAppendW((LPWSTR)(fileResult->data()), (LPCWSTR)(defaultSaveName.c_str()));
+        }
+        
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [self] { self->startSave(true); });
+
+        self->m_saveFullPathLock.Acquire();
+        self->m_saveFullPath = (const char16_t*)fileResult->data();
+        self->m_saveFullPathLock.Release();
+        delete fileResult;
     } else {
         base::subtle::Barrier_AtomicIncrement(&m_dialogCount, 1);
 
@@ -208,7 +165,7 @@ SimpleDownload* SimpleDownload::create(mbWebView webView,
 
 bool SimpleDownload::canSave()
 {
-    if (m_hasFinish && (MB_LOADING_FAILED == m_loadingResult || MB_LOADING_CANCELED == m_loadingResult))
+    if (m_hadCallDataFinish && (MB_LOADING_FAILED == m_loadingResult || MB_LOADING_CANCELED == m_loadingResult))
         return false;
     return true;
 }
@@ -224,17 +181,19 @@ base::FilePath changeStrToFilePath(const std::u16string& str)
 
 void SimpleDownload::onBeginSaveCallback()
 {
+    base::AutoLock locker(m_saveFullPathLock);
     if (!m_callbackBind.beginSaveCallback)
         return;
 
-    base::FilePath savePath = changeStrToFilePath(m_savePath);
-    std::string savePathStr = base::UTF16ToUTF8(m_savePath);
+    base::FilePath savePath = changeStrToFilePath(m_saveFullPath);
+    std::string savePathStr = base::UTF16ToUTF8(m_saveFullPath);
+    // ����ص���ı�洢��·��������
     mbStringPtr newPath = m_callbackBind.beginSaveCallback(m_callbackBind.param, savePathStr.c_str(), base::PathExists(savePath));
     if (!newPath || mbGetStringLen(newPath) == 0)
         return;
 
-    m_savePath.clear();
-    if (!base::UTF8ToUTF16(mbGetString(newPath), mbGetStringLen(newPath), &m_savePath)) {
+    m_saveFullPath.clear();
+    if (!base::UTF8ToUTF16(mbGetString(newPath), mbGetStringLen(newPath), &m_saveFullPath)) {
         m_loadingResult = MB_LOADING_FAILED;
 
         if (m_callbackBind.finishCallback)
@@ -243,20 +202,73 @@ void SimpleDownload::onBeginSaveCallback()
     }
 }
 
-void SimpleDownload::startSaveImpl()
+// ����Ƿ�������������У��ͼӸ�����
+base::FilePath checkAndRenameSaveFullPath(const base::FilePath& path)
 {
-    if (!m_handleOfSave && !m_savePath.empty()) {
+    if (!base::PathExists(path))
+        return path;
+
+    time_t currentTime;
+    time(&currentTime);
+    struct tm* timeInfo = localtime(&currentTime);
+    char timeString[20]; // �㹻��� "YYYY-MM-DD HH:MM:SS\0"
+
+    static int s_count = 1;
+    strftime(timeString, sizeof(timeString), "%Y-%m-%d-%H-%M-%S", timeInfo);
+    char temp[150];
+    snprintf(temp, sizeof(temp), "[%s](%d)", timeString, s_count++);
+
+    base::FilePath newPath = path.InsertBeforeExtensionASCII(base::StringPiece(temp));
+    if (!base::PathExists(newPath))
+        return newPath;
+
+    return path;
+}
+
+void SimpleDownload::endSaveInIoThread(const base::FilePath& saveFullPath, const scoped_refptr<base::SequencedTaskRunner>& runner)
+{
+    if (m_handleOfSave && (base::File*)(-1) != m_handleOfSave) {
+        m_handleOfSave->Close();
+        delete m_handleOfSave;
+    }
+    m_handleOfSave = (base::File*)(-1);
+
+    base::FilePath savePathDir = saveFullPath.DirName();
+    base::CreateDirectory(savePathDir);
+
+    base::FilePath savePath = checkAndRenameSaveFullPath(saveFullPath);
+
+    if (!base::internal::MoveUnsafe(m_saveTempFullPath, savePath)) {
+        bool b = base::CopyFile(m_saveTempFullPath, savePath);
+        m_loadingResult = MB_LOADING_FAILED;
+    }
+    base::DeleteFile(m_saveTempFullPath);
+
+    runner->PostTask(FROM_HERE, base::BindOnce([](SimpleDownload* self) {
+        if (self->m_callbackBind.finishCallback)
+            self->m_callbackBind.finishCallback(self->m_callbackBind.param, nullptr, self->m_loadingResult);
+
+        content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [self] { delete self; });
+    }, base::Unretained(this)));
+}
+
+// ���������ڻ�û�յ���ȷ���ļ�����ʱ��Ϳ�ʼ���أ��������ص�����Ҳ���ȴ���temp·����
+void SimpleDownload::doSave()
+{
+    if (nullptr == m_handleOfSave) {
         onBeginSaveCallback();
 
-        base::File* hFile = new base::File(changeStrToFilePath(m_savePath), base::File::FLAG_WRITE | base::File::FLAG_CREATE_ALWAYS);
+        std::string output = "SimpleDownload::doSave, ";
+
+        base::File* hFile = new base::File(m_saveTempFullPath, base::File::FLAG_WRITE | base::File::FLAG_CREATE_ALWAYS);
         if (!hFile || !hFile->IsValid()) {
-            std::string output = "SimpleDownload::startSaveImpl fail";
-            output += base::UTF16ToUTF8(m_savePath);
+            output += "fail:";
+            output += m_saveTempFullPath.AsUTF8Unsafe();
             output += "\n";
             OutputDebugStringA(output.c_str());
 
-            m_savePath.clear();
-
+            if (hFile)
+                delete hFile;
             m_loadingResult = MB_LOADING_FAILED;
 
             if (m_callbackBind.finishCallback)
@@ -265,60 +277,81 @@ void SimpleDownload::startSaveImpl()
         }
         m_handleOfSave = hFile;
 
-        if (m_callbackBind.saveNameCallback)
-            m_callbackBind.saveNameCallback(m_callbackBind.param, (const WCHAR*)m_savePath.c_str());
+        output += "ok:";
+        output += m_saveTempFullPath.AsUTF8Unsafe();
+        output += "\n";
+        OutputDebugStringA(output.c_str());
+
+        if (m_callbackBind.saveNameCallback) {
+            base::AutoLock locker(m_saveFullPathLock);
+            m_callbackBind.saveNameCallback(m_callbackBind.param, (const WCHAR*)m_saveFullPath.c_str());
+        }
     }
 
-    if (!m_handleOfSave) {
-        OutputDebugStringA("SimpleDownload::startSaveImpl, m_handleOfSave fail\n");
+    if (!m_handleOfSave || (base::File*)(-1) == m_handleOfSave) {
+        m_handleOfSave = (base::File*)(-1);
+        CHECK(MB_LOADING_FAILED == m_loadingResult);
+        OutputDebugStringA("SimpleDownload::doSave, m_handleOfSave fail\n");
         return;
     }
 
 #ifdef OS_LINUX
-    char* output = (char*)malloc(0x1000);
-    sprintf(output, "SimpleDownload::startSaveImpl: %p %d, %d, %s\n", m_callbackBind.recvCallback, canSave(), m_cacheData.size(), base::UTF16ToUTF8(m_savePath).c_str());
-    OutputDebugStringA(output);
-    free(output);
+//     char* output = (char*)malloc(0x1000);
+//     sprintf(output, "SimpleDownload::doSave: %p %d, %d, %s\n", m_callbackBind.recvCallback, canSave(), m_cacheData.size(),
+//         base::UTF16ToUTF8(m_saveFullPath).c_str());
+//     OutputDebugStringA(output);
+//     free(output);
 #endif
-    if (m_callbackBind.recvCallback && canSave() && 0 != m_cacheData.size())
-        m_callbackBind.recvCallback(m_callbackBind.param, nullptr, &m_cacheData[0], (int)m_cacheData.size());
+    if (m_callbackBind.recvCallback && canSave() && m_cacheData && 0 != m_cacheData->size())
+        m_callbackBind.recvCallback(m_callbackBind.param, nullptr, m_cacheData->data(), (int)m_cacheData->size());
 
-    //BOOL b = FALSE;
-    //DWORD numberOfBytesWrite = 0;
-    if (0 != m_cacheData.size()) {
-        m_handleOfSave->WriteAtCurrentPos(&m_cacheData[0], (DWORD)m_cacheData.size());
-        //b = ::WriteFile(m_handleOfSave, &m_cacheData[0], (DWORD)m_cacheData.size(), &numberOfBytesWrite, nullptr);
+    if (m_cacheData) {
+        if (0 != m_cacheData->size()) {
+            std::vector<char>* cacheData = m_cacheData;
+            m_thread->task_runner()->PostTask(FROM_HERE, base::BindOnce([](std::vector<char>* cacheData, base::File* handleOfSave) {
+                std::optional<size_t> size = handleOfSave->WriteAtCurrentPos(cacheData->data(), (DWORD)cacheData->size());
+                
+                char* output = (char*)malloc(0x100);
+                sprintf(output, "WriteAtCurrentPos: %p %p\n", 
+                    cacheData->size(),
+                    size.has_value() ? size.value() : -1);
+                OutputDebugStringA(output);
+                free(output);
+
+                delete cacheData;
+            }, base::Unretained(cacheData), base::Unretained(m_handleOfSave)));
+        } else 
+            delete m_cacheData;
+        m_cacheData = nullptr;
     }
-    m_cacheData.clear();
 
-    if (!m_hasFinish)
+    // ��ʱ���������ˣ����ضԻ���û�򿪣������������˻�û����startSave
+    if (!m_hadCallDataFinish || m_dialogCount > 0 || !m_hasStartSave)
         return;
 
-    m_handleOfSave->Close();
-    delete m_handleOfSave;
-    m_handleOfSave = nullptr;
+    // ���سɹ�
+    m_saveFullPathLock.Acquire();
+    base::FilePath saveFullPath = changeStrToFilePath(m_saveFullPath);
+    m_saveFullPathLock.Release();
 
-    if (m_callbackBind.finishCallback)
-        m_callbackBind.finishCallback(m_callbackBind.param, nullptr, m_loadingResult);
-
-    SimpleDownload* self = this;
-    content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [self] {
-        delete self;
-    });
+    const scoped_refptr<base::SequencedTaskRunner>& currentRunner = base::SequencedTaskRunner::GetCurrentDefault();
+    m_thread->task_runner()->PostTask(FROM_HERE, base::BindOnce([](
+        SimpleDownload* self, const base::FilePath& saveFullPath, const scoped_refptr<base::SequencedTaskRunner>& runner) {
+            self->endSaveInIoThread(saveFullPath, std::move(runner));
+    }, base::Unretained(this), saveFullPath, std::move(currentRunner)));
 }
 
-void SimpleDownload::startSave(std::vector<WCHAR>* path)
+void SimpleDownload::startSave(/*std::vector<WCHAR>* path*/bool ok)
 {
-    if (!path || 0 == path->size()) {
-        m_loadingResult = (mbLoadingResult)-1;
+    if (/*!path || 0 == path->size()*/!ok) {
+        m_loadingResult = MB_LOADING_FAILED;
         if (m_callbackBind.finishCallback)
             m_callbackBind.finishCallback(m_callbackBind.param, nullptr, m_loadingResult);
         return;
     }
-    m_savePath = (const char16_t*)path->data();
-    delete path;
 
-    startSaveImpl();
+    m_hasStartSave = true;
+    doSave();
 }
 
 void SimpleDownload::onDataRecvImpl(mbNetJob job, const char* data, int length)
@@ -326,13 +359,18 @@ void SimpleDownload::onDataRecvImpl(mbNetJob job, const char* data, int length)
     if (0 == length)
         return;
 
-    size_t oldSize = m_cacheData.size();
-    m_cacheData.resize(oldSize + length);
-    memcpy(&m_cacheData[oldSize], data, length);
+    if ((mbLoadingResult)-1 == m_loadingResult) { // ����mbNetCancelRequest��Ȼ�ᷴ�����뱾����
+        if (!m_cacheData)
+            m_cacheData = new std::vector<char>();
 
-    m_downloadedSize += length;
+        size_t oldSize = m_cacheData->size();
+        m_cacheData->resize(oldSize + length);
+        memcpy(&m_cacheData->at(oldSize), data, length);
 
-    startSaveImpl();
+        m_downloadedSize += length;
+
+        doSave();
+    }
 
     if (MB_LOADING_FAILED == m_loadingResult)
         mbNetCancelRequest(job);
@@ -340,29 +378,113 @@ void SimpleDownload::onDataRecvImpl(mbNetJob job, const char* data, int length)
 
 void SimpleDownload::onDataFinishImpl(mbNetJob job, mbLoadingResult result)
 {
-    m_hasFinish = true;
+    m_hadCallDataFinish = true;
     m_loadingResult = result;
-    startSaveImpl();
+    doSave();
 }
+
+#ifdef OS_LINUX
+// ���� "�ļ�����Ϊ" �Ի���
+static gchar* showSaveAsDialog(GtkWindow* parent, const std::string& defaultSaveName, const std::string& defaultPath)
+{
+    GtkWidget* dialog = nullptr;
+    gchar* filename = nullptr;
+
+    dialog = gtk_file_chooser_dialog_new(
+        "File save as",
+        parent,
+        GTK_FILE_CHOOSER_ACTION_SAVE, // �ؼ�������Ϊģʽ
+        "cancel", GTK_RESPONSE_CANCEL,
+        "save", GTK_RESPONSE_OK,
+        NULL
+    );
+    printf("showSaveAsDialog: [%s], [%s]\n", defaultPath.c_str(), defaultSaveName.c_str());
+
+    if (!defaultSaveName.empty())
+        gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), defaultSaveName.c_str());
+    if (!defaultPath.empty())
+        gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), defaultPath.c_str());
+
+    // ����ļ��Ѵ��ڣ���ʾȷ�ϸ���
+    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
+
+    GtkFileFilter* filter = nullptr;
+
+    // ����ֻ��������Ϊ .txt
+    //filter = gtk_file_filter_new();
+    //gtk_file_filter_set_name(filter, "�ı��ĵ� (*.txt)");
+    //gtk_file_filter_add_pattern(filter, "*.txt");
+    //gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+    // �����ļ�
+    filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "all file(*.*)");
+    gtk_file_filter_add_pattern(filter, "*");
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+    // ���жԻ���
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+        filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    }
+
+    gtk_widget_destroy(dialog);
+
+    return filename;
+}
+#endif
 
 unsigned int SimpleDownload::dialogThread(void* param)
 {
-#ifdef OS_LINUX
-    __debugbreak();
-#else
     SimpleDownload* self = (SimpleDownload*)param;
-
+    mbWebView mbWebview = self->m_mbView;
     OPENFILENAMEW ofn = { 0 };
-    std::vector<WCHAR>* fileResult = new std::vector<WCHAR>();
-    fileResult->resize(4 * MAX_PATH + 1);
 
     std::u16string defaultSaveName = getSaveName(self->m_contentDisposition, self->m_url);
     if (defaultSaveName.size() > 150)
         defaultSaveName = defaultSaveName.substr(0, 150);
+
+    std::vector<WCHAR>* fileResult = new std::vector<WCHAR>();
+    fileResult->resize(4 * MAX_PATH + 1);
+    memset(fileResult->data(), 0, fileResult->size() * 2);
+#ifdef OS_LINUX
+    content::ThreadCall::callUiThreadSync(MB_FROM_HERE, [self, mbWebview, &defaultSaveName, &fileResult] {
+        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)mbWebview);
+    if (!webview) {
+        delete fileResult;
+        fileResult = nullptr;
+        return;
+    }
+    webview->setIsMouseKeyMessageEnable(false);
+    gchar* saveName = showSaveAsDialog(nullptr, base::UTF16ToUTF8(base::StringPiece16(defaultSaveName.c_str(), defaultSaveName.size())), self->dialogOpt.defaultPath);
+    webview->setIsMouseKeyMessageEnable(true);
+
+    if (!saveName) {
+        delete fileResult;
+        fileResult = nullptr;
+    } else {
+        std::u16string output;
+        base::UTF8ToUTF16(saveName, strlen(saveName), &output);
+        size_t size = fileResult->size() > output.size() ? output.size() : fileResult->size() - 1;
+        memcpy(fileResult->data(), output.c_str(), output.size() * 2);
+
+        printf("SimpleDownload::dialogThread 1: %s\n", saveName);
+        g_free(saveName);
+        printf("SimpleDownload::dialogThread 2\n");
+    }
+        });
+    //std::u16string test(u"/home/weolar/Desktop/test/1.zip");
+    //memcpy(fileResult->data(), test.c_str(), test.size() * 2);
+    printf("SimpleDownload::dialogThread 3\n");
+#else
     wcscpy(fileResult->data(), (const WCHAR*)defaultSaveName.c_str());
 
+    HWND hwndOwner = nullptr;
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)mbWebview);
+    if (webview)
+        hwndOwner = webview->getHostWnd();
+
     ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = nullptr;
+    ofn.hwndOwner = hwndOwner;
     ofn.lpstrFile = (LPWSTR)(fileResult->data());
     ofn.nMaxFile = MAX_PATH;
     ofn.lpstrFilter = L"All\0*.*\0\0";
@@ -377,22 +499,27 @@ unsigned int SimpleDownload::dialogThread(void* param)
         fileResult = nullptr;
     }
 
-    mbWebView mbWebview = self->m_mbView;
-
     content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [mbWebview] {
         content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)mbWebview);
         if (!webview)
             return;
         webview->setIsMouseKeyMessageEnable(true);
     });
-
-    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [self, fileResult] {
-        self->startSave(fileResult);
-    });
-
-    InterlockedDecrement((long*)&m_dialogCount);
-    base::subtle::Barrier_AtomicIncrement(&m_dialogCount, -1);
 #endif
+
+    self->m_saveFullPathLock.Acquire();
+    if (fileResult)
+        self->m_saveFullPath = (const char16_t*)fileResult->data();
+    self->m_saveFullPathLock.Release();
+
+    bool ok = !!fileResult;
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [self, ok] { self->startSave(ok); });
+
+    if (fileResult)
+        delete fileResult;
+
+    base::subtle::Barrier_AtomicIncrement(&m_dialogCount, -1);
+
     return 0;
 }
 

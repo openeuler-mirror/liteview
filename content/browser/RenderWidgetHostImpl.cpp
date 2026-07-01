@@ -27,6 +27,9 @@
 #endif
 
 extern "C" MojoResult MojoMakeIsMessageChannelFlag(MojoHandle handle);
+#if defined(OS_LINUX)
+BOOL ClientToScreenForSelect(HWND hWnd, POINT* lpPoint);
+#endif
 
 namespace content {
 
@@ -88,6 +91,24 @@ RenderWidgetHostImpl::~RenderWidgetHostImpl()
     char output[100] = { 0 };
     sprintf(output, "~RenderWidgetHostImpl: %p\n", this);
     OutputDebugStringA(output);
+}
+
+void RenderWidgetHostImpl::wasShown()
+{
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce([](base::WeakPtr<RenderWidgetHostImpl> self) {
+        if (self.get())
+            self->wasShownImpl();
+    }, m_weakPtr.GetWeakPtr()));
+}
+
+void RenderWidgetHostImpl::wasShownImpl()
+{
+    if (!m_blinkWidget.get()) {
+        wasShown();
+        return;
+    }
+    m_blinkWidget->WasShown(false /*was_evicted*/, ::blink::mojom::blink::RecordContentToVisibleTimeRequestPtr());
 }
 
 bool RenderWidgetHostImpl::isSinkReady() const
@@ -180,6 +201,10 @@ void RenderWidgetHostImpl::initVisualProperties()
 {
     display::Screen* screen = getScreenOrCreate();
     std::vector<display::Display> displays = screen->GetAllDisplays();
+    do {
+        displays = screen->GetAllDisplays();
+        ::Sleep(50);
+    } while (displays.size() == 0);
     for (size_t i = 0; i < displays.size(); ++i) {
         const display::Display& dis = displays[i];
         display::ScreenInfo screenInfo;
@@ -368,7 +393,11 @@ void RenderWidgetHostImpl::ShowPopup(const ::gfx::Rect& initialRect, const ::gfx
             return;
 
         POINT point = { 0 };
+#if defined(OS_WIN)
         ::ClientToScreen(parentWebview->getHostWnd(), &point);
+#elif defined(OS_LINUX)
+        ::ClientToScreenForSelect(parentWebview->getHostWnd(), &point);
+#endif
         webview->createWebWindowImplInUiThread(nullptr, WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, /*WS_EX_NOACTIVATE*/ 0x08000000L,
             initialRect.x() + point.x, initialRect.y() + point.y, initialRect.width(), initialRect.height());
         webview->setShow(SW_SHOWNOACTIVATE/*true, false*/);

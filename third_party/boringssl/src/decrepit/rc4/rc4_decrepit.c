@@ -56,7 +56,7 @@
 
 #include <openssl/rc4.h>
 
-
-const char *RC4_options(void) {
-  return "rc4(ptr,int)";
+const char* RC4_options(void)
+{
+    return "rc4(ptr,int)";
 }

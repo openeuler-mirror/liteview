@@ -56,31 +56,32 @@ WTF::TextEncoding TextResource::Encoding() const
 
 bool CheckNeedChangeEncodingToUtf8(const KURL& url)
 {
-    bool b = true;
-    do {
-        const String& url_str = url.GetString();
-//         if (url_str.FindIgnoringCase("order.jd.com/center/list.action", 0) != WTF::kNotFound)
-//             DebugBreak();
-
-        String host = url.Host();
-        if (host.FindIgnoringCase("h5static.m.jd.com", 0) != WTF::kNotFound ||
-            host.FindIgnoringCase("order.jd.com", 0) != WTF::kNotFound ||
-            host.FindIgnoringCase("static.360buyimg.com", 0) != WTF::kNotFound ||
-            host.FindIgnoringCase("api.m.jd.com", 0) != WTF::kNotFound ||
-            host.FindIgnoringCase("storage.jd.com", 0) != WTF::kNotFound)
-            break;
-
-        //https://static.360buyimg.com/im/js/im_icon_v5.js?sign=20131111        
-        //if (url_str.length() < 100 && url_str.FindIgnoringCase("static.360buyimg.com/im/js", 0) != WTF::kNotFound)
-        //    break;
-
-        if (url_str.length() < 100 && url_str.FindIgnoringCase("weibo.com/js/visitor/mini_original.js", 0) != WTF::kNotFound)
-            break;
-
-        b = false;
-    } while (false);
-
-    return b;
+    return false;
+//     bool b = true;
+//     do {
+//         const String& url_str = url.GetString();
+// //         if (url_str.FindIgnoringCase("order.jd.com/center/list.action", 0) != WTF::kNotFound)
+// //             DebugBreak();
+// 
+//         String host = url.Host();
+//         if (host.FindIgnoringCase("h5static.m.jd.com", 0) != WTF::kNotFound ||
+//             host.FindIgnoringCase("order.jd.com", 0) != WTF::kNotFound ||
+//             host.FindIgnoringCase("static.360buyimg.com", 0) != WTF::kNotFound ||
+//             host.FindIgnoringCase("api.m.jd.com", 0) != WTF::kNotFound ||
+//             host.FindIgnoringCase("storage.jd.com", 0) != WTF::kNotFound)
+//             break;
+// 
+//         //https://static.360buyimg.com/im/js/im_icon_v5.js?sign=20131111        
+//         //if (url_str.length() < 100 && url_str.FindIgnoringCase("static.360buyimg.com/im/js", 0) != WTF::kNotFound)
+//         //    break;
+// 
+//         if (url_str.length() < 100 && url_str.FindIgnoringCase("weibo.com/js/visitor/mini_original.js", 0) != WTF::kNotFound)
+//             break;
+// 
+//         b = false;
+//     } while (false);
+// 
+//     return b;
 }
 
 String TextResource::DecodedText() const

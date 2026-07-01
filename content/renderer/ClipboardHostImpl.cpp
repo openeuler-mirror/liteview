@@ -252,22 +252,23 @@ private:
 // It should be re-impl and created elsewhere later(for example, in mbInit after executing gtk_init?).
 // Additionally, the encoding of this file is GB2312.
 #if defined(OS_LINUX)
+
 class ClipboardSequenceMonitor {
 public:
     ClipboardSequenceMonitor(const ClipboardSequenceMonitor&) = delete;
     ClipboardSequenceMonitor& operator=(const ClipboardSequenceMonitor&) = delete;
 
-    static ClipboardSequenceMonitor* getInstance() 
+    static ClipboardSequenceMonitor* getInstance()
     {
         return base::Singleton<ClipboardSequenceMonitor>::get();
     }
 
-    static uint64_t getSequence() 
+    static uint64_t getSequence()
     {
         return getInstance()->m_sequence;
     }
 
-    static bool hasError() 
+    static bool hasError()
     {
         return getInstance()->m_hasGtkError;
     }
@@ -275,24 +276,28 @@ public:
 private:
     friend struct base::DefaultSingletonTraits<ClipboardSequenceMonitor>;
 
-    ClipboardSequenceMonitor() 
-    { 
-        gtkClipboardInit();
-    }
-
-    static void OnOwnerChange(GtkClipboard* clipboard, GdkEventOwnerChange* event, gpointer user_data) 
+    ClipboardSequenceMonitor()
     {
-        getInstance()->m_sequence++;
+        ClipboardSequenceMonitor* self = this;
+        content::ThreadCall::callUiThreadSync(MB_FROM_HERE, [self]() {
+            self->gtkClipboardInit();
+        });
     }
 
-    void gtkClipboardInit() 
+    static void onOwnerChange(GtkClipboard* clipboard, GdkEventOwnerChange* event, gpointer userData)
+    {
+        ClipboardSequenceMonitor* self = (ClipboardSequenceMonitor*)userData;
+        self->m_sequence++;
+    }
+
+    void gtkClipboardInit()
     {
         m_gtkClipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
         if (NULL == m_gtkClipboard) {
             m_hasGtkError = true;
             return;
         }
-        gulong signal = g_signal_connect(m_gtkClipboard, "owner-change", G_CALLBACK(OnOwnerChange), nullptr);
+        gulong signal = g_signal_connect(m_gtkClipboard, "owner-change", G_CALLBACK(onOwnerChange), this);
         if (0 == signal) {
             m_hasGtkError = true;
         }
@@ -302,7 +307,6 @@ private:
     GtkClipboard* m_gtkClipboard = nullptr;
     bool m_hasGtkError = false;
 };
-
 #endif // OS_LINUX
 
 } // namespace
@@ -353,7 +357,6 @@ bool convertBufferType(::blink::mojom::ClipboardBuffer buffer, ClipboardType* re
 
 bool ClipboardHostImpl::IsFormatAvailable(::blink::mojom::blink::ClipboardFormat format, ::blink::mojom::blink::ClipboardBuffer buffer, bool* out_result)
 {
-#if defined(OS_WIN)
     switch (format) {
     case blink::mojom::ClipboardFormat::kPlaintext:
         *out_result = ::IsClipboardFormatAvailable(CF_UNICODETEXT) || ::IsClipboardFormatAvailable(CF_TEXT);
@@ -361,16 +364,15 @@ bool ClipboardHostImpl::IsFormatAvailable(::blink::mojom::blink::ClipboardFormat
     case blink::mojom::ClipboardFormat::kHtml:
         *out_result = ::IsClipboardFormatAvailable(ClipboardUtil::getHtmlFormatType());
         return true;
+#if defined(OS_WIN)
     case blink::mojom::ClipboardFormat::kSmartPaste:
         *out_result = ::IsClipboardFormatAvailable(ClipboardUtil::getWebKitSmartPasteFormatType());
         return true;
     case blink::mojom::ClipboardFormat::kBookmark:
         *out_result = ::IsClipboardFormatAvailable(ClipboardUtil::getUrlWFormatType());
         return true;
-    default:
-        CHECK(false);
-    }
 #endif
+    }
     return false;
 }
 
@@ -381,9 +383,24 @@ void ClipboardHostImpl::IsFormatAvailable(::blink::mojom::blink::ClipboardFormat
     std::move(callback).Run(false);
 }
 
+#if defined(OS_LINUX)
+// void onClipboardContentReceived(GtkClipboard* clipboard, GtkSelectionData* data, gpointer userData) 
+// {
+//     std::pair<bool, int>* info = (std::pair<bool, int>*)userData;
+//     if (data && gtk_selection_data_get_length(data) >= 0) {
+//         // 格式可用，处理数据
+//         info->first = true;
+//     } else {
+//         // 格式不可用
+//         info->first = false;
+//     }
+//     info->second = 1;
+// }
+#endif
+
 void ClipboardHostImpl::readAvailableTypes(ClipboardType type, WTF::Vector<WTF::String>* types, bool* containsFilenames) const
 {
-#if defined(OS_WIN)
+    printf("readAvailableTypes 0\n");
     if (!types || !containsFilenames) {
         CHECK(false);
         return;
@@ -391,7 +408,7 @@ void ClipboardHostImpl::readAvailableTypes(ClipboardType type, WTF::Vector<WTF::
 
     *containsFilenames = false;
     types->clear();
-
+#if defined(OS_WIN)
     if (::IsClipboardFormatAvailable(CF_TEXT))
         types->push_back(WTF::String::FromUTF8(kMimeTypeText));
     if (::IsClipboardFormatAvailable(ClipboardUtil::getHtmlFormatType()))
@@ -406,6 +423,34 @@ void ClipboardHostImpl::readAvailableTypes(ClipboardType type, WTF::Vector<WTF::
 
     if (::IsClipboardFormatAvailable(CF_BITMAP))
         types->push_back(WTF::String::FromUTF8(kMimeTypeBMP));
+#else
+    std::pair<bool, int>* info = new std::pair<bool, int>();
+    info->first = false;
+    info->second = 0;
+    base::AutoLock lock(m_readTextLockLinux);
+    ThreadCall::callUiThreadSync(MB_FROM_HERE, [types, info]() {
+        GdkAtom format;
+        GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+        GtkSelectionData* data;
+        data = gtk_clipboard_wait_for_contents(clipboard, gdk_atom_intern("UTF8_STRING", FALSE));
+        if (data) {
+            gtk_selection_data_free(data);
+            types->push_back(WTF::String::FromUTF8(kMimeTypeText));
+        }
+        data = gtk_clipboard_wait_for_contents(clipboard, gdk_atom_intern("image/png", FALSE));
+        if (data) {
+            gtk_selection_data_free(data);
+            types->push_back(WTF::String::FromUTF8(kMimeTypePNG));
+        }
+
+        data = gtk_clipboard_wait_for_contents(clipboard, gdk_atom_intern("image/bmp", FALSE));
+        if (data) {
+            gtk_selection_data_free(data);
+            types->push_back(WTF::String::FromUTF8(kMimeTypeBMP));
+        }
+    });
+
+    delete info;
 #endif
 }
 
@@ -428,6 +473,8 @@ void ClipboardHostImpl::ReadAvailableTypes(::blink::mojom::blink::ClipboardBuffe
 
 bool ClipboardHostImpl::ReadText(::blink::mojom::blink::ClipboardBuffer buffer, ::WTF::String* text)
 {
+    printf("ClipboardHostImpl::ReadText 1\n");
+
     ClipboardType clipboardType;
     if (!convertBufferType(buffer, &clipboardType)) 
         return false;
@@ -448,19 +495,17 @@ bool ClipboardHostImpl::ReadText(::blink::mojom::blink::ClipboardBuffer buffer, 
 
     return true;
 #elif defined(OS_LINUX)
-    { 
-        base::AutoLock lock(m_readTextLockLinux);
-        gchar* clipboardText = nullptr;
-        ThreadCall::callUiThreadSync(MB_FROM_HERE, [&clipboardText]() {
-            GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-            clipboardText = gtk_clipboard_wait_for_text(clipboard);
-        });
+    base::AutoLock lock(m_readTextLockLinux);
+    gchar* clipboardText = nullptr;
+    ThreadCall::callUiThreadSync(MB_FROM_HERE, [&clipboardText]() {
+        GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+        clipboardText = gtk_clipboard_wait_for_text(clipboard);
+    });
 
-        *text = WTF::String::FromUTF8(clipboardText);
+    *text = WTF::String::FromUTF8(clipboardText);
+    printf("ClipboardHostImpl::ReadText:%d\n", text->length());
 
-        g_free(clipboardText);
-}
-
+    g_free(clipboardText);
     return true;
 #endif
 
@@ -652,15 +697,128 @@ BYTE* flipDIBVertically(BYTE* pBits, int width, int height, bool isDib32Or24)
     return pFlippedBits;
 }
 
+struct Bitmap32ConvertResult {
+    size_t totalSize = 0;            // 总内存大小
+    BITMAPINFO* pBitmapInfo = nullptr; // 指向BITMAPINFO部分的指针[BITMAPINFO][颜色表][32位像素数据]
+    BYTE* pPixelData = nullptr;       // 指向像素数据部分的指针（方便访问）
+    int width = 0;                   // 图像宽度
+    int height = 0;                  // 图像高度
+    bool success = false;
+    const char* errorMsg = nullptr;
+};
+
+static Bitmap32ConvertResult convert24BitTo32BitBitmapInfo(const BITMAPINFO* pBmi)
+{
+    Bitmap32ConvertResult result;
+
+    // 将输入视为BITMAPINFO结构
+    const BITMAPINFOHEADER& header = pBmi->bmiHeader;
+
+    // 验证是否为24位
+    if (header.biBitCount != 24) {
+        result.errorMsg = "Input is not 24-bit bitmap";
+        return result;
+    }
+
+    if (header.biCompression != BI_RGB) {
+        result.errorMsg = "Compressed bitmaps not supported";
+        return result;
+    }
+
+    // 计算尺寸参数
+    int width = header.biWidth;
+    int height = abs(header.biHeight);
+    bool topDown = (header.biHeight < 0);
+    result.width = width;
+    result.height = height;
+
+    // 计算颜色表大小
+    UINT colorTableSize = 0;
+    if (header.biBitCount <= 8) {
+        colorTableSize = (header.biClrUsed > 0) ? header.biClrUsed : (1u << header.biBitCount);
+    }
+
+    // 定位输入像素数据起始位置
+    const BYTE* pPixelData24 = nullptr;
+
+    if (colorTableSize > 0 && pBmi->bmiColors) {
+        // 如果有颜色表，像素数据在颜色表之后
+        pPixelData24 = reinterpret_cast<const BYTE*>(pBmi->bmiColors + colorTableSize);
+    } else {
+        // 如果没有颜色表（24位通常如此），像素数据紧跟在BITMAPINFOHEADER之后
+        pPixelData24 = reinterpret_cast<const BYTE*>(pBmi) + sizeof(BITMAPINFOHEADER);
+    }
+
+    // 计算24位行字节数（4字节对齐）
+    int srcRowSize = ((width * 24 + 31) / 32) * 4;
+    // 计算32位行字节数
+    int dstRowSize = width * 4;  // 32位，每像素4字节
+    size_t pixelDataSize = dstRowSize * height;
+
+    // 计算总内存大小：[BITMAPINFOHEADER][颜色表][32位像素数据]
+    size_t totalSize = sizeof(BITMAPINFOHEADER) + colorTableSize * sizeof(RGBQUAD) + pixelDataSize;
+
+    BYTE* pAllData = new BYTE[totalSize];
+    if (!pAllData) {
+        result.errorMsg = "Memory allocation failed";
+        return result;
+    }
+
+    memset(pAllData, 0, totalSize);
+
+    // 设置各个部分的指针
+    result.pBitmapInfo = reinterpret_cast<BITMAPINFO*>(pAllData);
+    result.pPixelData = pAllData + sizeof(BITMAPINFOHEADER) + colorTableSize * sizeof(RGBQUAD);
+
+    BITMAPINFOHEADER& newHeader = result.pBitmapInfo->bmiHeader;
+    newHeader = header;                           // 复制基础信息
+    newHeader.biBitCount = 32;                    // 改为32位
+    newHeader.biSizeImage = static_cast<DWORD>(pixelDataSize);  // 更新图像数据大小
+    newHeader.biClrUsed = 0;                      // 32位不使用调色板
+
+    // 复制颜色表（如果有）
+    if (colorTableSize > 0) {
+        // 对于32位，我们仍然保留颜色表结构（虽然不使用）
+        // 复制原始颜色表以保持兼容性
+        if (pBmi->bmiColors) {
+            memcpy(result.pBitmapInfo->bmiColors, pBmi->bmiColors, colorTableSize * sizeof(RGBQUAD));
+        }
+    }
+
+    // 执行像素格式转换：24位BGR -> 32位BGRA，并直接存储到内联缓冲区
+    for (int y = 0; y < height; y++) {
+        int srcY = topDown ? y : (height - 1 - y);
+        const BYTE* pSrcRow = pPixelData24 + srcY * srcRowSize;
+        BYTE* pDstRow = result.pPixelData + y * dstRowSize;
+
+        for (int x = 0; x < width; x++) {
+            // 24位格式：BGR (Blue, Green, Red)
+            BYTE blue = pSrcRow[x * 3 + 0];
+            BYTE green = pSrcRow[x * 3 + 1];
+            BYTE red = pSrcRow[x * 3 + 2];
+
+            // 32位格式：BGRA (Blue, Green, Red, Alpha)
+            pDstRow[x * 4 + 0] = blue;   // Blue
+            pDstRow[x * 4 + 1] = green;  // Green
+            pDstRow[x * 4 + 2] = red;    // Red  
+            pDstRow[x * 4 + 3] = 255;    // Alpha (完全不透明)
+        }
+    }
+
+    result.totalSize = totalSize;
+    result.success = true;
+
+    return result;
+}
+
 static void onReleaseProc(void* addr, void* context)
 {
-    BYTE* bitmapBitsCopy = (BYTE*)addr;
-    delete[] bitmapBitsCopy;
+    delete context;
 }
 
 bool ClipboardHostImpl::ReadPng(::blink::mojom::blink::ClipboardBuffer buffer, ::mojo_base::BigBuffer* outPng)
 {
-
+#if defined(OS_WIN)
     ClipboardType clipboardType;
     if (!convertBufferType(buffer, &clipboardType))
         return false;
@@ -681,8 +839,12 @@ bool ClipboardHostImpl::ReadPng(::blink::mojom::blink::ClipboardBuffer buffer, :
     HDC hdcMem = nullptr;
     BYTE* bitmapBitsCopy = nullptr;
     bool isOk = false;
+    BITMAPINFO* bmi = static_cast<BITMAPINFO*>(GlobalLock(hBitmap));
+    BITMAPINFO* newBmi = nullptr;
+    void* needFreeByte = nullptr;
+    bool needLoop = false;
     do {
-        BITMAPINFO* bmi = static_cast<BITMAPINFO*>(GlobalLock(hBitmap));
+        needLoop = false;
         if (!bmi)
             break;
         int colorTableLength = 0;
@@ -704,18 +866,35 @@ bool ClipboardHostImpl::ReadPng(::blink::mojom::blink::ClipboardBuffer buffer, :
         }
         if (32 != bmi->bmiHeader.biBitCount && 24 != bmi->bmiHeader.biBitCount) // 只管这两种色深，其他的应该没系统会出现吧？
             break;
+        if (24 == bmi->bmiHeader.biBitCount) {
+            Bitmap32ConvertResult convertResult = convert24BitTo32BitBitmapInfo(bmi);
+            newBmi = convertResult.pBitmapInfo;
+            ::GlobalUnlock(hBitmap);
+            hBitmap = nullptr;
+            bmi = newBmi;
+            if (!convertResult.success)
+                break;
+            needLoop = true;
+            continue;
+        }
 
         const void* bitmapBits = reinterpret_cast<const char*>(bmi) + bmi->bmiHeader.biSize + colorTableLength * sizeof(RGBQUAD);
-
         int width = std::abs((int)bmi->bmiHeader.biWidth);
         int height = std::abs((int)bmi->bmiHeader.biHeight);
 
-        bitmapBitsCopy = flipDIBVertically((BYTE*)bitmapBits, width, height, bmi->bmiHeader.biBitCount == 32);
+        if (newBmi) {
+            bitmapBitsCopy = (BYTE*)bitmapBits;
+            needFreeByte = newBmi;
+        } else {
+            bitmapBitsCopy = flipDIBVertically((BYTE*)bitmapBits, width, height, bmi->bmiHeader.biBitCount == 32);
+            needFreeByte = bitmapBitsCopy;
+        }
 
         SkImageInfo skInfo = SkImageInfo::MakeN32Premul(width, height);
-        if (!skBitmap.installPixels(skInfo, (void*)bitmapBitsCopy, skInfo.minRowBytes(), onReleaseProc, nullptr))
+        if (!skBitmap.installPixels(skInfo, (void*)bitmapBitsCopy, skInfo.minRowBytes(), onReleaseProc, needFreeByte))
             break;
-        bitmapBitsCopy = nullptr;
+        newBmi = nullptr; // 在onReleaseProc里会自动释放
+        needFreeByte = nullptr;
 
         // Windows doesn't really handle alpha channels well in many situations. When
         // the source image is < 32 bpp, we force the bitmap to be opaque. When the
@@ -726,20 +905,24 @@ bool ClipboardHostImpl::ReadPng(::blink::mojom::blink::ClipboardBuffer buffer, :
         // opaque as well. Note that this  heuristic will fail on a transparent bitmap
         // containing only black pixels...
         {
-            bool hasInvalidAlphaChannel = bmi->bmiHeader.biBitCount < 32 || bitmapHasInvalidPremultipliedColors(skBitmap);
+            bool hasInvalidAlphaChannel = bmi->bmiHeader.biBitCount >= 32 && bitmapHasInvalidPremultipliedColors(skBitmap);
             if (hasInvalidAlphaChannel)
                 makeBitmapOpaque(skBitmap);
         }
 
         isOk = true;
-    } while (false);
+    } while (needLoop);
 
     if (hdcMem)
         ::DeleteDC(hdcMem);
-    ::GlobalUnlock(hBitmap);
+    if (hBitmap)
+        ::GlobalUnlock(hBitmap);
 
-    if (bitmapBitsCopy)
-        delete[] bitmapBitsCopy;
+    if (needFreeByte)
+        delete needFreeByte;
+
+    if (newBmi)
+        delete newBmi;
 
     if (!isOk)
         return false;
@@ -753,6 +936,9 @@ bool ClipboardHostImpl::ReadPng(::blink::mojom::blink::ClipboardBuffer buffer, :
     *outPng = std::move(bigBuf);
 
     return true;
+#else
+    return false;
+#endif
 }
 
 //using ReadPngCallback = base::OnceCallback<void(::mojo_base::BigBuffer)>;
@@ -811,6 +997,7 @@ void ClipboardHostImpl::writeToClipboardInternal(unsigned int format, HANDLE han
 
 void ClipboardHostImpl::writeTextInternal(const WTF::String& string)
 {
+#if defined(OS_WIN)
     if (string.empty())
         return;
 
@@ -824,6 +1011,7 @@ void ClipboardHostImpl::writeTextInternal(const WTF::String& string)
     glob = ClipboardUtil::createGlobalData<char16_t>(strW);
 
     writeToClipboardInternal(CF_UNICODETEXT, glob);
+#endif
 }
 
 void ClipboardHostImpl::WriteText(const ::WTF::String& text)
@@ -837,9 +1025,12 @@ void ClipboardHostImpl::WriteText(const ::WTF::String& text)
 
     writeTextInternal(text);
 #elif defined(OS_LINUX)
-    std::string utf8Str = text.Utf8();
-    GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
-    gtk_clipboard_set_text(clipboard, utf8Str.c_str(), -1);
+    std::string* utf8Str = new std::string(text.Utf8());
+    ThreadCall::callUiThreadAsync(FROM_HERE, [utf8Str]() {
+        GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+        gtk_clipboard_set_text(clipboard, utf8Str->c_str(), utf8Str->size());
+        delete utf8Str;
+    });
 #endif
 }
 

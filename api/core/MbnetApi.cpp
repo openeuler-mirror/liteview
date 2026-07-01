@@ -30,8 +30,9 @@
 #include "mbnet/DefaultLocalStorageDir.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
-#include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partitions.h"
+#include "third_party/blink/public/web/web_view.h"
+#include "third_party/blink/public/platform/web_http_header_visitor.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
@@ -41,11 +42,134 @@
 #include "v8.h"
 
 bool checkThreadCallIsValid(const char* funcName);
+const char* createTempCharString(const char* str, size_t length);
 
-mbRequestType MB_CALL_TYPE mbNetGetRequestMethod(void* jobPtr)
+namespace mbnet {
+void onNetSetData(mbNetJob jobPtr, void* buf, int len);
+void onNetSetMIMEType(mbNetJob jobPtr, const char* type);
+void onNetSetHTTPHeaderFieldCommon(int jobId, const utf8* key, const utf8* value, BOOL response);
+void changeRequestUrl(mbNetJob jobPtr, const char* url);
+}
+
+void MB_CALL_TYPE mbNetSetHTTPHeaderFieldUtf8(mbNetJob jobId, const utf8* key, const utf8* value, BOOL response)
+{
+    mbnet::onNetSetHTTPHeaderFieldCommon((int)jobId, key, value, response);
+}
+
+void MB_CALL_TYPE mbNetSetMIMEType(mbNetJob jobId, const char* type)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+    if (job->m_isUrlBegining || content::ThreadCall::isBlinkThread()) {
+        mbnet::onNetSetMIMEType(job, type);
+    } else {
+        std::string* typeCopy = new std::string(type);
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, typeCopy] {
+            mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+            mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+            if (!job)
+                return;
+            mbnet::onNetSetMIMEType(job, typeCopy->c_str());
+            delete typeCopy;
+        });
+    }
+}
+
+void MB_CALL_TYPE mbNetSetResponseStatusText(mbNetJob jobId, const char* text)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+    if (job->m_isUrlBegining || content::ThreadCall::isBlinkThread()) {
+        job->m_response.SetHttpStatusText(blink::WebString::FromUTF8(text));
+    } else {
+        std::string* textCopy = new std::string(text);
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, textCopy] {
+            mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+            mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+            if (!job)
+                return;
+            job->m_response.SetHttpStatusText(blink::WebString::FromUTF8(textCopy->c_str(), textCopy->size()));
+            delete textCopy;
+        });
+    }
+}
+
+void MB_CALL_TYPE mbNetSetResponseStatusCode(mbNetJob jobId, int code)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+    if (job->m_isUrlBegining || content::ThreadCall::isBlinkThread()) {
+        job->m_response.SetHttpStatusCode(code);
+    } else {
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, code] {
+            mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+            mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+            if (!job)
+                return;
+            job->m_response.SetHttpStatusCode(code);
+        });
+    }
+}
+
+void MB_CALL_TYPE mbNetSetData(mbNetJob jobId, void* buf, int len)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+    if (job->m_isUrlBegining || content::ThreadCall::isBlinkThread()) {
+        mbnet::onNetSetData(job, buf, len);
+    } else {
+        std::vector<char>* bufferCopy = new std::vector<char>();
+        bufferCopy->resize(len);
+        memcpy(&bufferCopy->at(0), buf, len);
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, bufferCopy] {
+            mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+            mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+            if (!job)
+                return;
+            mbnet::onNetSetData(job, &bufferCopy->at(0), (int)bufferCopy->size());
+            delete bufferCopy;
+        });
+    }
+}
+
+void MB_CALL_TYPE mbNetChangeRequestUrl(mbNetJob jobId, const char* url)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+
+    if (content::ThreadCall::isBlinkThread())
+        mbnet::changeRequestUrl(job, url);
+    else {
+        std::string* urlCopy = new std::string(url);
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, urlCopy] {
+            mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+            mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+            if (!job)
+                return;
+
+            mbnet::changeRequestUrl(job, urlCopy->c_str());
+            delete urlCopy;
+        });
+    }
+}
+
+mbRequestType MB_CALL_TYPE mbNetGetRequestMethod(mbNetJob jobId)
 {
     checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return kMbRequestTypeInvalidation;
     mbnet::InitializeHandleInfo* info = job->m_initializeHandleInfo;
     std::string method;
     if (!info) {
@@ -65,14 +189,56 @@ mbRequestType MB_CALL_TYPE mbNetGetRequestMethod(void* jobPtr)
     return kMbRequestTypeInvalidation;
 }
 
-const mbSlist* MB_CALL_TYPE mbNetGetRawHttpHeadInBlinkThread(mbNetJob jobPtr)
+const mbSlist* MB_CALL_TYPE mbNetGetRawHttpHeadInBlinkThread(mbNetJob jobId)
 {
     if (content::ThreadCall::isBlinkThread())
         checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
+
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    
     if (!job->m_initializeHandleInfo)
         return nullptr;
     return (const mbSlist*)job->m_initializeHandleInfo->headers;
+}
+
+class HTTPHeaderVisitor : public blink::WebHTTPHeaderVisitor {
+public:
+    HTTPHeaderVisitor(curl_slist** result)
+    {
+        m_result = result;
+    }
+
+    virtual void VisitHeader(const blink::WebString& name, const blink::WebString& value) override
+    {
+        *m_result = curl_slist_append(*m_result, name.Utf8().c_str());
+        *m_result = curl_slist_append(*m_result, value.Utf8().c_str());
+    }
+
+private:
+    curl_slist** m_result;
+};
+
+const mbSlist* MB_CALL_TYPE mbNetGetRawResponseHeadInBlinkThread(mbNetJob jobId)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    if (content::ThreadCall::isBlinkThread()) {
+        mbSlist* result = nullptr;
+        HTTPHeaderVisitor visitor((curl_slist**)&result);
+        job->m_response.VisitHttpHeaderFields(&visitor);
+
+        content::ThreadCall::callBlinkThreadAsync(FROM_HERE, [result] {
+            curl_slist_free_all((curl_slist*)result);
+        });
+
+        return result;
+    }
+    return nullptr;
 }
 
 mbPostBodyElements* MB_CALL_TYPE mbNetCreatePostBodyElements(mbWebView webView, size_t length)
@@ -92,16 +258,6 @@ mbPostBodyElements* MB_CALL_TYPE mbNetCreatePostBodyElements(mbWebView webView, 
     result->elementSize = length;
 
     return result;
-}
-
-void MB_CALL_TYPE wkeNetFreePostBodyElements(mbPostBodyElements* elements)
-{
-    checkThreadCallIsValid(__FUNCTION__);
-    for (size_t i = 0; i < elements->elementSize; ++i) {
-        mbNetFreePostBodyElement(elements->element[i]);
-    }
-    free(elements->element);
-    delete elements;
 }
 
 struct mbString {
@@ -136,12 +292,21 @@ mbStringPtr MB_CALL_TYPE mbCreateString(const utf8* str, size_t len)
 
 mbStringPtr MB_CALL_TYPE mbCreateStringWithCopy(const utf8* str, size_t len)
 {
-    utf8* strCopy = (utf8*)malloc(len);
+    if (!str || 0 == len)
+        return nullptr;
+
+    utf8* strCopy = (utf8*)malloc(len + 1);
     memcpy(strCopy, str, len);
+    strCopy[len] = 0;
 
     mbStringPtr mbStr = new mbString(strCopy, len);
     mbStr->freeStrFunc = mbString::defaultFreeStr;
     return mbStr;
+}
+
+mbStringPtr MB_CALL_TYPE mbCreateStringWithoutNullTermination(const utf8* str, size_t len)
+{
+    return mbCreateStringWithCopy(str, len);
 }
 
 void MB_CALL_TYPE mbDeleteString(mbStringPtr str)
@@ -187,7 +352,7 @@ static mbPostBodyElements* flattenHTTPBodyElementToWke(const std::vector<mbnet::
         result->element[i] = wkeElement;
         const mbnet::FlattenHTTPBodyElement* element = body[i];
 
-        if (mbnet::FlattenHTTPBodyElement::TypeFile == element->type 
+        if (mbnet::FlattenHTTPBodyElement::TypeFile == element->type
             /*|| mbnet::FlattenHTTPBodyElement::TypeFileSystemURL == element->type*/) {
 
             wkeElement->type = mbHttBodyElementTypeFile;
@@ -214,10 +379,13 @@ static mbPostBodyElements* flattenHTTPBodyElementToWke(const std::vector<mbnet::
 #endif
 }
 
-mbPostBodyElements* MB_CALL_TYPE mbNetGetPostBody(void* jobPtr)
+mbPostBodyElements* MB_CALL_TYPE mbNetGetPostBody(void* jobId)
 {
     checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
     mbnet::InitializeHandleInfo* info = job->m_initializeHandleInfo;
     if (!info)
         return nullptr;
@@ -239,11 +407,220 @@ mbPostBodyElements* MB_CALL_TYPE mbNetGetPostBody(void* jobPtr)
     return postBody;
 }
 
-static BOOL netHoldJobToAsynCommit(mbNetJob jobPtr)
+static void netFreePostBodyElements(mbPostBodyElements* elements)
 {
     checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
-    if (job->m_isRedirection || job->m_isSynchronous)
+    for (size_t i = 0; i < elements->elementSize; ++i) {
+        mbNetFreePostBodyElement(elements->element[i]);
+    }
+    free(elements->element);
+    delete elements;
+}
+
+void MB_CALL_TYPE mbNetFreePostBodyElements(mbPostBodyElements* elements)
+{
+    netFreePostBodyElements(elements);
+}
+
+mbWebUrlRequestPtr MB_CALL_TYPE mbNetCreateWebUrlRequest(const utf8* url, const utf8* method, const utf8* mime)
+{
+    //return (mbWebUrlRequestPtr)wkeNetCreateWebUrlRequest(/*webview ? webview->getWkeWebView() : nullptr , */url, method, mime);
+    OutputDebugStringA("mbNetCreateWebUrlRequest not impl\n");
+    *(int*)1 = 1;
+    return nullptr;
+}
+
+void MB_CALL_TYPE mbNetAddHTTPHeaderFieldToUrlRequest(mbWebUrlRequestPtr request, const utf8* name, const utf8* value)
+{
+    OutputDebugStringA("mbNetAddHTTPHeaderFieldToUrlRequest not impl\n");
+    *(int*)1 = 1;
+}
+
+int MB_CALL_TYPE mbNetStartUrlRequest(mbWebView webviewHandle, mbWebUrlRequestPtr request, void* param, const mbUrlRequestCallbacks* callbacks)
+{
+    OutputDebugStringA("mbNetStartUrlRequest not impl\n");
+    *(int*)1 = 1;
+    return 0;
+}
+
+struct mbWebUrlResponse {
+    mbWebUrlResponse(const blink::WebURLResponse& response)
+    {
+        m_response = response;
+    }
+    blink::WebURLResponse m_response;
+};
+
+int MB_CALL_TYPE mbNetGetHttpStatusCode(mbWebUrlResponsePtr response)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    return response->m_response.HttpStatusCode();
+}
+
+int64_t MB_CALL_TYPE mbNetGetExpectedContentLength(mbWebUrlResponsePtr response)
+{
+    return response->m_response.ExpectedContentLength();
+}
+
+const utf8* MB_CALL_TYPE mbNetGetResponseUrl(mbWebUrlResponsePtr response)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    blink::KURL kurl = response->m_response.ResponseUrl();
+    String url = kurl;
+    std::string urlStr = url.Utf8();
+    return createTempCharString(urlStr.c_str(), urlStr.size());
+}
+
+void MB_CALL_TYPE mbNetCancelWebUrlRequest(int requestId)
+{
+    OutputDebugStringA("mbNetCancelWebUrlRequest not impl\n");
+    *(int*)1 = 1;
+//     mbnet::JobHead* jobHead = mbnet::WebURLLoaderManager::sharedInstance()->checkJob(requestId);
+//     if (!jobHead || net::JobHead::kWkeCustomNetRequest != jobHead->getType())
+//         return;
+//     NetUrlRequest* netRequest = (NetUrlRequest*)jobHead;
+//     netRequest->cancel();
+}
+
+void MB_CALL_TYPE mbSetViewProxy(mbWebView webviewHandle, const mbProxy* proxy)
+{
+    mbProxy* proxyCopy = new mbProxy();
+    *proxyCopy = *proxy;
+
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, proxyCopy] {
+        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (webview) {
+        webview->setProxy(proxyCopy);
+    }
+        });
+}
+
+const char* MB_CALL_TYPE mbNetGetMIMEType(mbNetJob jobId)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    blink::WebString contentType = job->m_response.HttpHeaderField(blink::WebString::FromUTF8("Content-Type"));
+    std::string contentTypeUtf8 = contentType.Utf8();
+    return createTempCharString(contentTypeUtf8.c_str(), contentTypeUtf8.size());
+}
+
+const char* netGetHTTPHeaderField(mbNetJob jobId, const char* key)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    std::string value;
+    job->firstRequest()->headers.GetHeader(key, &value);
+    if (value.empty())
+        return nullptr;
+    return createTempCharString(value.c_str(), value.size());
+}
+
+const char* netGetHTTPHeaderFieldFromResponse(mbNetJob jobId, const char* key)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    blink::WebString value = job->m_response.HttpHeaderField(blink::WebString::FromUTF8(key));
+    std::string valueBuffer = value.Utf8();
+
+    return createTempCharString(valueBuffer.c_str(), valueBuffer.size());
+}
+
+const utf8* MB_CALL_TYPE mbNetGetHTTPHeaderField(mbNetJob jobId, const char* key, BOOL fromRequestOrResponse)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return nullptr;
+    if (fromRequestOrResponse)
+        return netGetHTTPHeaderField(job, key);
+    return netGetHTTPHeaderFieldFromResponse(job, key);
+}
+
+void MB_CALL_TYPE mbSetCookie(mbWebView webviewHandle, const utf8* url, const utf8* cookie)
+{
+    //checkThreadCallIsValid(__FUNCTION__);
+    //cookie = "cna22=111111; domain=.1688.com; path=/; expires=Tue, 23-Jan-2029 13:17:21 GMT;";
+
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview)
+        return;
+
+    std::string* urlString = new std::string(url);
+    std::string* cookieString = new std::string(cookie);
+
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, urlString, cookieString] {
+        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+        if (webview) {
+            webview->setCookie(*cookieString);
+        }
+
+        OutputDebugStringA("mbSetCookie:");
+        OutputDebugStringA(cookieString->c_str());
+        OutputDebugStringA("\n");
+        delete urlString;
+        delete cookieString;
+    });
+}
+
+void MB_CALL_TYPE mbGetCookie(mbWebView webviewHandle, mbGetCookieCallback callback, void* param)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    if (!callback)
+        return;
+
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview) {
+        callback(NULL_WEBVIEW, param, kMbAsynRequestStateFail, nullptr);
+        return;
+    }
+
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, callback, param] {
+        std::string* cookie = nullptr;
+        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+        if (webview) {
+            cookie = new std::string(webview->getCookie());
+        } else
+            cookie = new std::string("");
+
+        content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webviewHandle, callback, param, cookie] {
+            content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+            if (!webview) {
+                callback(NULL_WEBVIEW, param, kMbAsynRequestStateFail, nullptr);
+                delete cookie;
+                return;
+            }
+            callback(webviewHandle, param, kMbAsynRequestStateOk, cookie->c_str());
+            delete cookie;
+        });
+    });
+}
+
+const utf8* MB_CALL_TYPE mbGetCookieOnBlinkThread(mbWebView webviewHandle)
+{
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview)
+        return NULL;
+    std::string cookie = webview->getCookie();
+    return createTempCharString(cookie.c_str(), cookie.size());
+}
+
+static BOOL netHoldJobToAsynCommit(int jobId)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return FALSE;
+
+    if (job->m_isRedirection || job->m_isSynchronous || job->m_isHoldJobToAsynCommit)
         return FALSE;
 
     job->m_isWkeNetSetDataBeSetted = false;
@@ -260,38 +637,98 @@ static BOOL netHoldJobToAsynCommit(mbNetJob jobPtr)
     return TRUE;
 }
 
-void MB_CALL_TYPE mbNetHoldJobToAsynCommit(mbNetJob jobPtr)
+void MB_CALL_TYPE mbNetHoldJobToAsynCommit(mbNetJob jobId)
 {
     if (content::ThreadCall::isBlinkThread()) {
-        netHoldJobToAsynCommit(jobPtr);
+        netHoldJobToAsynCommit((int)jobId);
     } else {
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr] {
-            netHoldJobToAsynCommit(jobPtr);
-        });
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId] { netHoldJobToAsynCommit((int)jobId); });
     }
 }
 
-static void netContinueJob(mbNetJob jobPtr)
+static void netContinueJob(int jobId, bool forceGoHookAsynTask)
 {
     checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
-    mbnet::WebURLLoaderManager::sharedInstance()->continueJob(job);
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+    mbnet::WebURLLoaderManager::sharedInstance()->continueJob(job, forceGoHookAsynTask);
 }
 
-void MB_CALL_TYPE mbNetContinueJob(mbNetJob jobPtr)
+// ������mbNetHoldJobToAsynCommit -> mbNetSetData �� ���ܵ���mbNetContinueJob
+void MB_CALL_TYPE mbNetContinueJob(mbNetJob jobId)
 {
     if (content::ThreadCall::isBlinkThread()) {
-        netContinueJob(jobPtr);
+        netContinueJob((int)jobId, false);
     } else {
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr] {
-            netContinueJob(jobPtr);
-        });
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId] { netContinueJob((int)jobId, false); });
     }
+}
+
+// ֻ�ύResponse�����ݺ����ٷֶ��첽�ύ
+void MB_CALL_TYPE mbNetCommitResponse(mbNetJob jobId)
+{
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId] { netContinueJob((int)jobId, true); });
+}
+
+void MB_CALL_TYPE mbNetPushChunkData(mbNetJob jobId, const void* data, int size)
+{
+    std::vector<char>* dataCopy = new std::vector<char>();
+    dataCopy->resize(size);
+    memcpy(dataCopy->data(), data, dataCopy->size());
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, dataCopy] {
+        mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+        mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+        if (job) {
+            mbnet::WebURLLoaderManager::sharedInstance()->didReceiveDataOrDownload(job, dataCopy->data(), dataCopy->size(), 0);
+        }
+        delete dataCopy;
+    });
+}
+
+void MB_CALL_TYPE mbNetCancelRequest(mbNetJob jobId)
+{
+    mbnet::AutoLockJob autoLockJob(mbnet::WebURLLoaderManager::sharedInstance(), (int64_t)jobId);
+    mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+    if (!job)
+        return;
+
+    if (content::ThreadCall::isBlinkThread()) {
+        job->m_isWkeCanceled = true;
+    } else {
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [job] { job->m_isWkeCanceled = true; });
+    }
+}
+
+namespace mbnet {
+void releaseJobWithoutCurl(WebURLLoaderManager * manager, WebURLLoaderInternal* job, int jobId);
+}
+
+void MB_CALL_TYPE mbNetFinishJob(mbNetJob jobId, int error)
+{
+    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobId, error] {
+        mbnet::WebURLLoaderManager* mgr = mbnet::WebURLLoaderManager::sharedInstance();
+        mbnet::AutoLockJob autoLockJob(mgr, (int)jobId);
+        mbnet::WebURLLoaderInternal* job = autoLockJob.lock();
+        if (!job)
+            return;
+
+        if (error == 0) {
+            mgr->handleDidFinishLoading(job, base::Time::Now().ToInternalValue(), job->m_recvTotalSize);
+        } else {
+            blink::WebURLError blinkError(net::ERR_ABORTED, blink::KURL(WTF::String(job->m_url)));
+            mbnet::WebURLLoaderManager::sharedInstance()->handleDidFail(job, blinkError);
+        }
+
+        if (mbnet::kHookRedirectCancelled != job->m_cancelledReason)
+            mbnet::releaseJobWithoutCurl(mgr, job, (int)jobId);
+    });
 }
 
 static void setCookieJarFullPathImpl(mbWebView webView, const std::u16string& path)
 {
-    std::string jarPathA = base::UTF16ToUTF8(base::StringPiece16(path));
+    std::string jarPathA = base::UTF16ToUTF8(path);
     mbnet::WebURLLoaderManager::setCookieJarFullPath(jarPathA.c_str());
 }
 
@@ -335,29 +772,65 @@ void setFullPath(mbWebView webviewHandle, const WCHAR* path, bool isCookiePath)
     if (content::ThreadCall::isBlinkThread()) {
         setFullPathOnBlinkThread(webviewHandle, pathString, isCookiePath);
     } else {
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, pathString, isCookiePath] {
-            setFullPathOnBlinkThread(webviewHandle, pathString, isCookiePath);
-        });
+        content::ThreadCall::callBlinkThreadAsync(
+            MB_FROM_HERE, [webviewHandle, pathString, isCookiePath] { setFullPathOnBlinkThread(webviewHandle, pathString, isCookiePath); });
     }
 }
 
-void MB_CALL_TYPE mbNetHookRequest(mbNetJob jobPtr)
-{
-    //mb::checkThreadCallIsValid(__FUNCTION__);
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
-    job->m_isWkeNetSetDataBeSetted = false;
-    if (job->m_asynWkeNetSetData)
-        delete (job->m_asynWkeNetSetData);
-    job->m_asynWkeNetSetData = nullptr;
-    job->m_isHoldJobToAsynCommit = false;
-    job->m_isHookRequest = true;
-}
-
-void MB_CALL_TYPE mbOnLoadUrlFail(mbWebView webviewHandle, mbLoadUrlFailCallback callback, void* param)
+void MB_CALL_TYPE mbNetOnResponse(mbWebView webviewHandle, mbNetResponseCallback callback, void* param)
 {
     checkThreadCallIsValid(__FUNCTION__);
     content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
     if (!webview)
         return;
-    webview->getClosure().setLoadUrlFailCallback(callback, param);
+    webview->getClosure().setNetResponseCallback(callback, param);
+}
+
+void MB_CALL_TYPE mbNetSetWebsocketCallback(mbWebView webviewHandle, const mbWebsocketHookCallbacks* callbacks, void* param)
+{
+}
+
+void MB_CALL_TYPE mbNetSendWsText(void* channel, const char* buf, size_t len)
+{
+
+}
+
+void MB_CALL_TYPE mbNetSendWsBlob(void* channel, const char* buf, size_t len)
+{
+
+}
+
+const utf8* MB_CALL_TYPE mbUtilBase64Encode(const utf8* str)
+{
+    OutputDebugStringA("mbUtilBase64Encode not impl\n");
+    *(int*)1 = 1;
+    return nullptr;
+}
+
+const utf8* MB_CALL_TYPE mbUtilBase64Decode(const utf8* str)
+{
+    OutputDebugStringA("mbUtilBase64Decode not impl\n");
+    *(int*)1 = 1;
+    return nullptr;
+}
+
+void MB_CALL_TYPE mbNetEnableResPacket(mbWebView webviewHandle, const WCHAR* pathName)
+{
+    OutputDebugStringA("mbNetEnableResPacket not impl\n");
+    *(int*)1 = 1;
+}
+
+void MB_CALL_TYPE mbOnNavigationSync(mbWebView webviewHandle, mbNavigationCallback callback, void* param)
+{
+    OutputDebugStringA("mbOnNavigationSync not impl\n");
+    *(int*)1 = 1;
+}
+
+void MB_CALL_TYPE mbOnNetGetFavicon(mbWebView webviewHandle, mbNetGetFaviconCallback callback, void* param)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview)
+        return;
+    webview->getClosure().setNetGetFaviconCallback(callback, param);
 }

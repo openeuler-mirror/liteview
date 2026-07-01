@@ -127,6 +127,7 @@ public:
 public:
     blink::WebURLLoaderClient* m_client;
     bool m_isSynchronous;
+    bool m_isCrossThread = false;
 
 private:
     std::unique_ptr<network::ResourceRequest> m_firstRequest;
@@ -134,6 +135,8 @@ private:
 public:
     blink::WebURLResponse m_response;
     std::string m_url; // 设置给curl的地址。和request可能不同，主要是fragment
+    std::string m_effectiveUrl; // curl收到网络包后返回的最后有效地址，如果有重定向redirect，则可能和上面的变量不同
+    std::string m_locationUrl; // 有重定向redirect时候，location字段的地址
     std::string m_fragment;
 
     String m_lastHTTPMethod;
@@ -156,8 +159,7 @@ public:
     bool m_shouldContentSniff;
 
     CURL* m_handle;
-    
-    std::string m_effectiveUrl; // curl收到网络包后返回的最后有效地址，如果有重定向redirect，则可能和上面的变量不同
+
     struct curl_slist* m_customHeaders;
     
     //std::unique_ptr<MultipartHandle> m_multipartHandle;
@@ -191,8 +193,9 @@ public:
     };
     State m_state;
 
+    base::Lock m_syncTasksLock;
     std::vector<WebURLLoaderManagerMainTask*> m_syncTasks;
-
+    WebURLLoaderManagerMainTask* m_crossThreadTasksBegin = nullptr;
     //SharedMemoryDataConsumerHandle::Writer* m_bodyStreamWriter;
 
     String m_debugPath;
@@ -203,8 +206,9 @@ public:
     bool m_isProxyConnect; // 是否使用代理的Connect请求
     bool m_isProxyHeadRequest;
     bool m_needParseMime; // 如果response为空的时候，是否需要在recv data的时候分析
-
     bool m_hadHandleDidSentData = false;
+
+    int m_recvTotalSize = 0;
 
     InitializeHandleInfo* m_initializeHandleInfo;
     bool m_isHoldJobToAsynCommit;
@@ -221,6 +225,7 @@ public:
     Vector<char>* m_asynWkeNetSetData = nullptr;
     bool m_isWkeNetSetDataBeSetted;
     bool m_isWkeCanceled; // 是否调用过wkeNetCancelRequest
+    bool m_isUrlBegining = false;
 
     mbNetJobDataBind* m_dataBind = nullptr;
     std::vector<char> m_dataCacheForDownload; // 下载时需要先缓存再给外部

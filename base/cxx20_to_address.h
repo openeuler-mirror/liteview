@@ -5,7 +5,11 @@
 #ifndef BASE_CXX20_TO_ADDRESS_H_
 #define BASE_CXX20_TO_ADDRESS_H_
 
+#include <memory>
 #include <type_traits>
+#ifdef _WIN32
+#include <xutility>
+#endif
 
 namespace base {
 
@@ -28,7 +32,11 @@ template <typename Ptr> constexpr auto to_address(const Ptr& p) noexcept -> decl
 
 template <typename Ptr, typename... None> constexpr auto to_address(const Ptr& p, None...) noexcept
 {
+#ifdef _WIN32
+    return std::to_address(p);
+#else
     return base::to_address(p.operator->());
+#endif // _WIN32
 }
 
 } // namespace base

@@ -14,11 +14,12 @@
 #include "content/browser/LocalFrameHostImpl.h"
 
 #include "content/browser/MbWebview.h"
-#include "content/browser/MbWebview.h"
 #include "content/renderer/WebLocalFrameClientImpl.h"
 #include "content/common/LiveIdDetect.h"
 #include "content/common/common.h"
+#include "content/common/mbchar.h"
 #include "content/common/CreateAndBindTempl.h"
+#include "content/common/StringUtil.h"
 #include "content/common/ThreadCall.h"
 #include "content/ui/ContextMeun.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -31,6 +32,40 @@
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom-blink.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
+#include <memory>
+
+#if defined(OS_LINUX)
+#include "linux/linuxgdi.h"
+#include "linux/linuxgl.h"
+#include "linux/shadergl.h"
+#include <windows.h>
+#include <gtk/gtk.h>
+#include <gdk/gdkkeysyms-compat.h>
+#include <gtk/gtkglarea.h>
+#endif
+
+namespace {
+
+content::MbWebView* getWebView(mbWebView handle)
+{
+    return (content::MbWebView*)(common::LiveIdDetect::getMbWebviewIds()->getPtr(handle));
+}
+
+void postEnterFullscreen(mbWebView handle)
+{
+    content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, handle, [](content::MbWebView* webview) {
+        webview->enterFullscreenOnBlinkThread();
+    });
+}
+
+void postExitFullscreen(mbWebView handle)
+{
+    content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, handle, [](content::MbWebView* webview) {
+        webview->exitFullscreenOnBlinkThread();
+    });
+}
+
+} // namespace
 
 bool blink::mojom::blink::LocalFrameHost::RunModalAlertDialog(class WTF::String const&, bool)
 {
@@ -85,11 +120,73 @@ LocalFrameHostImpl::LocalFrameHostImpl(WebLocalFrameClientImpl* frameClient)
 void LocalFrameHostImpl::EnterFullscreen(::blink::mojom::blink::FullscreenOptionsPtr options, ::blink::mojom::blink::LocalFrameHost::EnterFullscreenCallback callback) 
 {
     printFuncName(__FUNCTION__, true, false);
+
+    const mbWebView webviewHandle = m_frameClient->getMbwebviewId();
+    MbWebView* webview = getWebView(webviewHandle);
+    if (!webview) {
+        std::move(callback).Run(false);
+        return;
+    }
+
+    if (!webview->getClosure().m_fullscreenRequestedCallback) {
+        postEnterFullscreen(webviewHandle);
+        std::move(callback).Run(true);
+        return;
+    }
+
+    // ThreadCall::callUiThreadAsync 参数类型是 std::function<void(void)>, 需要变通一下
+    auto cbHolder = std::make_shared<decltype(callback)>(std::move(callback));
+    ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webviewHandle, cbHolder]() mutable {
+        bool granted = true;
+
+        MbWebView* webviewOnUi = getWebView(webviewHandle);
+        if (webviewOnUi) {
+            auto& closure = webviewOnUi->getClosure();
+            if (closure.m_fullscreenRequestedCallback) {
+                granted = closure.m_fullscreenRequestedCallback(webviewHandle, closure.m_fullscreenRequestedParam, true);
+            }
+        } else {
+            granted = false;
+        }
+
+        if (granted)
+            postEnterFullscreen(webviewHandle);
+
+        ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, granted, cbHolder]() mutable {
+            std::move(*cbHolder).Run(granted);
+        });
+    });
 }
 
 void LocalFrameHostImpl::ExitFullscreen()
 {
     printFuncName(__FUNCTION__, true, false);
+    
+    const mbWebView webviewHandle = m_frameClient->getMbwebviewId();
+    MbWebView* webview = getWebView(webviewHandle);
+    if (!webview)
+        return;
+
+    if (!webview->getClosure().m_fullscreenRequestedCallback) {
+        postExitFullscreen(webviewHandle);
+        return;
+    }
+
+    ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webviewHandle]() mutable {
+        bool granted = true;
+
+        MbWebView* webviewOnUi = getWebView(webviewHandle);
+        if (webviewOnUi) {
+            auto& closure = webviewOnUi->getClosure();
+            if (closure.m_fullscreenRequestedCallback) {
+                granted = closure.m_fullscreenRequestedCallback(webviewHandle, closure.m_fullscreenRequestedParam, false);
+            }
+        }
+
+        if (granted) {
+            postExitFullscreen(webviewHandle);
+        }
+    });
 }
 
 void LocalFrameHostImpl::FullscreenStateChanged(bool is_fullscreen, ::blink::mojom::blink::FullscreenOptionsPtr options) 
@@ -279,7 +376,16 @@ void LocalFrameHostImpl::UpdateTitle(const ::WTF::String& title, ::base::i18n::T
     if (!webview)
         return;
 
-    std::string* titleStr = new std::string(title.Utf8());
+    // todo(mb): 目前 mb 的编码检测机制有待完善
+    // 部分网站, 比如 http://www.znmq.com/, 编码混合使用, 实际上标题是 gbk, 此处 .Utf8() 之后会是乱码
+    std::string assumeUTF8 = title.Utf8();
+    std::string originStr((char*)title.Bytes(), title.length());
+    if (title.length() > 20 && detectGbkConfidence(originStr) > 0.90) {
+        assumeUTF8 = autoGbkToUtf8(originStr);
+    }
+
+    std::string* titleStr = new std::string(std::move(assumeUTF8));
+
     ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webviewHandle, titleStr]() {
         MbWebView* webview = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
         if (webview) {
@@ -316,6 +422,8 @@ void LocalFrameHostImpl::DocumentOnLoadCompleted()
     MbWebView* webview = (MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
     if (!webview)
         return;
+
+    webview->m_hadDocumentReady = true;
 
     blink::LocalFrameToken token = m_frameClient->getFrame()->GetLocalFrameToken();
     mbWebFrameHandle frameId = (void*)(blink::LocalFrameToken::Hasher()(token));
@@ -360,9 +468,9 @@ bool LocalFrameHostImpl::RunModalAlertDialog(const ::WTF::String& alertMsg, bool
         needPopupNativeMsgBox = false;
     } while (false);
 
-#ifdef _WIN32
+#if 1 // def _WIN32
     if (needPopupNativeMsgBox)
-        MessageBoxW(0, (const WCHAR*)(base::UTF8ToUTF16(*txt).c_str()), L"Alert", 0);
+        MessageBoxW(0, (const WCHAR*)(base::UTF8ToUTF16(*txt).c_str()), mbu16("Alert"), 0);
 #endif // _WIN32
     delete txt;
     return true;
@@ -467,9 +575,23 @@ void LocalFrameHostImpl::RunBeforeUnloadConfirm(bool is_reload, RunBeforeUnloadC
     printFuncName(__FUNCTION__, true, false);
 }
 
-void LocalFrameHostImpl::UpdateFaviconURL(WTF::Vector<::blink::mojom::blink::FaviconURLPtr> favicon_urls)
+void LocalFrameHostImpl::UpdateFaviconURL(WTF::Vector<::blink::mojom::blink::FaviconURLPtr> faviconUrls)
 {
     printFuncName(__FUNCTION__, true, false);
+    MbWebView* webview = getMbWebView();
+    if (!webview)
+        return;
+    mbWebView webviewHandle = m_frameClient->getMbwebviewId();
+    if (!webview->getClosure().m_NetGetFaviconCallback || faviconUrls.size() == 0)
+        return;
+
+    ::blink::mojom::blink::FaviconURLPtr& faviconUrl = faviconUrls[0];
+    blink::KURL url = faviconUrl->icon_url;
+
+    printf("LocalFrameHostImpl::UpdateFaviconURL: %p\n", webview->getClosure().m_NetGetFaviconCallback);
+
+    webview->getClosure().m_NetGetFaviconCallback(webviewHandle, webview->getClosure().m_NetGetFaviconParam,
+        url.GetString().Utf8().c_str(), nullptr);
 }
 
 void beginNavigation(
@@ -480,6 +602,12 @@ void beginNavigation(
     blink::WebLocalFrame* frame
     );
 
+static void onDataUrlBlobReadSideData(std::string* dataUrl, absl::optional<::mojo_base::BigBuffer> buf)
+{
+    dataUrl->resize(buf->size());
+    memcpy(dataUrl->data(), buf->data(), buf->size());
+}
+
 void LocalFrameHostImpl::DownloadURL(::blink::mojom::blink::DownloadURLParamsPtr params)
 {
     printFuncName(__FUNCTION__, false, false);
@@ -489,6 +617,13 @@ void LocalFrameHostImpl::DownloadURL(::blink::mojom::blink::DownloadURLParamsPtr
     info->url_request.SetReferrerString(params->referrer->url.GetString());
     info->url_request.SetReferrerPolicy(params->referrer->policy);
     //info->navigation_policy = blink::kWebNavigationPolicyDownload;
+    if (params->data_url_blob) {
+        ::mojo::Remote<::blink::mojom::blink::Blob> blob(std::move(params->data_url_blob));
+        std::string dataUrl;
+        blob->ReadSideData(base::BindOnce(onDataUrlBlobReadSideData, &dataUrl));
+
+        info->url_request.SetUrl(blink::KURL(String::FromUTF8(dataUrl)));
+    }
     m_frameClient->beginDownload(std::move(info), std::make_unique<String>(params->suggested_name));
 }
 
@@ -630,9 +765,16 @@ void LocalFrameHostImpl::DidInferColorScheme(::blink::mojom::blink::PreferredCol
     printFuncName(__FUNCTION__, false, false);
 }
 
-void LocalFrameHostImpl::DidChangeSrcDoc(const ::blink::FrameToken& child_frame_token, const WTF::String& srcdoc_value)
+void LocalFrameHostImpl::DidChangeSrcDoc(const ::blink::FrameToken& childFrameToken, const WTF::String& srcdocValue)
 {
-    printFuncName(__FUNCTION__, false, false);
+    blink::LocalFrameToken frameToken = childFrameToken.GetAs<blink::LocalFrameToken>();
+    blink::WebLocalFrame* child = blink::WebLocalFrame::FromFrameToken(frameToken);
+    if (!child)
+        return;
+    WebLocalFrameClientImpl* client = (WebLocalFrameClientImpl*)(child->Client());
+    if (!client)
+        return;
+    client->m_srcdoc = srcdocValue;
 }
 
 void LocalFrameHostImpl::DidChangeBaseURL(const ::blink::KURL& base_url)

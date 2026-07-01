@@ -135,7 +135,7 @@ MEDIA_EXPORT bool ParseNewStyleVp9CodecID(base::StringPiece codec_id, VideoCodec
 
 MEDIA_EXPORT bool ParseLegacyVp9CodecID(base::StringPiece codec_id, VideoCodecProfile* profile, uint8_t* level_idc);
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 MEDIA_EXPORT bool ParseAv1CodecId(base::StringPiece codec_id, VideoCodecProfile* profile, uint8_t* level_idc, VideoColorSpace* color_space);
 #endif
 

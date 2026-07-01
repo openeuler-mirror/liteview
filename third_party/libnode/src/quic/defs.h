@@ -1,4 +1,3 @@
-#pragma once
 //
 // Copyright (c) 2025 Institute of Software, Chinese Academy of Sciences (ISCAS)
 // LiteView is licensed under Mulan PSL v2.
@@ -11,6 +10,7 @@
 // See the Mulan PSL v2 for more details.
 //
 
+#pragma once
 
 #include <aliased_struct.h>
 #include <env.h>
