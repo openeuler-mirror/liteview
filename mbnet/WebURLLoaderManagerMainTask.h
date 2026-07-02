@@ -323,15 +323,65 @@ private:
         }
     }
 
+    static void runCrossThreadTasks(int jobId)
+    {
+        while (true) {
+            WebURLLoaderManagerMainTask* task = nullptr;
+            {
+                AutoLockJob autoLockJob(WebURLLoaderManager::sharedInstance(), jobId);
+                WebURLLoaderInternal* job = autoLockJob.lock();
+                if (!job)
+                    break;
+
+                job->m_syncTasksLock.Acquire();
+                task = job->m_crossThreadTasksBegin; // 从头部读起
+                if (!task) {
+                    job->m_syncTasksLock.Release();
+                    break;
+                }
+                job->m_crossThreadTasksBegin = task->m_next;
+                job->m_syncTasksLock.Release();
+            }
+            if (task) {
+                task->run();
+                delete task;
+            }
+        }
+    }
+
 public:
     static void pushTask(WebURLLoaderInternal* job, scoped_refptr<base::SequencedTaskRunner> taskRunner, WebURLLoaderManagerMainTask* task)
     {
         if (!task)
             return;
         if (job && job->m_isSynchronous) {
+            job->m_syncTasksLock.Acquire();
             job->m_syncTasks.push_back(task);
+            job->m_syncTasksLock.Release();
             return;
         }
+
+        if (job && job->m_isCrossThread) { // 老版本的非web worker的同步请求在mbnet里处理。新版本是blink创建线程来处理了
+            job->m_syncTasksLock.Acquire();
+
+            if (job->m_crossThreadTasksBegin) {
+                WebURLLoaderManagerMainTask* itTask = job->m_crossThreadTasksBegin; // 尾部插入
+                while (itTask) {
+                    if (!itTask->m_next) {
+                        itTask->m_next = task;
+                        break;
+                    }
+                    itTask = itTask->m_next;
+                }
+            } else {
+                job->m_crossThreadTasksBegin = task;
+            }
+            job->m_syncTasksLock.Release();
+
+            taskRunner->PostTask(FROM_HERE, base::BindOnce(&WebURLLoaderManagerMainTask::runCrossThreadTasks, job->m_jobId));
+            return;
+        }
+
         WebURLLoaderManager* manager = WebURLLoaderManager::sharedInstance();
 
         base::AutoLock locker(manager->m_mainTasksMutex);
@@ -616,7 +666,7 @@ static bool isDownloadResponse(WebURLLoaderInternal* job, const AtomicString& co
     if (contentLength == "0")
         return false;
 
-    if (IsContentDispositionAttachment(job->m_response.HttpHeaderField("Content-Disposition")))
+    if (blink::IsContentDispositionAttachment(job->m_response.HttpHeaderField("Content-Disposition")))
         return true;
 
     if (contentType.empty() || contentType.IsNull())
@@ -738,6 +788,11 @@ static bool dispatchResponseToWke(WebURLLoaderInternal* job, const AtomicString&
 
         // TODO: <a download>的情况还没考虑
         if (job->m_downloadName.get() || (isDownloadResponse(job, contentType, contentLength) && !isRedirect)) {
+            // wpt encoding 测试中 xml 等文件 mb 暂时无法识别, 会变成下载, 这在 linux 下会直接崩溃 
+            if (std::string::npos != url.find("http://web-platform.test:8000/encoding/resources/")) {
+                result = false;
+                break;
+            }
             if (dispatchDownloadToWke(webview, job, url.c_str(), contentType, job->m_downloadName.get())) {
                 result = true;
                 break;
@@ -805,8 +860,9 @@ static void doRedirect(WebURLLoaderInternal* job, const std::string& location, M
 {
     blink::WebURLLoaderClient* client = job->client();
     blink::KURL newURL = blink::KURL((blink::KURL)(job->firstRequest()->url), String(location));
+    job->m_locationUrl = newURL.GetString().Utf8();
 
-#if (defined ENABLE_WKE) && (ENABLE_WKE == 1)
+#if 0 // (defined ENABLE_WKE) && (ENABLE_WKE == 1)
     distpatchWkeWillSendRequest(job, &newURL, args->httpCode);
 
     RequestExtraData* requestExtraData = reinterpret_cast<RequestExtraData*>(job->firstRequest()->extraData());
@@ -845,12 +901,10 @@ static void doRedirect(WebURLLoaderInternal* job, const std::string& location, M
     blink::WebString newReferrer = blink::WebString::FromASCII(oldRequest->referrer.possibly_invalid_spec());
 
     if (client && job->loader() && (WebURLLoaderInternal::kCacheForDownloadYes != job->m_cacheForDownloadOpt)) {
-        //client->willSendRequest(job->loader(), *redirectedRequest, job->m_response);
-
         bool reportRawHeaders = false;
         std::vector<std::string> removedHeaders;
         client->WillFollowRedirect(newURL, net::SiteForCookies(), newReferrer,
-            /*network::mojom::ReferrerPolicy()*/network::mojom::ReferrerPolicy::kAlways, newMethod, job->m_response/*passed_redirect_response*/,
+            network::mojom::ReferrerPolicy::kAlways, newMethod, job->m_response/*passed_redirect_response*/,
             reportRawHeaders, &removedHeaders, /*insecure_scheme_was_upgraded*/false);
     }
 
@@ -941,11 +995,15 @@ static bool setHttpResponseDataToJobWhenDidReceiveResponseOnMainThread(WebURLLoa
         std::string location = job->m_response.HttpHeaderField(blink::WebString::FromUTF8("location")).Utf8();
         std::string nonAuthoritativeReason = job->m_response.HttpHeaderField(blink::WebString::FromUTF8("Non-Authoritative-Reason")).Utf8();
         
-        if (isRedirectByHttpCode)
-            OutputDebugStringA("isRedirectByHttpCode: ");
+        if (isRedirectByHttpCode) {
+            std::string temp = "isRedirectByHttpCode:";
+            temp += job->m_url;
+            temp += "\n";
+            OutputDebugStringA(temp.c_str());
+        }
 
         if (isRedirectByUrl)
-            OutputDebugStringA("isRedirectByUrl: ");
+            OutputDebugStringA("isRedirectByUrl\n");
 
         // https://passport.liepin.com/account/v1/elogin#sfrom=click-pc_homepage-front_navigation-ecomphr_new
         // 可能没location，或者开启了HSTS强制要求跳转到HTTPS。不过发现改这里没用，只需要在curl里把http改成https处理即可
@@ -968,11 +1026,6 @@ static bool setHttpResponseDataToJobWhenDidReceiveResponseOnMainThread(WebURLLoa
                 location += ("#");
 
             location += (job->m_fragment);
-
-//             Vector<char> locationBuffer = WTF::ensureStringToUTF8(location, false);
-//             locationBuffer.append('\n');
-//             locationBuffer.append('\0');
-//             OutputDebugStringA(locationBuffer.data());
 
             doRedirect(job, location, args, isRedirectByHttpCode);
             if (isRedirectByHttpCode)
@@ -1015,8 +1068,9 @@ static void setResponseDataToJobWhenDidReceiveResponseOnMainThread(WebURLLoaderI
     bool needSetResponseFired = true;
 
     job->m_response.SetExpectedContentLength(static_cast<long long int>(args->contentLength));
-    if (checkNeedSetResponseUrl(args->hdr, job->m_url))
-        job->m_response.SetCurrentRequestUrl(blink::KURL(args->hdr));
+    bool needChange = checkNeedSetResponseUrl(args->hdr, job->m_url);
+    if (needChange) // m_locationUrl和hdr有可能最后一个“？”号不同
+        job->m_response.SetCurrentRequestUrl(job->m_locationUrl.empty() ? blink::KURL(args->hdr) : blink::KURL(GURL(job->m_locationUrl)));
     else
         job->m_response.SetCurrentRequestUrl(blink::KURL(url));
     job->m_response.SetHttpStatusCode(args->httpCode);
@@ -1098,8 +1152,8 @@ size_t WebURLLoaderManagerMainTask::handleWriteCallbackOnMainThread(MainTaskArgs
 //     temp.resize(totalSize + 1);
 //     memset(temp.data(), 0, temp.size());
 //     memcpy(temp.data(), ptr, totalSize);
-//     if (nullptr != strstr(temp.data(), "L.subtle.exportKey(\"jwk\""))
-//         OutputDebugStringA("");
+//     if (nullptr != strstr(temp.data(), "container1"))
+//         OutputDebugStringA("handleWriteCallbackOnMainThread,container1!");
 
 #if 1 // ENABLE_WKE
     if (job->m_isHookRequest) {

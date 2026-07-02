@@ -2372,8 +2372,7 @@ private:
         }
 
         // When accepting peer certificates, allow any certificate.
-        SSL_CTX_set_cert_verify_callback(
-            ctx_.get(), [](X509_STORE_CTX* store_ctx, void* arg) -> int { return 1; }, nullptr);
+        SSL_CTX_set_cert_verify_callback(ctx_.get(), [](X509_STORE_CTX* store_ctx, void* arg) -> int { return 1; }, nullptr);
 
         SSL_CTX_enable_signed_cert_timestamps(ctx_.get());
         SSL_CTX_enable_ocsp_stapling(ctx_.get());

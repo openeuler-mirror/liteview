@@ -33,7 +33,11 @@
 #include "src/mem.h"
 #include "src/thread.h"
 
+#if defined(_WIN32)
 #include "../stdatomic_dav1d.h"
+#else
+#include <stdatomic.h>
+#endif
 #include <stddef.h>
 
 struct Dav1dRef {

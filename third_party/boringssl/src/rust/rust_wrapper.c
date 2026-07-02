@@ -14,15 +14,17 @@
 
 #include "rust_wrapper.h"
 
-
-int ERR_GET_LIB_RUST(uint32_t packed_error) {
-  return ERR_GET_LIB(packed_error);
+int ERR_GET_LIB_RUST(uint32_t packed_error)
+{
+    return ERR_GET_LIB(packed_error);
 }
 
-int ERR_GET_REASON_RUST(uint32_t packed_error) {
-  return ERR_GET_REASON(packed_error);
+int ERR_GET_REASON_RUST(uint32_t packed_error)
+{
+    return ERR_GET_REASON(packed_error);
 }
 
-int ERR_GET_FUNC_RUST(uint32_t packed_error) {
-  return ERR_GET_FUNC(packed_error);
+int ERR_GET_FUNC_RUST(uint32_t packed_error)
+{
+    return ERR_GET_FUNC(packed_error);
 }

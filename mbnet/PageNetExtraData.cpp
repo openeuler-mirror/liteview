@@ -20,6 +20,7 @@
 #include "mbnet/DefaultLocalStorageDir.h"
 #include "third_party/blink/renderer/platform/wtf/threading_primitives.h"
 #include "api/core/mb.h"
+#include "base/files/file_util.h"
 #include <shlwapi.h>
 
 namespace mbnet {
@@ -97,6 +98,17 @@ std::string PageNetExtraData::getCookieJarFullPath()
 //     m_pathToStorageNamespace.add(fullPath, storageMap);
 //     return storageMap;
 // }
+
+base::FilePath PageNetExtraData::getDownloadDirPath()
+{
+    if (m_downloadDirPath.empty()) {
+        base::FilePath downloadPath = getLocalStorageDir();
+        downloadPath = downloadPath.AppendASCII("download");
+        base::CreateDirectory(downloadPath); // ��local storage��Ӹ�����Ŀ¼
+        m_downloadDirPath = downloadPath;
+    }
+    return m_downloadDirPath;
+}
 
 base::FilePath PageNetExtraData::getLocalStorageDir()
 {

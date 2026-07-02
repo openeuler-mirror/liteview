@@ -1356,11 +1356,7 @@ public:
 
 #else // GTEST_HAS_RTTI
 
-#define GTEST_EXCEPTION_TYPE_(e)                                                                                                                               \
-    std::string                                                                                                                                                \
-    {                                                                                                                                                          \
-        "an std::exception-derived error"                                                                                                                      \
-    }
+#define GTEST_EXCEPTION_TYPE_(e) std::string { "an std::exception-derived error" }
 
 #endif // GTEST_HAS_RTTI
 
@@ -1441,8 +1437,8 @@ public:
         GTEST_CONCAT_TOKEN_(gtest_label_testnothrow_, __LINE__)                                                                                                \
             : fail(("Expected: " #statement " doesn't throw an exception.\n"                                                                                   \
                     "  Actual: "                                                                                                                               \
-                + gtest_msg.value)                                                                                                                             \
-                       .c_str())
+                  + gtest_msg.value)                                                                                                                           \
+                      .c_str())
 
 #define GTEST_TEST_ANY_THROW_(statement, fail)                                                                                                                 \
     GTEST_AMBIGUOUS_ELSE_BLOCKER_                                                                                                                              \

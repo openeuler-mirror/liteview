@@ -174,17 +174,18 @@ void OPENSSL_cpuid_setup(void);
 OPENSSL_EXPORT uint32_t* OPENSSL_get_armcap_pointer_for_test(void);
 #endif
 
-#if (!defined(_MSC_VER) || defined(__clang__)) && defined(OPENSSL_64_BIT)
-#define BORINGSSL_HAS_UINT128
-typedef __int128_t int128_t;
-typedef __uint128_t uint128_t;
-
-// clang-cl supports __uint128_t but modulus and division don't work.
-// https://crbug.com/787617.
-#if !defined(_MSC_VER) || !defined(__clang__)
-#define BORINGSSL_CAN_DIVIDE_UINT128
-#endif
-#endif
+// weolar: don not use UINT128
+// #if (!defined(_MSC_VER) || defined(__clang__)) && defined(OPENSSL_64_BIT)
+// #define BORINGSSL_HAS_UINT128
+// typedef __int128_t int128_t;
+// typedef __uint128_t uint128_t;
+//
+// // clang-cl supports __uint128_t but modulus and division don't work.
+// // https://crbug.com/787617.
+// #if !defined(_MSC_VER) || !defined(__clang__)
+// #define BORINGSSL_CAN_DIVIDE_UINT128
+// #endif
+// #endif
 
 #define OPENSSL_ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -546,26 +547,17 @@ OPENSSL_EXPORT int CRYPTO_refcount_dec_and_test_zero(CRYPTO_refcount_t* count);
 struct CRYPTO_STATIC_MUTEX {
     char padding; // Empty structs have different sizes in C and C++.
 };
-#define CRYPTO_STATIC_MUTEX_INIT                                                                                                                               \
-    {                                                                                                                                                          \
-        0                                                                                                                                                      \
-    }
+#define CRYPTO_STATIC_MUTEX_INIT { 0 }
 #elif defined(OPENSSL_WINDOWS_THREADS)
 struct CRYPTO_STATIC_MUTEX {
     SRWLOCK lock;
 };
-#define CRYPTO_STATIC_MUTEX_INIT                                                                                                                               \
-    {                                                                                                                                                          \
-        SRWLOCK_INIT                                                                                                                                           \
-    }
+#define CRYPTO_STATIC_MUTEX_INIT { SRWLOCK_INIT }
 #elif defined(OPENSSL_PTHREADS)
 struct CRYPTO_STATIC_MUTEX {
     pthread_rwlock_t lock;
 };
-#define CRYPTO_STATIC_MUTEX_INIT                                                                                                                               \
-    {                                                                                                                                                          \
-        PTHREAD_RWLOCK_INITIALIZER                                                                                                                             \
-    }
+#define CRYPTO_STATIC_MUTEX_INIT { PTHREAD_RWLOCK_INITIALIZER }
 #else
 #error "Unknown threading library"
 #endif
@@ -700,14 +692,8 @@ typedef struct {
     uint8_t num_reserved;
 } CRYPTO_EX_DATA_CLASS;
 
-#define CRYPTO_EX_DATA_CLASS_INIT                                                                                                                              \
-    {                                                                                                                                                          \
-        CRYPTO_STATIC_MUTEX_INIT, NULL, 0                                                                                                                      \
-    }
-#define CRYPTO_EX_DATA_CLASS_INIT_WITH_APP_DATA                                                                                                                \
-    {                                                                                                                                                          \
-        CRYPTO_STATIC_MUTEX_INIT, NULL, 1                                                                                                                      \
-    }
+#define CRYPTO_EX_DATA_CLASS_INIT { CRYPTO_STATIC_MUTEX_INIT, NULL, 0 }
+#define CRYPTO_EX_DATA_CLASS_INIT_WITH_APP_DATA { CRYPTO_STATIC_MUTEX_INIT, NULL, 1 }
 
 // CRYPTO_get_ex_new_index allocates a new index for |ex_data_class| and writes
 // it to |*out_index|. Each class of object should provide a wrapper function

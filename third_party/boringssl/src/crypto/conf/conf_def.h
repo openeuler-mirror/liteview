@@ -77,17 +77,17 @@
 #define CONF_ALPHA_NUMERIC_PUNCT (CONF_ALPHA | CONF_NUMBER | CONF_UNDER | CONF_PUNCTUATION)
 
 #define KEYTYPES(c) CONF_type_default
-#define IS_COMMENT(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_COMMENT)
-#define IS_FCOMMENT(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_FCOMMENT)
-#define IS_EOF(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_EOF)
-#define IS_ESC(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_ESC)
-#define IS_NUMBER(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_NUMBER)
-#define IS_WS(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_WS)
-#define IS_ALPHA_NUMERIC(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_ALPHA_NUMERIC)
-#define IS_ALPHA_NUMERIC_PUNCT(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_ALPHA_NUMERIC_PUNCT)
-#define IS_QUOTE(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_QUOTE)
-#define IS_DQUOTE(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_DQUOTE)
-#define IS_HIGHBIT(c, a) (KEYTYPES(c)[(a)&0xff] & CONF_HIGHBIT)
+#define IS_COMMENT(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_COMMENT)
+#define IS_FCOMMENT(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_FCOMMENT)
+#define IS_EOF(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_EOF)
+#define IS_ESC(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_ESC)
+#define IS_NUMBER(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_NUMBER)
+#define IS_WS(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_WS)
+#define IS_ALPHA_NUMERIC(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_ALPHA_NUMERIC)
+#define IS_ALPHA_NUMERIC_PUNCT(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_ALPHA_NUMERIC_PUNCT)
+#define IS_QUOTE(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_QUOTE)
+#define IS_DQUOTE(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_DQUOTE)
+#define IS_HIGHBIT(c, a) (KEYTYPES(c)[(a) & 0xff] & CONF_HIGHBIT)
 
 static const unsigned short CONF_type_default[256] = {
     0x0008,

@@ -14,11 +14,11 @@
 #include "crypto/openssl_util.h"
 #include "third_party/blink/public/platform/web_crypto_algorithm_params.h"
 #include "third_party/blink/public/platform/web_crypto_key_algorithm.h"
-// #include "third_party/boringssl/src/include/openssl/err.h"
-// #include "third_party/boringssl/src/include/openssl/hkdf.h"
-#include "third_party/openssl/openssl/include/openssl/err.h"
-#include "third_party/openssl/openssl/include/openssl/hkdf.h"
-#include "windows.h"
+#include "third_party/boringssl/src/include/openssl/err.h"
+#include "third_party/boringssl/src/include/openssl/hkdf.h"
+// #include "third_party/openssl/openssl/include/openssl/err.h"
+// #include "third_party/openssl/openssl/include/openssl/hkdf.h"
+// #include "windows.h"
 
 namespace webcrypto {
 
@@ -60,36 +60,36 @@ public:
     Status DeriveBits(const blink::WebCryptoAlgorithm& algorithm, const blink::WebCryptoKey& base_key, bool has_optional_length_bits,
         unsigned int optional_length_bits, std::vector<uint8_t>* derived_bytes) const override
     {
-        OutputDebugStringA("DeriveBits not impl\n");
-        DebugBreak();
-//         crypto::OpenSSLErrStackTracer err_tracer(FROM_HERE);
-//         if (!has_optional_length_bits)
-//             return Status::ErrorHkdfDeriveBitsLengthNotSpecified();
-// 
-//         if (optional_length_bits % 8)
-//             return Status::ErrorHkdfLengthNotWholeByte();
-// 
-//         const blink::WebCryptoHkdfParams* params = algorithm.HkdfParams();
-// 
-//         const EVP_MD* digest_algorithm = GetDigest(params->GetHash());
-//         if (!digest_algorithm)
-//             return Status::ErrorUnsupported();
-// 
-//         // Size output to fit length
-//         unsigned int derived_bytes_len = optional_length_bits / 8;
-//         derived_bytes->resize(derived_bytes_len);
-// 
-//         // Algorithm dispatch checks that the algorithm in |base_key| matches
-//         // |algorithm|.
-//         const std::vector<uint8_t>& raw_key = GetSymmetricKeyData(base_key);
-//         if (!HKDF(derived_bytes->data(), derived_bytes_len, digest_algorithm, raw_key.data(), raw_key.size(), params->Salt().data(), params->Salt().size(),
-//                 params->Info().data(), params->Info().size())) {
-//             uint32_t error = ERR_get_error();
-//             if (ERR_GET_LIB(error) == ERR_LIB_HKDF && ERR_GET_REASON(error) == HKDF_R_OUTPUT_TOO_LARGE) {
-//                 return Status::ErrorHkdfLengthTooLong();
-//             }
-//             return Status::OperationError();
-//         }
+        //OutputDebugStringA("DeriveBits not impl\n");
+        //DebugBreak();
+        crypto::OpenSSLErrStackTracer err_tracer(FROM_HERE);
+        if (!has_optional_length_bits)
+            return Status::ErrorHkdfDeriveBitsLengthNotSpecified();
+
+        if (optional_length_bits % 8)
+            return Status::ErrorHkdfLengthNotWholeByte();
+
+        const blink::WebCryptoHkdfParams* params = algorithm.HkdfParams();
+
+        const EVP_MD* digest_algorithm = GetDigest(params->GetHash());
+        if (!digest_algorithm)
+            return Status::ErrorUnsupported();
+
+        // Size output to fit length
+        unsigned int derived_bytes_len = optional_length_bits / 8;
+        derived_bytes->resize(derived_bytes_len);
+
+        // Algorithm dispatch checks that the algorithm in |base_key| matches
+        // |algorithm|.
+        const std::vector<uint8_t>& raw_key = GetSymmetricKeyData(base_key);
+        if (!HKDF(derived_bytes->data(), derived_bytes_len, digest_algorithm, raw_key.data(), raw_key.size(), params->Salt().data(), params->Salt().size(),
+                params->Info().data(), params->Info().size())) {
+            uint32_t error = ERR_get_error();
+            if (ERR_GET_LIB(error) == ERR_LIB_HKDF && ERR_GET_REASON(error) == HKDF_R_OUTPUT_TOO_LARGE) {
+                return Status::ErrorHkdfLengthTooLong();
+            }
+            return Status::OperationError();
+        }
 
         return Status::Success();
     }

@@ -5,13 +5,15 @@ projects = [
 
   "//third_party/skia:skia",
 
+  "//third_party/ffmpeg:ffmpeg",
+
   "//v8:v8",
 
   "//base:base",
 
   "//third_party/freetype:freetype",
 
-  "//third_party/openssl/openssl:openssl",
+  "//third_party/boringssl:boringssl",
 
   "//third_party/build_util:util",
 
@@ -78,9 +80,7 @@ shared_library("livicore") {
     "//third_party/libxml/src/include",
     "//third_party/libxslt/src",
     "//third_party/libyuv/include",
-    # "//third_party/boringssl/src/include",
-    "//third_party/openssl/openssl/include",
-    "//third_party/openssl",
+    "//third_party/boringssl/src/include",
     "//gpu",
     "//third_party/mesa_headers",
     "//third_party/libyuv/include",
@@ -97,6 +97,7 @@ shared_library("livicore") {
   cflags = [
 
     "-fms-extensions",
+
     "-D_GLIBCXX_USE_C99_MATH",
     "-D_GLIBCXX17_INLINE=inline",
     "-D_GNU_SOURCE",
@@ -113,7 +114,7 @@ shared_library("livicore") {
     # "-DSK_G32_SHIFT=8",
     # "-DSK_R32_SHIFT=16",
     # "-DSK_A32_SHIFT=24",
-
+    
     #  opengl
     # "-DSK_B32_SHIFT=16",
     # "-DSK_G32_SHIFT=8",
@@ -158,7 +159,7 @@ shared_library("livicore") {
     # -----
     "-DV8_HAVE_TARGET_OS",
     "-DV8_TARGET_OS_LINUX",
-
+    
     # "-DOS_LINUX",
     "-DUSE_OZONE",
     "-DUSE_GLIB",
@@ -240,10 +241,7 @@ shared_library("livicore") {
 
     "$sdkPath2/usr/lib/x86_64-linux-gnu/libasound.so.2.0.0",
 
-    "-L$sdkPath2/usr/lib/x86_64-linux-gnu",
-    "-lffmpeg",
-
-    "-rpath=\$ORIGIN",
+    "-rpath=\$ORIGIN"
 
   ]
 
@@ -2408,7 +2406,6 @@ shared_library("livicore") {
     "//third_party/blink/renderer/core/layout/text_run_constructor.cc",
     "//third_party/blink/renderer/core/layout/traced_layout_object.cc",
     "//third_party/blink/renderer/core/layout/view_fragmentation_context.cc",
-    # "//third_party/blink/renderer/core/layout/web_font_rendering_win.cc", #  !!!!!!!!!!!!!!!!!!!
     "//third_party/blink/renderer/core/layout/shapes/box_shape.cc",
     "//third_party/blink/renderer/core/layout/shapes/ellipse_shape.cc",
     "//third_party/blink/renderer/core/layout/shapes/polygon_shape.cc",
@@ -2823,6 +2820,8 @@ shared_library("livicore") {
     "//third_party/blink/renderer/modules/storage/storage_controller.cc",
     "//third_party/blink/renderer/modules/storage/storage_event.cc",
     "//third_party/blink/renderer/modules/storage/storage_namespace.cc",
+    "//third_party/blink/renderer/modules/eventsource/event_source.cc",
+    "//third_party/blink/renderer/modules/eventsource/event_source_parser.cc",
     "//third_party/blink/renderer/modules/media_controls/media_controls_display_cutout_delegate.cc",
     "//third_party/blink/renderer/modules/media_controls/media_controls_impl.cc",
     "//third_party/blink/renderer/modules/media_controls/media_controls_media_event_listener.cc",
@@ -3936,6 +3935,7 @@ shared_library("livicore") {
     "//content/common/ThreadCall.cpp",
     "//content/common/BindJsQuery.cpp",
     "//content/renderer/PlatformEventHandler.cpp",
+    "//content/ui/ContextMeun.cpp",
     "//content/ui/ContextMeunLinux.cpp",
     "//api/core/mb.cpp",
     "//api/core/mbapi.cpp",
@@ -3977,16 +3977,16 @@ shared_library("livicore") {
     "//content/resources/V8108SnapshotBlobBinArm32Linux.cpp",
     "//content/ui/ClipboardUtil.cpp",
     "//patch_code/atomic_xp.cpp",
-    # "//linux/ohosgdi.cpp",
+    "//linux/ohosgdi.cpp",
     "//linux/linuxgdi.cpp",
     "//linux/linuxgl.cpp",
     "//linux/linuxwindows.cpp",
     "//build/maindll/NodejsEmpty.cpp",
 
-    #  media dep
+    # media dep
     "//base/sync_socket_posix.cc",
 
-    #  media
+    # media
     "//third_party/blink/renderer/modules/mediasource/html_video_element_media_source.cc",
     "//third_party/blink/renderer/modules/mediasource/media_source.cc",
     "//third_party/blink/renderer/modules/mediasource/media_source_attachment_supplement.cc",
@@ -4016,221 +4016,3 @@ shared_library("livicore") {
 }
 
 
-executable("liteview") {
-
-  include_dirs = [
-
-    "//linux",
-    "/usr/include/pango-1.0",
-    "/usr/include/harfbuzz",
-    "/usr/include/cairo",
-    "/usr/include/gdk-pixbuf-2.0",
-    "/usr/include/atk-1.0",
-
-    "//shell/src",
-    "//shell/third_party/fmt/include",
-    "//shell/third_party/sqlite_orm/include",
-
-    "//third_party/libcurl/include",
-    "//third_party/libcurl/src",
-
-    "//api/core",
-
-    "/usr/include/gtk-3.0",
-    "/usr/include/glib-2.0",
-    "/usr/lib64/glib-2.0/include",
-
-  ]
-
-  cflags = [
-
-    "-D_GNU_SOURCE",
-    "-DBUILDING_LIBCURL",
-    "-fms-extensions",
-
-  ]
-
-
-  ldflags = [
-
-    "-dynamic-linker",
-    "/lib64/ld-linux-x86-64.so.2",
-
-    "/usr/lib64/libc.so",
-    "/usr/lib64/libev.so",
-    "/usr/lib64/libsqlite3.so",
-    "/usr/lib64/libgtk-3.so",
-    "/usr/lib64/libglib-2.0.so",
-    "/usr/lib64/libgio-2.0.so",
-    "/usr/lib64/libpthread.so.0",
-    "/usr/lib64/libdl.so.2",
-    "/usr/lib64/libstdc++.so.6",
-    "/usr/lib64/libgobject-2.0.so.0",
-
-    "/usr/lib64/libgcc_s-12.so.1",
-
-    "/usr/lib64/libicuuc.so",
-    "/usr/lib64/libicudata.so",
-    "/usr/lib64/libicui18n.so",
-
-  ]  
-
-  sources = [
-
-    "//shell/src/utils/guess.cpp",
-    "//shell/src/utils/taskqueue.cpp",
-    "//shell/src/utils/arguments.cpp",
-    "//shell/src/utils/runtime_info.cpp",
-    "//shell/src/utils/process.cpp",
-
-    "//shell/src/livi_browser.cpp",
-    "//shell/src/livi_download_manager.cpp",
-    "//shell/src/livi_download_window.cpp",
-    "//shell/src/livi_download_impl_curl.cpp",
-    "//shell/src/livi_download_storage.cpp",
-    "//shell/src/livi_history_storage.cpp",
-    "//shell/src/livi_ui_thread.cpp",
-    "//shell/src/livi_work_thread.cpp",
-
-    "shell/third_party/fmt/format.cc",
-    "shell/third_party/fmt/os.cc",
-
-    "//third_party/libcurl/src/amigaos.c",
-    "//third_party/libcurl/src/asyn-thread.c",
-    "//third_party/libcurl/src/base64.c",
-    "//third_party/libcurl/src/conncache.c",
-    "//third_party/libcurl/src/connect.c",
-    "//third_party/libcurl/src/content_encoding.c",
-    "//third_party/libcurl/src/cookie.c",
-    "//third_party/libcurl/src/curl_addrinfo.c",
-    "//third_party/libcurl/src/curl_ctype.c",
-    "//third_party/libcurl/src/curl_des.c",
-    "//third_party/libcurl/src/curl_endian.c",
-    "//third_party/libcurl/src/curl_fnmatch.c",
-    "//third_party/libcurl/src/curl_gethostname.c",
-    "//third_party/libcurl/src/curl_gssapi.c",
-    "//third_party/libcurl/src/curl_memrchr.c",
-    "//third_party/libcurl/src/curl_multibyte.c",
-    "//third_party/libcurl/src/curl_ntlm_core.c",
-    "//third_party/libcurl/src/curl_ntlm_wb.c",
-    "//third_party/libcurl/src/curl_path.c",
-    "//third_party/libcurl/src/curl_range.c",
-    "//third_party/libcurl/src/curl_rtmp.c",
-    "//third_party/libcurl/src/curl_sasl.c",
-    "//third_party/libcurl/src/curl_sspi.c",
-    "//third_party/libcurl/src/curl_threads.c",
-    "//third_party/libcurl/src/dotdot.c",
-    "//third_party/libcurl/src/easy.c",
-    "//third_party/libcurl/src/escape.c",
-    "//third_party/libcurl/src/file.c",
-    "//third_party/libcurl/src/fileinfo.c",
-    "//third_party/libcurl/src/formdata.c",
-    "//third_party/libcurl/src/ftp.c",
-    "//third_party/libcurl/src/ftplistparser.c",
-    "//third_party/libcurl/src/getenv.c",
-    "//third_party/libcurl/src/getinfo.c",
-    "//third_party/libcurl/src/gopher.c",
-    "//third_party/libcurl/src/hmac.c",
-    "//third_party/libcurl/src/hostasyn.c",
-    "//third_party/libcurl/src/hostcheck.c",
-    "//third_party/libcurl/src/hostip.c",
-    "//third_party/libcurl/src/hostip4.c",
-    "//third_party/libcurl/src/hostip6.c",
-    "//third_party/libcurl/src/hostsyn.c",
-    "//third_party/libcurl/src/http.c",
-    "//third_party/libcurl/src/http_chunks.c",
-    "//third_party/libcurl/src/http_digest.c",
-    "//third_party/libcurl/src/http_negotiate.c",
-    "//third_party/libcurl/src/http_ntlm.c",
-    "//third_party/libcurl/src/http_proxy.c",
-    "//third_party/libcurl/src/http2.c",
-    "//third_party/libcurl/src/idn_win32.c",
-    "//third_party/libcurl/src/if2ip.c",
-    "//third_party/libcurl/src/imap.c",
-    "//third_party/libcurl/src/inet_ntop.c",
-    "//third_party/libcurl/src/inet_pton.c",
-    "//third_party/libcurl/src/krb5.c",
-    "//third_party/libcurl/src/ldap.c",
-    "//third_party/libcurl/src/llist.c",
-    "//third_party/libcurl/src/md4.c",
-    "//third_party/libcurl/src/md5.c",
-    "//third_party/libcurl/src/memdebug.c",
-    "//third_party/libcurl/src/mime.c",
-    "//third_party/libcurl/src/mprintf.c",
-    "//third_party/libcurl/src/multi.c",
-    "//third_party/libcurl/src/netrc.c",
-    "//third_party/libcurl/src/non-ascii.c",
-    "//third_party/libcurl/src/nonblock.c",
-    "//third_party/libcurl/src/nwlib.c",
-    "//third_party/libcurl/src/nwos.c",
-    "//third_party/libcurl/src/openldap.c",
-    "//third_party/libcurl/src/parsedate.c",
-    "//third_party/libcurl/src/pingpong.c",
-    "//third_party/libcurl/src/pipeline.c",
-    "//third_party/libcurl/src/pop3.c",
-    "//third_party/libcurl/src/progress.c",
-    "//third_party/libcurl/src/psl.c",
-    "//third_party/libcurl/src/rand.c",
-    "//third_party/libcurl/src/rtsp.c",
-    "//third_party/libcurl/src/select.c",
-    "//third_party/libcurl/src/sendf.c",
-    "//third_party/libcurl/src/setopt.c",
-    "//third_party/libcurl/src/sha256.c",
-    "//third_party/libcurl/src/share.c",
-    "//third_party/libcurl/src/slist.c",
-    "//third_party/libcurl/src/smb.c",
-    "//third_party/libcurl/src/smtp.c",
-    "//third_party/libcurl/src/socks.c",
-    "//third_party/libcurl/src/socks_gssapi.c",
-    "//third_party/libcurl/src/socks_sspi.c",
-    "//third_party/libcurl/src/speedcheck.c",
-    "//third_party/libcurl/src/splay.c",
-    "//third_party/libcurl/src/ssh.c",
-    "//third_party/libcurl/src/ssh-libssh.c",
-    "//third_party/libcurl/src/strcase.c",
-    "//third_party/libcurl/src/strdup.c",
-    "//third_party/libcurl/src/strerror.c",
-    "//third_party/libcurl/src/strtok.c",
-    "//third_party/libcurl/src/strtoofft.c",
-    "//third_party/libcurl/src/system_win32.c",
-    "//third_party/libcurl/src/telnet.c",
-    "//third_party/libcurl/src/tftp.c",
-    "//third_party/libcurl/src/timeval.c",
-    "//third_party/libcurl/src/transfer.c",
-    "//third_party/libcurl/src/url.c",
-    "//third_party/libcurl/src/version.c",
-    "//third_party/libcurl/src/warnless.c",
-    "//third_party/libcurl/src/wildcard.c",
-    "//third_party/libcurl/src/x509asn1.c",
-    "//third_party/libcurl/src/vauth/spnego_gssapi.c",
-    "//third_party/libcurl/src/vauth/spnego_sspi.c",
-    "//third_party/libcurl/src/vauth/vauth.c",
-    "//third_party/libcurl/src/vauth/cleartext.c",
-    "//third_party/libcurl/src/vauth/cram.c",
-    "//third_party/libcurl/src/vauth/digest.c",
-    "//third_party/libcurl/src/vauth/digest_sspi.c",
-    "//third_party/libcurl/src/vauth/krb5_gssapi.c",
-    "//third_party/libcurl/src/vauth/krb5_sspi.c",
-    "//third_party/libcurl/src/vauth/ntlm.c",
-    "//third_party/libcurl/src/vauth/ntlm_sspi.c",
-    "//third_party/libcurl/src/vauth/oauth2.c",
-    "//third_party/libcurl/src/vtls/schannel.c",
-    "//third_party/libcurl/src/vtls/schannel_verify.c",
-    "//third_party/libcurl/src/vtls/vtls.c",
-    "//third_party/libcurl/src/vtls/axtls.c",
-    "//third_party/libcurl/src/vtls/cyassl.c",
-    "//third_party/libcurl/src/vtls/darwinssl.c",
-    "//third_party/libcurl/src/vtls/gskit.c",
-    "//third_party/libcurl/src/vtls/gtls.c",
-    "//third_party/libcurl/src/vtls/mbedtls.c",
-    "//third_party/libcurl/src/vtls/nss.c",
-    "//third_party/libcurl/src/vtls/openssl.c",
-    "//third_party/libcurl/src/vtls/polarssl.c",
-    "//third_party/libcurl/src/vtls/polarssl_threadlock.c",
-    "//third_party/libcurl/src/curl_security.c",
-    "//third_party/libcurl/src/curl_hash.c",
-    "//third_party/libcurl/src/curl_dict.c",
-
-  ]
-
-}

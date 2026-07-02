@@ -255,7 +255,7 @@ struct MEDIA_EXPORT VPCodecConfigurationRecord : Box {
     uint8_t level;
 };
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 struct MEDIA_EXPORT AV1CodecConfigurationRecord : Box {
     DECLARE_BOX_METHODS(AV1CodecConfigurationRecord);
 

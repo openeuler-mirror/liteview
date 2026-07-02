@@ -19,6 +19,7 @@
 #include "content/common/LiveIdDetect.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "base/threading/thread.h"
+#include "base/strings/string_number_conversions.h"
 
 namespace mbnet {
 
@@ -31,7 +32,9 @@ public:
     {
     }
 
-    ~IoTask() { }
+    ~IoTask()
+    {
+    }
 
     void run()
     {
@@ -49,7 +52,7 @@ public:
 
         if (needLoop)
             m_thread->task_runner()->PostTask(FROM_HERE, base::BindOnce(&IoTask::run, base::Unretained(this)));
-        else 
+        else
             delete this;
     }
 
@@ -61,19 +64,10 @@ private:
 
 const int kBlackListCancelJobId = -2;
 
-static void releaseJobWithoutCurl(WebURLLoaderManager* manager, WebURLLoaderInternal* job, int jobId)
+void releaseJobWithoutCurl(WebURLLoaderManager* manager, WebURLLoaderInternal* job, int jobId)
 {
     if (kBlackListCancelJobId == jobId)
         return;
-
-//     job->m_destroingMutex.lock();
-//     job->m_state = WebURLLoaderInternal::kDestroyed;
-//     while (job->m_ref != 1) { ::Sleep(5); }
-// 
-//     job->m_handle = nullptr;
-//     manager->removeLiveJobs(jobId);
-//     delete job;
-
     WebURLLoaderInternal::release(jobId); // WebURLLoaderManager::doCancel 可能会占用
 }
 
@@ -83,13 +77,16 @@ String getMIMETypeForPath(const String& path);
 
 class HookAsynTask {
 public:
-    HookAsynTask(WebURLLoaderManager* manager, int jobId)
+    HookAsynTask(WebURLLoaderManager* manager, int jobId, bool delayReleaseJob)
     {
         m_manager = manager;
         m_jobId = jobId;
+        m_delayReleaseJob = delayReleaseJob;
     }
 
-    ~HookAsynTask() {}
+    ~HookAsynTask()
+    {
+    }
 
     void run()
     {
@@ -126,28 +123,39 @@ private:
             data = job->m_asynWkeNetSetData->data();
         }
 
-//         if (job->firstRequest()->downloadToFile() && size > 0) {
-//             String tempPath = m_manager->handleHeaderForBlobOnMainThread(job, size);
-//             job->m_response.setDownloadFilePath(tempPath);
-//         }
+        //         if (job->firstRequest()->downloadToFile() && size > 0) {
+        //             String tempPath = m_manager->handleHeaderForBlobOnMainThread(job, size);
+        //             job->m_response.setDownloadFilePath(tempPath);
+        //         }
 
-        job->m_response.SetHttpStatusCode(200);
-        job->m_response.SetHttpStatusText(blink::WebString::FromUTF8("OK"));
+        std::string contentLengthStr = job->m_response.HttpHeaderField(blink::WebString::FromUTF8("Content-Length")).Utf8();
+        uint64_t contentLength = 0;
+        if (0 == size && base::StringToUint64(base::StringPiece(contentLengthStr.c_str(), contentLengthStr.size()), &contentLength)) {
+            size = contentLength;
+        }
+
+        job->m_response.SetResponseTime(base::Time::Now());
+        job->m_response.SetExpectedContentLength(size);
+
+        if (job->m_response.HttpStatusCode() == 0)
+            job->m_response.SetHttpStatusCode(200);
+
+        if (job->m_response.HttpStatusText().IsNull())
+            job->m_response.SetHttpStatusText(blink::WebString::FromUTF8("OK"));
 
         m_manager->handleDidReceiveResponse(job);
 
-        if ((job->m_asynWkeNetSetData) && 
-            kNormalCancelled != job->m_cancelledReason &&
-            kHookRedirectCancelled != job->m_cancelledReason) { // 可能在didReceiveResponse里被cancel
-            job->m_response.SetExpectedContentLength(static_cast<long long int>(size));
+        if ((job->m_asynWkeNetSetData) && kNormalCancelled != job->m_cancelledReason
+            && kHookRedirectCancelled != job->m_cancelledReason) { // 可能在didReceiveResponse里被cancel
 
             dispatchUrlEndHook(job, data, size);
 
             m_manager->didReceiveDataOrDownload(job, data, size, 0);
-            m_manager->handleDidFinishLoading(job, base::Time::Now().ToInternalValue(), size); // 这里会走到WebURLLoaderManager::doCancel，然后导致job被占用
+            if (!m_delayReleaseJob)
+                m_manager->handleDidFinishLoading(job, base::Time::Now().ToInternalValue(), size); // 这里会走到WebURLLoaderManager::doCancel，然后导致job被占用
         }
 
-        if (kHookRedirectCancelled != job->m_cancelledReason)
+        if (!m_delayReleaseJob && kHookRedirectCancelled != job->m_cancelledReason)
             releaseJobWithoutCurl(m_manager, job, m_jobId);
     }
 
@@ -164,36 +172,24 @@ private:
             break;
         }
         String urlWithoutQuery(urlString.c_str(), (size_t)urlHostLength);
-        job->m_response.SetMimeType(/*blink::MIMETypeRegistry::*/getMIMETypeForPath(urlWithoutQuery));
+        job->m_response.SetMimeType(/*blink::MIMETypeRegistry::*/ getMIMETypeForPath(urlWithoutQuery));
     }
 
     void dispatchUrlEndHook(WebURLLoaderInternal* job, const char* data, size_t size)
     {
-//         RequestExtraData* requestExtraData = reinterpret_cast<RequestExtraData*>(job->firstRequest()->extraData());
-//         if (!requestExtraData)
-//             return;
-// 
-//         content::WebPage* page = requestExtraData->page;
-//         if (!page)
-//             return;
-// 
-//         wkeLoadUrlEndCallback loadUrlEndCallback = page->wkeHandler().loadUrlEndCallback;
-//         void* loadUrlEndCallbackParam = page->wkeHandler().loadUrlEndCallbackParam;
-//         if (1 == job->m_isHookRequest && loadUrlEndCallback)
-//             loadUrlEndCallback(page->wkeWebView(), loadUrlEndCallbackParam, job->m_url, job, (void*)data, size);
-
         content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)job->m_mbwebviewId);
-        if (!webview)
+        if (!webview || !job->m_isHookRequest)
             return;
         if (!webview->getClosure().m_LoadUrlEndCallback)
             return;
 
         void* param = webview->getClosure().m_LoadUrlEndParam;
-        webview->getClosure().m_LoadUrlEndCallback(job->m_mbwebviewId, param, job->m_url.c_str(), job, (void*)data, size);
+        webview->getClosure().m_LoadUrlEndCallback(job->m_mbwebviewId, param, job->m_url.c_str(), (void*)job->m_jobId, (void*)data, size);
     }
 
     WebURLLoaderManager* m_manager;
-    int m_jobId;
+    int64_t m_jobId;
+    bool m_delayReleaseJob = false; // 有这个，说明外部后面会再设置几次数据
 };
 #endif
 
@@ -203,7 +199,7 @@ public:
     {
         m_manager = manager;
         m_jobId = jobId;
-        
+
         JobHead* jobHead = m_manager->checkJob(m_jobId);
         if (!jobHead || JobHead::kLoaderInternal != jobHead->getType())
             return;
@@ -212,7 +208,9 @@ public:
         job->m_isBlackList = true;
     }
 
-    ~BlackListCancelTask() { }
+    ~BlackListCancelTask()
+    {
+    }
 
     static void cancel(WebURLLoaderManager* manager, WebURLLoaderInternal* job, int jobId)
     {

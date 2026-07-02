@@ -166,6 +166,9 @@
 #include "../crypto/internal.h"
 #include "../crypto/lhash/internal.h"
 
+#undef min
+#undef max
+
 #if defined(OPENSSL_WINDOWS)
 // Windows defines struct timeval in winsock2.h.
 OPENSSL_MSVC_PRAGMA(warning(push, 3))

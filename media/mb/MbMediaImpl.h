@@ -39,6 +39,7 @@ class WebMediaPlayerEncryptedMediaClient;
 
 namespace content {
 class WebLocalFrameClientImpl;
+class WebMediaPlayerSaver;
 
 class MbMediaImpl {
 public:
@@ -60,7 +61,10 @@ public:
 
     void ensureDecoderFactory();
 
+    scoped_refptr<base::SingleThreadTaskRunner> getWebMediaPlayerMainTaskRunner() const;
 private:
+    scoped_refptr<base::SingleThreadTaskRunner> getMediaThreadTaskRunner();
+
     std::unique_ptr<media::RendererFactorySelector> createRendererFactorySelector(
         media::MediaPlayerLoggingID player_id,
         media::MediaLog* media_log,
@@ -72,9 +76,9 @@ private:
         media::MediaLog* media_log,
         media::DecoderFactory* decoder_factory);
 
-    scoped_refptr<base::SingleThreadTaskRunner> getMediaThreadTaskRunner();
-
     scoped_refptr<base::SingleThreadTaskRunner> getOrCreateVideoFrameCompositorTaskRunner(WebLocalFrameClientImpl* impl);
+
+    scoped_refptr<base::SingleThreadTaskRunner> m_webMediaPlayerMainTaskRunner;
 
     std::unique_ptr<media::DefaultDecoderFactory> m_decoderFactory;
     std::unique_ptr<base::Thread> m_mediaThread;
@@ -84,6 +88,7 @@ private:
     std::unique_ptr<media::AudioManager> m_audioManager;
     std::unique_ptr<media::FakeAudioLogFactory> m_fakeAudioLogImpl;
     WebLocalFrameClientImpl* m_webFrameClient = nullptr;
+    WebMediaPlayerSaver* m_webMediaPlayerSaver = nullptr;
 };
 
 }

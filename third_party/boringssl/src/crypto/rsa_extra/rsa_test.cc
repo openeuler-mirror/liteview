@@ -1595,8 +1595,7 @@ TEST(RSATest, KeygenFail)
     // Cause RSA key generation after a prime has been generated, to test that
     // |rsa| is left alone.
     BN_GENCB cb;
-    BN_GENCB_set(
-        &cb, [](int event, int, BN_GENCB*) -> int { return event != 3; }, nullptr);
+    BN_GENCB_set(&cb, [](int event, int, BN_GENCB*) -> int { return event != 3; }, nullptr);
 
     bssl::UniquePtr<BIGNUM> e(BN_new());
     ASSERT_TRUE(e);

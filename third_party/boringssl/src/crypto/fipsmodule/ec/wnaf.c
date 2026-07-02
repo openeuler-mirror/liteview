@@ -79,94 +79,92 @@
 #include "../bn/internal.h"
 #include "../../internal.h"
 
-
 // This file implements the wNAF-based interleaving multi-exponentiation method
 // at:
 //   http://link.springer.com/chapter/10.1007%2F3-540-45537-X_13
 //   http://www.bmoeller.de/pdf/TI-01-08.multiexp.pdf
 
-void ec_compute_wNAF(const EC_GROUP *group, int8_t *out,
-                     const EC_SCALAR *scalar, size_t bits, int w) {
-  // 'int8_t' can represent integers with absolute values less than 2^7.
-  assert(0 < w && w <= 7);
-  assert(bits != 0);
-  int bit = 1 << w;         // 2^w, at most 128
-  int next_bit = bit << 1;  // 2^(w+1), at most 256
-  int mask = next_bit - 1;  // at most 255
+void ec_compute_wNAF(const EC_GROUP* group, int8_t* out, const EC_SCALAR* scalar, size_t bits, int w)
+{
+    // 'int8_t' can represent integers with absolute values less than 2^7.
+    assert(0 < w && w <= 7);
+    assert(bits != 0);
+    int bit = 1 << w; // 2^w, at most 128
+    int next_bit = bit << 1; // 2^(w+1), at most 256
+    int mask = next_bit - 1; // at most 255
 
-  int window_val = scalar->words[0] & mask;
-  for (size_t j = 0; j < bits + 1; j++) {
-    assert(0 <= window_val && window_val <= next_bit);
-    int digit = 0;
-    if (window_val & 1) {
-      assert(0 < window_val && window_val < next_bit);
-      if (window_val & bit) {
-        digit = window_val - next_bit;
-        // We know -next_bit < digit < 0 and window_val - digit = next_bit.
+    int window_val = scalar->words[0] & mask;
+    for (size_t j = 0; j < bits + 1; j++) {
+        assert(0 <= window_val && window_val <= next_bit);
+        int digit = 0;
+        if (window_val & 1) {
+            assert(0 < window_val && window_val < next_bit);
+            if (window_val & bit) {
+                digit = window_val - next_bit;
+                // We know -next_bit < digit < 0 and window_val - digit = next_bit.
 
-        // modified wNAF
-        if (j + w + 1 >= bits) {
-          // special case for generating modified wNAFs:
-          // no new bits will be added into window_val,
-          // so using a positive digit here will decrease
-          // the total length of the representation
+                // modified wNAF
+                if (j + w + 1 >= bits) {
+                    // special case for generating modified wNAFs:
+                    // no new bits will be added into window_val,
+                    // so using a positive digit here will decrease
+                    // the total length of the representation
 
-          digit = window_val & (mask >> 1);
-          // We know 0 < digit < bit and window_val - digit = bit.
+                    digit = window_val & (mask >> 1);
+                    // We know 0 < digit < bit and window_val - digit = bit.
+                }
+            } else {
+                digit = window_val;
+                // We know 0 < digit < bit and window_val - digit = 0.
+            }
+
+            window_val -= digit;
+
+            // Now window_val is 0 or 2^(w+1) in standard wNAF generation.
+            // For modified window NAFs, it may also be 2^w.
+            //
+            // See the comments above for the derivation of each of these bounds.
+            assert(window_val == 0 || window_val == next_bit || window_val == bit);
+            assert(-bit < digit && digit < bit);
+
+            // window_val was odd, so digit is also odd.
+            assert(digit & 1);
         }
-      } else {
-        digit = window_val;
-        // We know 0 < digit < bit and window_val - digit = 0.
-      }
 
-      window_val -= digit;
+        out[j] = digit;
 
-      // Now window_val is 0 or 2^(w+1) in standard wNAF generation.
-      // For modified window NAFs, it may also be 2^w.
-      //
-      // See the comments above for the derivation of each of these bounds.
-      assert(window_val == 0 || window_val == next_bit || window_val == bit);
-      assert(-bit < digit && digit < bit);
-
-      // window_val was odd, so digit is also odd.
-      assert(digit & 1);
+        // Incorporate the next bit. Previously, |window_val| <= |next_bit|, so if
+        // we shift and add at most one copy of |bit|, this will continue to hold
+        // afterwards.
+        window_val >>= 1;
+        window_val += bit * bn_is_bit_set_words(scalar->words, group->order.width, j + w + 1);
+        assert(window_val <= next_bit);
     }
 
-    out[j] = digit;
-
-    // Incorporate the next bit. Previously, |window_val| <= |next_bit|, so if
-    // we shift and add at most one copy of |bit|, this will continue to hold
-    // afterwards.
-    window_val >>= 1;
-    window_val +=
-        bit * bn_is_bit_set_words(scalar->words, group->order.width, j + w + 1);
-    assert(window_val <= next_bit);
-  }
-
-  // bits + 1 entries should be sufficient to consume all bits.
-  assert(window_val == 0);
+    // bits + 1 entries should be sufficient to consume all bits.
+    assert(window_val == 0);
 }
 
 // compute_precomp sets |out[i]| to (2*i+1)*p, for i from 0 to |len|.
-static void compute_precomp(const EC_GROUP *group, EC_RAW_POINT *out,
-                            const EC_RAW_POINT *p, size_t len) {
-  ec_GFp_simple_point_copy(&out[0], p);
-  EC_RAW_POINT two_p;
-  ec_GFp_mont_dbl(group, &two_p, p);
-  for (size_t i = 1; i < len; i++) {
-    ec_GFp_mont_add(group, &out[i], &out[i - 1], &two_p);
-  }
+static void compute_precomp(const EC_GROUP* group, EC_RAW_POINT* out, const EC_RAW_POINT* p, size_t len)
+{
+    ec_GFp_simple_point_copy(&out[0], p);
+    EC_RAW_POINT two_p;
+    ec_GFp_mont_dbl(group, &two_p, p);
+    for (size_t i = 1; i < len; i++) {
+        ec_GFp_mont_add(group, &out[i], &out[i - 1], &two_p);
+    }
 }
 
-static void lookup_precomp(const EC_GROUP *group, EC_RAW_POINT *out,
-                           const EC_RAW_POINT *precomp, int digit) {
-  if (digit < 0) {
-    digit = -digit;
-    ec_GFp_simple_point_copy(out, &precomp[digit >> 1]);
-    ec_GFp_simple_invert(group, out);
-  } else {
-    ec_GFp_simple_point_copy(out, &precomp[digit >> 1]);
-  }
+static void lookup_precomp(const EC_GROUP* group, EC_RAW_POINT* out, const EC_RAW_POINT* precomp, int digit)
+{
+    if (digit < 0) {
+        digit = -digit;
+        ec_GFp_simple_point_copy(out, &precomp[digit >> 1]);
+        ec_GFp_simple_invert(group, out);
+    } else {
+        ec_GFp_simple_point_copy(out, &precomp[digit >> 1]);
+    }
 }
 
 // EC_WNAF_WINDOW_BITS is the window size to use for |ec_GFp_mont_mul_public|.
@@ -179,92 +177,90 @@ static void lookup_precomp(const EC_GROUP *group, EC_RAW_POINT *out,
 // avoid a malloc.
 #define EC_WNAF_STACK 3
 
-int ec_GFp_mont_mul_public_batch(const EC_GROUP *group, EC_RAW_POINT *r,
-                                 const EC_SCALAR *g_scalar,
-                                 const EC_RAW_POINT *points,
-                                 const EC_SCALAR *scalars, size_t num) {
-  size_t bits = BN_num_bits(&group->order);
-  size_t wNAF_len = bits + 1;
+int ec_GFp_mont_mul_public_batch(
+    const EC_GROUP* group, EC_RAW_POINT* r, const EC_SCALAR* g_scalar, const EC_RAW_POINT* points, const EC_SCALAR* scalars, size_t num)
+{
+    size_t bits = BN_num_bits(&group->order);
+    size_t wNAF_len = bits + 1;
 
-  int ret = 0;
-  int8_t wNAF_stack[EC_WNAF_STACK][EC_MAX_BYTES * 8 + 1];
-  int8_t (*wNAF_alloc)[EC_MAX_BYTES * 8 + 1] = NULL;
-  int8_t (*wNAF)[EC_MAX_BYTES * 8 + 1];
-  EC_RAW_POINT precomp_stack[EC_WNAF_STACK][EC_WNAF_TABLE_SIZE];
-  EC_RAW_POINT (*precomp_alloc)[EC_WNAF_TABLE_SIZE] = NULL;
-  EC_RAW_POINT (*precomp)[EC_WNAF_TABLE_SIZE];
-  if (num <= EC_WNAF_STACK) {
-    wNAF = wNAF_stack;
-    precomp = precomp_stack;
-  } else {
-    if (num >= ((size_t)-1) / sizeof(wNAF_alloc[0]) ||
-        num >= ((size_t)-1) / sizeof(precomp_alloc[0])) {
-      OPENSSL_PUT_ERROR(EC, ERR_R_OVERFLOW);
-      goto err;
-    }
-    wNAF_alloc = OPENSSL_malloc(num * sizeof(wNAF_alloc[0]));
-    precomp_alloc = OPENSSL_malloc(num * sizeof(precomp_alloc[0]));
-    if (wNAF_alloc == NULL || precomp_alloc == NULL) {
-      OPENSSL_PUT_ERROR(EC, ERR_R_MALLOC_FAILURE);
-      goto err;
-    }
-    wNAF = wNAF_alloc;
-    precomp = precomp_alloc;
-  }
-
-  int8_t g_wNAF[EC_MAX_BYTES * 8 + 1];
-  EC_RAW_POINT g_precomp[EC_WNAF_TABLE_SIZE];
-  assert(wNAF_len <= OPENSSL_ARRAY_SIZE(g_wNAF));
-  const EC_RAW_POINT *g = &group->generator->raw;
-  if (g_scalar != NULL) {
-    ec_compute_wNAF(group, g_wNAF, g_scalar, bits, EC_WNAF_WINDOW_BITS);
-    compute_precomp(group, g_precomp, g, EC_WNAF_TABLE_SIZE);
-  }
-
-  for (size_t i = 0; i < num; i++) {
-    assert(wNAF_len <= OPENSSL_ARRAY_SIZE(wNAF[i]));
-    ec_compute_wNAF(group, wNAF[i], &scalars[i], bits, EC_WNAF_WINDOW_BITS);
-    compute_precomp(group, precomp[i], &points[i], EC_WNAF_TABLE_SIZE);
-  }
-
-  EC_RAW_POINT tmp;
-  int r_is_at_infinity = 1;
-  for (size_t k = wNAF_len - 1; k < wNAF_len; k--) {
-    if (!r_is_at_infinity) {
-      ec_GFp_mont_dbl(group, r, r);
+    int ret = 0;
+    int8_t wNAF_stack[EC_WNAF_STACK][EC_MAX_BYTES * 8 + 1];
+    int8_t(*wNAF_alloc)[EC_MAX_BYTES * 8 + 1] = NULL;
+    int8_t(*wNAF)[EC_MAX_BYTES * 8 + 1];
+    EC_RAW_POINT precomp_stack[EC_WNAF_STACK][EC_WNAF_TABLE_SIZE];
+    EC_RAW_POINT(*precomp_alloc)[EC_WNAF_TABLE_SIZE] = NULL;
+    EC_RAW_POINT(*precomp)[EC_WNAF_TABLE_SIZE];
+    if (num <= EC_WNAF_STACK) {
+        wNAF = wNAF_stack;
+        precomp = precomp_stack;
+    } else {
+        if (num >= ((size_t)-1) / sizeof(wNAF_alloc[0]) || num >= ((size_t)-1) / sizeof(precomp_alloc[0])) {
+            OPENSSL_PUT_ERROR(EC, ERR_R_OVERFLOW);
+            goto err;
+        }
+        wNAF_alloc = OPENSSL_malloc(num * sizeof(wNAF_alloc[0]));
+        precomp_alloc = OPENSSL_malloc(num * sizeof(precomp_alloc[0]));
+        if (wNAF_alloc == NULL || precomp_alloc == NULL) {
+            OPENSSL_PUT_ERROR(EC, ERR_R_MALLOC_FAILURE);
+            goto err;
+        }
+        wNAF = wNAF_alloc;
+        precomp = precomp_alloc;
     }
 
-    if (g_scalar != NULL && g_wNAF[k] != 0) {
-      lookup_precomp(group, &tmp, g_precomp, g_wNAF[k]);
-      if (r_is_at_infinity) {
-        ec_GFp_simple_point_copy(r, &tmp);
-        r_is_at_infinity = 0;
-      } else {
-        ec_GFp_mont_add(group, r, r, &tmp);
-      }
+    int8_t g_wNAF[EC_MAX_BYTES * 8 + 1];
+    EC_RAW_POINT g_precomp[EC_WNAF_TABLE_SIZE];
+    assert(wNAF_len <= OPENSSL_ARRAY_SIZE(g_wNAF));
+    const EC_RAW_POINT* g = &group->generator->raw;
+    if (g_scalar != NULL) {
+        ec_compute_wNAF(group, g_wNAF, g_scalar, bits, EC_WNAF_WINDOW_BITS);
+        compute_precomp(group, g_precomp, g, EC_WNAF_TABLE_SIZE);
     }
 
     for (size_t i = 0; i < num; i++) {
-      if (wNAF[i][k] != 0) {
-        lookup_precomp(group, &tmp, precomp[i], wNAF[i][k]);
-        if (r_is_at_infinity) {
-          ec_GFp_simple_point_copy(r, &tmp);
-          r_is_at_infinity = 0;
-        } else {
-          ec_GFp_mont_add(group, r, r, &tmp);
-        }
-      }
+        assert(wNAF_len <= OPENSSL_ARRAY_SIZE(wNAF[i]));
+        ec_compute_wNAF(group, wNAF[i], &scalars[i], bits, EC_WNAF_WINDOW_BITS);
+        compute_precomp(group, precomp[i], &points[i], EC_WNAF_TABLE_SIZE);
     }
-  }
 
-  if (r_is_at_infinity) {
-    ec_GFp_simple_point_set_to_infinity(group, r);
-  }
+    EC_RAW_POINT tmp;
+    int r_is_at_infinity = 1;
+    for (size_t k = wNAF_len - 1; k < wNAF_len; k--) {
+        if (!r_is_at_infinity) {
+            ec_GFp_mont_dbl(group, r, r);
+        }
 
-  ret = 1;
+        if (g_scalar != NULL && g_wNAF[k] != 0) {
+            lookup_precomp(group, &tmp, g_precomp, g_wNAF[k]);
+            if (r_is_at_infinity) {
+                ec_GFp_simple_point_copy(r, &tmp);
+                r_is_at_infinity = 0;
+            } else {
+                ec_GFp_mont_add(group, r, r, &tmp);
+            }
+        }
+
+        for (size_t i = 0; i < num; i++) {
+            if (wNAF[i][k] != 0) {
+                lookup_precomp(group, &tmp, precomp[i], wNAF[i][k]);
+                if (r_is_at_infinity) {
+                    ec_GFp_simple_point_copy(r, &tmp);
+                    r_is_at_infinity = 0;
+                } else {
+                    ec_GFp_mont_add(group, r, r, &tmp);
+                }
+            }
+        }
+    }
+
+    if (r_is_at_infinity) {
+        ec_GFp_simple_point_set_to_infinity(group, r);
+    }
+
+    ret = 1;
 
 err:
-  OPENSSL_free(wNAF_alloc);
-  OPENSSL_free(precomp_alloc);
-  return ret;
+    OPENSSL_free(wNAF_alloc);
+    OPENSSL_free(precomp_alloc);
+    return ret;
 }

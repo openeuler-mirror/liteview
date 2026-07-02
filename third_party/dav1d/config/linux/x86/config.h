@@ -37,7 +37,7 @@
 
 #define ENDIANNESS_BIG 0
 
-#define HAVE_ASM 1
+#define HAVE_ASM 0
 
 #define HAVE_CLOCK_GETTIME 1
 

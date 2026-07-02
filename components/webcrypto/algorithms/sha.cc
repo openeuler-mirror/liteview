@@ -12,8 +12,8 @@
 #include "components/webcrypto/algorithms/util.h"
 #include "components/webcrypto/status.h"
 #include "crypto/openssl_util.h"
-//#include "third_party/boringssl/src/include/openssl/digest.h"
-#include "third_party/openssl/openssl/include/openssl/digest.h"
+#include "third_party/boringssl/src/include/openssl/digest.h"
+//#include "third_party/openssl/openssl/include/openssl/digest.h"
 
 namespace webcrypto {
 

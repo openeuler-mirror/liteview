@@ -39,7 +39,6 @@
 #include <openssl/asn1t.h>
 #include <openssl/x509v3.h>
 
-
 ASN1_SEQUENCE(PROXY_POLICY) = {
     ASN1_SIMPLE(PROXY_POLICY, policyLanguage, ASN1_OBJECT),
     ASN1_OPT(PROXY_POLICY, policy, ASN1_OCTET_STRING),

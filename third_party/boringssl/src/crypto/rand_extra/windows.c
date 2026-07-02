@@ -23,8 +23,7 @@ OPENSSL_MSVC_PRAGMA(warning(push, 3))
 
 #include <windows.h>
 
-#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && \
-    !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
 #include <bcrypt.h>
 OPENSSL_MSVC_PRAGMA(comment(lib, "bcrypt.lib"))
 #else
@@ -34,40 +33,39 @@ OPENSSL_MSVC_PRAGMA(comment(lib, "bcrypt.lib"))
 #define SystemFunction036 NTAPI SystemFunction036
 #include <ntsecapi.h>
 #undef SystemFunction036
-#endif  // WINAPI_PARTITION_APP && !WINAPI_PARTITION_DESKTOP
+#endif // WINAPI_PARTITION_APP && !WINAPI_PARTITION_DESKTOP
 
 OPENSSL_MSVC_PRAGMA(warning(pop))
 
 #include "../fipsmodule/rand/internal.h"
 
-
-void CRYPTO_sysrand(uint8_t *out, size_t requested) {
-  while (requested > 0) {
-    ULONG output_bytes_this_pass = ULONG_MAX;
-    if (requested < output_bytes_this_pass) {
-      output_bytes_this_pass = (ULONG)requested;
-    }
-    // On non-UWP configurations, use RtlGenRandom instead of BCryptGenRandom
-    // to avoid accessing resources that may be unavailable inside the
-    // Chromium sandbox. See https://crbug.com/boringssl/307
-#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && \
-    !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
-    if (!BCRYPT_SUCCESS(BCryptGenRandom(
-            /*hAlgorithm=*/NULL, out, output_bytes_this_pass,
-            BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
+void CRYPTO_sysrand(uint8_t* out, size_t requested)
+{
+    while (requested > 0) {
+        ULONG output_bytes_this_pass = ULONG_MAX;
+        if (requested < output_bytes_this_pass) {
+            output_bytes_this_pass = (ULONG)requested;
+        }
+        // On non-UWP configurations, use RtlGenRandom instead of BCryptGenRandom
+        // to avoid accessing resources that may be unavailable inside the
+        // Chromium sandbox. See https://crbug.com/boringssl/307
+#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
+        if (!BCRYPT_SUCCESS(BCryptGenRandom(
+                /*hAlgorithm=*/NULL, out, output_bytes_this_pass, BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
 #else
-    if (RtlGenRandom(out, output_bytes_this_pass) == FALSE) {
-#endif  // WINAPI_PARTITION_APP && !WINAPI_PARTITION_DESKTOP
-      abort();
+        if (RtlGenRandom(out, output_bytes_this_pass) == FALSE) {
+#endif // WINAPI_PARTITION_APP && !WINAPI_PARTITION_DESKTOP
+            abort();
+        }
+        requested -= output_bytes_this_pass;
+        out += output_bytes_this_pass;
     }
-    requested -= output_bytes_this_pass;
-    out += output_bytes_this_pass;
-  }
-  return;
+    return;
 }
 
-void CRYPTO_sysrand_for_seed(uint8_t *out, size_t requested) {
-  CRYPTO_sysrand(out, requested);
+void CRYPTO_sysrand_for_seed(uint8_t* out, size_t requested)
+{
+    CRYPTO_sysrand(out, requested);
 }
 
-#endif  // OPENSSL_WINDOWS && !BORINGSSL_UNSAFE_DETERMINISTIC_MODE
+#endif // OPENSSL_WINDOWS && !BORINGSSL_UNSAFE_DETERMINISTIC_MODE

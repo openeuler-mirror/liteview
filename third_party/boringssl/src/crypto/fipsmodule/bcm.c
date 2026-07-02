@@ -13,7 +13,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
 
 #if !defined(_GNU_SOURCE)
-#define _GNU_SOURCE  // needed for syscall() on Linux.
+#define _GNU_SOURCE // needed for syscall() on Linux.
 #endif
 
 #include <openssl/crypto.h>
@@ -107,7 +107,6 @@
 #include "sha/sha512.c"
 #include "tls/kdf.c"
 
-
 #if defined(BORINGSSL_FIPS)
 
 #if !defined(OPENSSL_ASAN)
@@ -126,150 +125,146 @@ extern const uint8_t BORINGSSL_bcm_rodata_end[];
 // assert_within is used to sanity check that certain symbols are within the
 // bounds of the integrity check. It checks that start <= symbol < end and
 // aborts otherwise.
-static void assert_within(const void *start, const void *symbol,
-                          const void *end) {
-  const uintptr_t start_val = (uintptr_t) start;
-  const uintptr_t symbol_val = (uintptr_t) symbol;
-  const uintptr_t end_val = (uintptr_t) end;
+static void assert_within(const void* start, const void* symbol, const void* end)
+{
+    const uintptr_t start_val = (uintptr_t)start;
+    const uintptr_t symbol_val = (uintptr_t)symbol;
+    const uintptr_t end_val = (uintptr_t)end;
 
-  if (start_val <= symbol_val && symbol_val < end_val) {
-    return;
-  }
+    if (start_val <= symbol_val && symbol_val < end_val) {
+        return;
+    }
 
-  fprintf(
-      stderr,
-      "FIPS module doesn't span expected symbol. Expected %p <= %p < %p\n",
-      start, symbol, end);
-  BORINGSSL_FIPS_abort();
+    fprintf(stderr, "FIPS module doesn't span expected symbol. Expected %p <= %p < %p\n", start, symbol, end);
+    BORINGSSL_FIPS_abort();
 }
 
 #if defined(OPENSSL_ANDROID) && defined(OPENSSL_AARCH64)
-static void BORINGSSL_maybe_set_module_text_permissions(int permission) {
-  // Android may be compiled in execute-only-memory mode, in which case the
-  // .text segment cannot be read. That conflicts with the need for a FIPS
-  // module to hash its own contents, therefore |mprotect| is used to make
-  // the module's .text readable for the duration of the hashing process. In
-  // other build configurations this is a no-op.
-  const uintptr_t page_size = getpagesize();
-  const uintptr_t page_start =
-      ((uintptr_t)BORINGSSL_bcm_text_start) & ~(page_size - 1);
+static void BORINGSSL_maybe_set_module_text_permissions(int permission)
+{
+    // Android may be compiled in execute-only-memory mode, in which case the
+    // .text segment cannot be read. That conflicts with the need for a FIPS
+    // module to hash its own contents, therefore |mprotect| is used to make
+    // the module's .text readable for the duration of the hashing process. In
+    // other build configurations this is a no-op.
+    const uintptr_t page_size = getpagesize();
+    const uintptr_t page_start = ((uintptr_t)BORINGSSL_bcm_text_start) & ~(page_size - 1);
 
-  if (mprotect((void *)page_start,
-               ((uintptr_t)BORINGSSL_bcm_text_end) - page_start,
-               permission) != 0) {
-    perror("BoringSSL: mprotect");
-  }
+    if (mprotect((void*)page_start, ((uintptr_t)BORINGSSL_bcm_text_end) - page_start, permission) != 0) {
+        perror("BoringSSL: mprotect");
+    }
 }
 #else
-static void BORINGSSL_maybe_set_module_text_permissions(int permission) {}
-#endif  // !ANDROID
+static void BORINGSSL_maybe_set_module_text_permissions(int permission)
+{
+}
+#endif // !ANDROID
 
-#endif  // !ASAN
+#endif // !ASAN
 
-static void __attribute__((constructor))
-BORINGSSL_bcm_power_on_self_test(void) {
-  CRYPTO_library_init();
+static void __attribute__((constructor)) BORINGSSL_bcm_power_on_self_test(void)
+{
+    CRYPTO_library_init();
 
 #if !defined(OPENSSL_ASAN)
-  // Integrity tests cannot run under ASAN because it involves reading the full
-  // .text section, which triggers the global-buffer overflow detection.
-  if (!BORINGSSL_integrity_test()) {
-    goto err;
-  }
-#endif  // OPENSSL_ASAN
+    // Integrity tests cannot run under ASAN because it involves reading the full
+    // .text section, which triggers the global-buffer overflow detection.
+    if (!BORINGSSL_integrity_test()) {
+        goto err;
+    }
+#endif // OPENSSL_ASAN
 
-  if (!boringssl_self_test_startup()) {
-    goto err;
-  }
+    if (!boringssl_self_test_startup()) {
+        goto err;
+    }
 
-  return;
+    return;
 
 err:
-  BORINGSSL_FIPS_abort();
+    BORINGSSL_FIPS_abort();
 }
 
 #if !defined(OPENSSL_ASAN)
-int BORINGSSL_integrity_test(void) {
-  const uint8_t *const start = BORINGSSL_bcm_text_start;
-  const uint8_t *const end = BORINGSSL_bcm_text_end;
+int BORINGSSL_integrity_test(void)
+{
+    const uint8_t* const start = BORINGSSL_bcm_text_start;
+    const uint8_t* const end = BORINGSSL_bcm_text_end;
 
-  assert_within(start, AES_encrypt, end);
-  assert_within(start, RSA_sign, end);
-  assert_within(start, RAND_bytes, end);
-  assert_within(start, EC_GROUP_cmp, end);
-  assert_within(start, SHA256_Update, end);
-  assert_within(start, ECDSA_do_verify, end);
-  assert_within(start, EVP_AEAD_CTX_seal, end);
+    assert_within(start, AES_encrypt, end);
+    assert_within(start, RSA_sign, end);
+    assert_within(start, RAND_bytes, end);
+    assert_within(start, EC_GROUP_cmp, end);
+    assert_within(start, SHA256_Update, end);
+    assert_within(start, ECDSA_do_verify, end);
+    assert_within(start, EVP_AEAD_CTX_seal, end);
 
 #if defined(BORINGSSL_SHARED_LIBRARY)
-  const uint8_t *const rodata_start = BORINGSSL_bcm_rodata_start;
-  const uint8_t *const rodata_end = BORINGSSL_bcm_rodata_end;
+    const uint8_t* const rodata_start = BORINGSSL_bcm_rodata_start;
+    const uint8_t* const rodata_end = BORINGSSL_bcm_rodata_end;
 #else
-  // In the static build, read-only data is placed within the .text segment.
-  const uint8_t *const rodata_start = BORINGSSL_bcm_text_start;
-  const uint8_t *const rodata_end = BORINGSSL_bcm_text_end;
+    // In the static build, read-only data is placed within the .text segment.
+    const uint8_t* const rodata_start = BORINGSSL_bcm_text_start;
+    const uint8_t* const rodata_end = BORINGSSL_bcm_text_end;
 #endif
 
-  assert_within(rodata_start, kPrimes, rodata_end);
-  assert_within(rodata_start, kP256Params, rodata_end);
-  assert_within(rodata_start, kPKCS1SigPrefixes, rodata_end);
+    assert_within(rodata_start, kPrimes, rodata_end);
+    assert_within(rodata_start, kP256Params, rodata_end);
+    assert_within(rodata_start, kPKCS1SigPrefixes, rodata_end);
 
-  uint8_t result[SHA256_DIGEST_LENGTH];
-  const EVP_MD *const kHashFunction = EVP_sha256();
-  if (!boringssl_self_test_sha256() ||
-      !boringssl_self_test_hmac_sha256()) {
-    return 0;
-  }
+    uint8_t result[SHA256_DIGEST_LENGTH];
+    const EVP_MD* const kHashFunction = EVP_sha256();
+    if (!boringssl_self_test_sha256() || !boringssl_self_test_hmac_sha256()) {
+        return 0;
+    }
 
-  static const uint8_t kHMACKey[64] = {0};
-  unsigned result_len;
-  HMAC_CTX hmac_ctx;
-  HMAC_CTX_init(&hmac_ctx);
-  if (!HMAC_Init_ex(&hmac_ctx, kHMACKey, sizeof(kHMACKey), kHashFunction,
-                    NULL /* no ENGINE */)) {
-    fprintf(stderr, "HMAC_Init_ex failed.\n");
-    return 0;
-  }
+    static const uint8_t kHMACKey[64] = { 0 };
+    unsigned result_len;
+    HMAC_CTX hmac_ctx;
+    HMAC_CTX_init(&hmac_ctx);
+    if (!HMAC_Init_ex(&hmac_ctx, kHMACKey, sizeof(kHMACKey), kHashFunction, NULL /* no ENGINE */)) {
+        fprintf(stderr, "HMAC_Init_ex failed.\n");
+        return 0;
+    }
 
-  BORINGSSL_maybe_set_module_text_permissions(PROT_READ | PROT_EXEC);
+    BORINGSSL_maybe_set_module_text_permissions(PROT_READ | PROT_EXEC);
 #if defined(BORINGSSL_SHARED_LIBRARY)
-  uint64_t length = end - start;
-  HMAC_Update(&hmac_ctx, (const uint8_t *) &length, sizeof(length));
-  HMAC_Update(&hmac_ctx, start, length);
+    uint64_t length = end - start;
+    HMAC_Update(&hmac_ctx, (const uint8_t*)&length, sizeof(length));
+    HMAC_Update(&hmac_ctx, start, length);
 
-  length = rodata_end - rodata_start;
-  HMAC_Update(&hmac_ctx, (const uint8_t *) &length, sizeof(length));
-  HMAC_Update(&hmac_ctx, rodata_start, length);
+    length = rodata_end - rodata_start;
+    HMAC_Update(&hmac_ctx, (const uint8_t*)&length, sizeof(length));
+    HMAC_Update(&hmac_ctx, rodata_start, length);
 #else
-  HMAC_Update(&hmac_ctx, start, end - start);
+    HMAC_Update(&hmac_ctx, start, end - start);
 #endif
-  BORINGSSL_maybe_set_module_text_permissions(PROT_EXEC);
+    BORINGSSL_maybe_set_module_text_permissions(PROT_EXEC);
 
-  if (!HMAC_Final(&hmac_ctx, result, &result_len) ||
-      result_len != sizeof(result)) {
-    fprintf(stderr, "HMAC failed.\n");
-    return 0;
-  }
-  HMAC_CTX_cleanse(&hmac_ctx); // FIPS 140-3, AS05.10.
+    if (!HMAC_Final(&hmac_ctx, result, &result_len) || result_len != sizeof(result)) {
+        fprintf(stderr, "HMAC failed.\n");
+        return 0;
+    }
+    HMAC_CTX_cleanse(&hmac_ctx); // FIPS 140-3, AS05.10.
 
-  const uint8_t *expected = BORINGSSL_bcm_text_hash;
+    const uint8_t* expected = BORINGSSL_bcm_text_hash;
 
-  if (!check_test(expected, result, sizeof(result), "FIPS integrity test")) {
+    if (!check_test(expected, result, sizeof(result), "FIPS integrity test")) {
 #if !defined(BORINGSSL_FIPS_BREAK_TESTS)
-    return 0;
+        return 0;
 #endif
-  }
+    }
 
-  OPENSSL_cleanse(result, sizeof(result)); // FIPS 140-3, AS05.10.
-  return 1;
+    OPENSSL_cleanse(result, sizeof(result)); // FIPS 140-3, AS05.10.
+    return 1;
 }
-#endif  // OPENSSL_ASAN
+#endif // OPENSSL_ASAN
 
-void BORINGSSL_FIPS_abort(void) {
-  for (;;) {
-    abort();
-    exit(1);
-  }
+void BORINGSSL_FIPS_abort(void)
+{
+    for (;;) {
+        abort();
+        exit(1);
+    }
 }
 
-#endif  // BORINGSSL_FIPS
+#endif // BORINGSSL_FIPS

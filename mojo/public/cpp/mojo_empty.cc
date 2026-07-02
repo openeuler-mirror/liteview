@@ -559,7 +559,8 @@ bool mojo::StructTraits<blink::mojom::UserActivationSnapshotDataView, mojo::Inli
 bool mojo::StructTraits<blink::mojom::SerializedBlobDataView, scoped_refptr<blink::BlobDataHandle>>::Read(
     blink::mojom::SerializedBlobDataView, scoped_refptr<blink::BlobDataHandle>* handle)
 {
-    DebugBreak();
+    //DebugBreak();
+    printf("mojo::StructTraits<blink::mojom::SerializedBlobDataView, scoped_refptr<blink::BlobDataHandle>>::Read not impl\n");
     return false;
 }
 
@@ -932,7 +933,9 @@ void blink::mojom::blink::PermissionDescriptorExtension::set_storage_access(mojo
 
 void mojo::ReportBadMessage(base::BasicStringPiece<char, struct std::char_traits<char>>) { *(int*)1 = 1; }
 
-void mojo::internal::SerializeInterfaceInfo(mojo::ScopedHandleBase<mojo::MessagePipeHandle>, unsigned int, mojo::Message&, struct mojo::internal::Interface_Data&) { *(int*)1 = 1; }
+void mojo::internal::SerializeInterfaceInfo(mojo::ScopedHandleBase<mojo::MessagePipeHandle>, unsigned int, mojo::Message&, struct mojo::internal::Interface_Data&) { 
+    printf("mojo::internal::SerializeInterfaceInfo not impl\n");
+}
 
 mojo::ScopedHandleBase<mojo::SharedBufferHandle> __cdecl mojo::SharedBufferHandle::Create(uint64_t)
 {

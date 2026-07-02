@@ -173,19 +173,6 @@ private:
     //BlobRegistryImpl* m_blobRegistry = nullptr;
 };
 
-// class WebURLLoaderFactoryImpl : public blink::WebURLLoaderFactory {
-// public:
-//     std::unique_ptr<blink::WebURLLoader> CreateURLLoader(const blink::WebURLRequest& webreq,
-//         std::unique_ptr<blink::scheduler::WebResourceLoadingTaskRunnerHandle> freezable_task_runner,
-//         std::unique_ptr<blink::scheduler::WebResourceLoadingTaskRunnerHandle> unfreezable_task_runner,
-//         blink::CrossVariantMojoRemote<blink::mojom::KeepAliveHandleInterfaceBase> keep_alive_handle,
-//         blink::WebBackForwardCacheLoaderHelper back_forward_cache_loader_helper) override
-//     {
-//         DebugBreak();
-//     }
-// };
-
-
 scoped_refptr<base::SingleThreadTaskRunner> RendererBlinkPlatformImpl::GetIOTaskRunner() const 
 {
     return m_ioThread.task_runner();
@@ -293,6 +280,98 @@ std::string RendererBlinkPlatformImpl::GetDataResourceString(int resourceId)
         return MAKE_STD_STRING(kTimePickerJs);
     case IDR_VALIDATION_BUBBLE_CSS:
         return MAKE_STD_STRING(kValidationBubbleCss);
+    case IDR_UASTYLE_FULLSCREEN_CSS:
+        return R"(
+            :not(:root):fullscreen, :xr-overlay {
+              position: fixed !important;
+              inset: 0 !important;
+              margin: 0 !important;
+              box-sizing: border-box !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              width: 100% !important;
+              height: 100% !important;
+              transform: none !important;
+
+              /* intentionally not !important */
+              object-fit: contain;
+              user-select: text;
+            }
+
+            :fullscreen {
+              overlay: auto !important;
+            }
+
+            iframe:fullscreen {
+              border: none !important;
+              padding: 0 !important;
+            }
+
+            /* TODO(foolip): In the spec, there's a ::backdrop block with the properties
+               shared with dialog::backdrop (see html.css). */
+            :not(:root):fullscreen::backdrop {
+              position: fixed;
+              inset: 0;
+              background: black;
+            }
+
+            @media (vertical-viewport-segments: 2) {
+              :not(:root):fullscreen {
+                height: env(viewport-segment-bottom 0 0, 100%) !important;
+                width: 100% !important;
+              }
+            }
+
+            @media (horizontal-viewport-segments: 2) {
+              :not(:root):fullscreen {
+                height: 100% !important;
+                width: env(viewport-segment-right 0 0, 100%) !important;
+              }
+            }
+
+            /* Anything below are extensions over what the Fullscreen API (29 May 2018) mandates. */
+
+            /* This prevents video from overflowing the viewport in
+               virtual/android/fullscreen/video-scrolled-iframe.html (crbug.com/441890) and
+               removes scrollbars caused by html { overflow: scroll } (crbug.com/543946).
+               TODO(foolip): This is done differently in Gecko, find a fix not involving the
+               ancestor selector in https://github.com/whatwg/fullscreen/issues/19. */
+            :root:-webkit-full-screen-ancestor {
+              overflow: hidden !important;
+            }
+
+            :fullscreen:-internal-video-persistent-ancestor :not(:-internal-video-persistent-ancestor) {
+              display: none !important;
+            }
+
+            :-internal-video-persistent {
+              position: fixed !important;
+              left: 0 !important;
+              top: 0 !important;
+              margin: 0 !important;
+              min-width: 0 !important;
+              max-width: none !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              width: 100% !important;
+              height: 100% !important;
+              transform: none !important;
+
+              background-color: black !important;
+              z-index: 2147483647 !important;
+            }
+
+            :xr-overlay {
+              /* force a transparent background */
+              background: rgba(0,0,0,0) !important;
+
+              /* act as containing block for descendants */
+              contain: paint !important;
+            }
+
+        )";
     }
     DebugBreak();
     return "";
@@ -301,6 +380,8 @@ std::string RendererBlinkPlatformImpl::GetDataResourceString(int resourceId)
 blink::WebString RendererBlinkPlatformImpl::QueryLocalizedString(int resourceId) 
 {
     switch (resourceId) {
+        case IDS_PLUGIN_INITIALIZATION_ERROR:
+            return blink::WebString::FromUTF8("plugin initialization error");
         case IDS_FORM_MULTIPLE_FILES_BUTTON_LABEL:
         case IDS_FORM_FILE_BUTTON_LABEL:
             return blink::WebString::FromUTF8("select");
@@ -453,6 +534,22 @@ blink::WebString RendererBlinkPlatformImpl::QueryLocalizedString(int resourceId)
             return blink::WebString::FromUTF8("Format Toggler");
         case IDS_AX_COLOR_EYEDROPPER:
             return blink::WebString::FromUTF8("Eyedropper");
+        case IDS_AX_CALENDAR_SHOW_MONTH_PICKER:
+            return blink::WebString::FromUTF8("Show month");
+        case IDS_AX_CALENDAR_SHOW_TIME_PICKER:
+            return blink::WebString::FromUTF8("Show time");
+        case IDS_AX_CALENDAR_SHOW_WEEK_PICKER:
+            return blink::WebString::FromUTF8("Show week");
+        case IDS_AX_CALENDAR_WEEK_DESCRIPTION:
+            return blink::WebString::FromUTF8("Week description");
+        case IDS_FORM_VALIDATION_BAD_INPUT_NUMBER:
+            return blink::WebString::FromUTF8("validation bad input number");
+        case IDS_FORM_VALIDATION_VALUE_NOT_EQUAL:
+            return blink::WebString::FromUTF8("validation value not equal");
+        case IDS_FORM_VALIDATION_RANGE_OVERFLOW:
+            return blink::WebString::FromUTF8("validation range overflow");
+        case IDS_FORM_VALIDATION_RANGE_UNDERFLOW:
+            return blink::WebString::FromUTF8("validation range underflow");
         default:
             break;
     }
@@ -467,6 +564,9 @@ blink::WebString RendererBlinkPlatformImpl::QueryLocalizedString(int resourceId,
     case IDS_AX_MEDIA_CURRENT_TIME_DISPLAY:
     case IDS_AX_MEDIA_TIME_REMAINING_DISPLAY:
         return parameter;
+
+    case IDS_FORM_FILE_MULTIPLE_UPLOAD:
+        return blink::WebString::FromUTF8("multiple upload");
     default:
         break;
     }
@@ -493,6 +593,10 @@ blink::WebString RendererBlinkPlatformImpl::QueryLocalizedString(int resourceId,
         return blink::WebString::FromUTF8("Please enter a comma separated list of email addresses.");
     } else if (IDS_FORM_VALIDATION_TYPE_MISMATCH_EMAIL == resourceId) {
         return blink::WebString::FromUTF8("Please enter an email address.");
+    } else if (IDS_FORM_VALIDATION_STEP_MISMATCH_CLOSE_TO_LIMIT == resourceId) {
+        return blink::WebString::FromUTF8("validation step mismatch close to limit");
+    } else if (IDS_FORM_VALIDATION_STEP_MISMATCH == resourceId) {
+        return blink::WebString::FromUTF8("validation step mismatch");
     }
 
     DebugBreak();
@@ -506,7 +610,11 @@ RendererBlinkPlatformImpl::RendererBlinkPlatformImpl() :
     m_ioThread("ioThreadInPlatfrom")
 {
     s_ua = new std::string();
+#ifdef _WIN32
     *s_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36";
+#else
+    *s_ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36";
+#endif // _WIN32
 
 #if defined(ENABLE_MB_MEDIA) 
     m_ioThread.Start();
@@ -590,9 +698,12 @@ void RendererBlinkPlatformImpl::WillStopWorkerThread()
     //OutputDebugStringA("RendererBlinkPlatformImpl::WillStopWorkerThread not impl\n");
 }
 
+void bindOnWebWorkers(v8::Local<v8::Context> context);
+
 void RendererBlinkPlatformImpl::WorkerContextCreated(const v8::Local<v8::Context>& worker)
 {
-    //OutputDebugStringA("RendererBlinkPlatformImpl::WorkerContextCreated not impl\n");
+    v8::HandleScope handleScope(worker->GetIsolate());
+    bindOnWebWorkers(worker);
 }
 
 bool RendererBlinkPlatformImpl::AllowScriptExtensionForServiceWorker(const blink::WebSecurityOrigin& script_origin)

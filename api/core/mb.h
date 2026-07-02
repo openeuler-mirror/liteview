@@ -40,6 +40,7 @@
 #  define MB_SELECTANY inline
 # else
 #  define MB_SELECTANY 
+#  define MB_SELECTANY_NO_DEF
 # endif
 #else // MSVC
 //typedef __int64 int64_t;
@@ -195,7 +196,7 @@ struct _tagMbWebView;
 #endif
 
 #if __SIZEOF_LONG__ == 8
-typedef __int64          mbWebView;
+typedef uint64_t         mbWebView;
 #else
 typedef intptr_t         mbWebView;
 #endif
@@ -382,10 +383,10 @@ typedef enum {
     MB_RESOURCE_TYPE_FONT_RESOURCE = 5,    // a font
     MB_RESOURCE_TYPE_SUB_RESOURCE = 6,     // an "other" subresource.
     MB_RESOURCE_TYPE_OBJECT = 7,           // an object (or embed) tag for a plugin,
-                                            // or a resource that a plugin requested.
+    // or a resource that a plugin requested.
     MB_RESOURCE_TYPE_MEDIA = 8,            // a media resource.
     MB_RESOURCE_TYPE_WORKER = 9,           // the main resource of a dedicated
-                                            // worker.
+    // worker.
     MB_RESOURCE_TYPE_SHARED_WORKER = 10,   // the main resource of a shared worker.
     MB_RESOURCE_TYPE_PREFETCH = 11,        // an explicitly requested prefetch
     MB_RESOURCE_TYPE_FAVICON = 12,         // a favicon
@@ -407,6 +408,85 @@ typedef struct _mbSlist {
     struct _mbSlist* next;
 } mbSlist;
 
+typedef enum _mbContextMenuDataMediaType {
+    kMbContextMenuDataMediaTypeNone = 0,
+    kMbContextMenuDataMediaTypeImage = 1,
+    kMbContextMenuDataMediaTypeVideo = 2,
+    kMbContextMenuDataMediaTypeAudio = 3,
+    kMbContextMenuDataMediaTypeCanvas = 4,
+    kMbContextMenuDataMediaTypeFile = 5,
+    kMbContextMenuDataMediaTypePlugin = 6,
+} mbContextMenuDataMediaType;
+
+typedef struct _mbContextMenuParams {
+    int structSize;
+
+    // This is the type of Context Node that the context menu was invoked on.
+    mbContextMenuDataMediaType mediaType;
+
+    // These values represent the coordinates of the mouse when the context menu
+    // was invoked.  Coords are relative to the associated RenderView's origin.
+    int x;
+    int y;
+
+    // This is the URL of the link that encloses the node the context menu was invoked on.
+    const utf8* linkUrl;
+
+    // The text associated with the link. May be an empty string if the contents
+    // of the link are an image.
+    // Will be empty if |link_url| is empty.
+    const WCHAR* linkText;
+
+    // The link URL to be used ONLY for "copy link address". We don't validate
+    // this field in the frontend process.
+    const utf8* unfilteredLinkUrl;
+
+    // This is the source URL for the element that the context menu was
+    // invoked on. Example of elements with source URLs are img, audio, and
+    // video.
+    const utf8* srcUrl;
+
+    // The link URL to be used ONLY for "copy link address". We don't validate
+    // this field in the frontend process.
+    const utf8* unfiltered_link_url;
+
+    // This is true if the context menu was invoked on an image which has
+    // non-empty contents.
+    bool hasImageContents;
+
+    // This is true if the context menu was invoked on an image, media or plugin
+    // document. In these cases the resource for the hit-tested element might be
+    // the main resource, not a subresource.
+    bool isImageMediaPluginDocument;
+
+    // These are the parameters for the media element that the context menu
+    // was invoked on.
+    int mediaFlags;
+
+    // This is the text of the selection that the context menu was invoked on.
+    const WCHAR* selectionText;
+
+    // This is the title text of the selection that the context menu was invoked on.
+    const WCHAR* titleText;
+
+    // This is the alt text of the selection that the context menu was invoked on.
+    const WCHAR* altText;
+
+    // This is the suggested filename to be used when saving file through "Save
+    // Link As" option of context menu.
+    const WCHAR* suggestedFilename;
+
+    // The misspelled word under the cursor, if any. Used to generate the
+    // |dictionary_suggestions| list.
+    const WCHAR* misspelledWord;
+
+    // If editable, flag for whether spell check is enabled or not.
+    bool spellcheckEnabled;
+
+    // Whether context is editable.
+    bool isEditable;
+} mbContextMenuParams;
+
 typedef enum _mbMenuItemId {
     kMbMenuSelectedAllId = 1 << 1,
     kMbMenuSelectedTextId = 1 << 2,
@@ -421,6 +501,8 @@ typedef enum _mbMenuItemId {
     kMbMenuReloadId = 1 << 11,
     kMbMenuSaveImageId = 1 << 12,
 } mbMenuItemId;
+
+typedef BOOL (MB_CALL_TYPE* mbContextMenuPopupCallback)(mbWebView webView, void* param, int itemSize, mbMenuItemId ids[], const utf8* text[], const mbContextMenuParams*);
 
 typedef void* mbWebSocketChannel;
 
@@ -441,7 +523,7 @@ typedef enum _mbJsType {
     kMbJsTypeBool = 2,
     //kMbJsTypeObject = 3,
     //kMbJsTypeFunction = 4,
-    kMbJsTypeUndefined  = 5,
+    kMbJsTypeUndefined = 5,
     //kMbJsTypeArray = 6,
     kMbJsTypeNull = 7,
     kMbJsTypeV8Value = 8,
@@ -457,35 +539,36 @@ typedef enum _mbImageFormat {
 typedef long long mbJsValue;
 typedef void* mbJsExecState;
 
-typedef void(MB_CALL_TYPE *mbOnGetPdfPageDataCallback)(mbWebView webView, void* param, void* data, size_t size);
+typedef void(MB_CALL_TYPE* mbOnGetPdfPageDataCallback)(mbWebView webView, void* param, void* data, size_t size);
 
-typedef void(MB_CALL_TYPE *mbRunJsCallback)(mbWebView webView, void* param, mbJsExecState es, mbJsValue v);
+typedef void(MB_CALL_TYPE* mbRunJsCallback)(mbWebView webView, void* param, mbJsExecState es, mbJsValue v);
 typedef void(MB_CALL_TYPE* mbJsQueryCallback)(mbWebView webView, void* param, mbJsExecState es, int64_t queryId, int customMsg, const utf8* request);
 typedef void(MB_CALL_TYPE* mbJsQueryExCallback)(mbWebView webView, void* param, mbJsExecState es, const mbJsValue* val, int count);
 
-typedef void(MB_CALL_TYPE *mbTitleChangedCallback)(mbWebView webView, void* param, const utf8* title);
-typedef void(MB_CALL_TYPE *mbMouseOverUrlChangedCallback)(mbWebView webView, void* param, const utf8* url);
-typedef void(MB_CALL_TYPE *mbURLChangedCallback)(mbWebView webView, void* param, const utf8* url, BOOL canGoBack, BOOL canGoForward);
-typedef void(MB_CALL_TYPE *mbURLChangedCallback2)(mbWebView webView, void* param, mbWebFrameHandle frameId, const utf8* url);
-typedef void(MB_CALL_TYPE *mbPaintUpdatedCallback)(mbWebView webView, void* param, const HDC hdc, int x, int y, int cx, int cy);
-typedef void(MB_CALL_TYPE* mbAcceleratedPaintCallback)(mbWebView webView, void* param, int type, const mbRect* dirytRects, const size_t dirytRectsSize,void* sharedHandle);
-typedef void(MB_CALL_TYPE *mbPaintBitUpdatedCallback)(mbWebView webView, void* param, const void* buffer, const mbRect* r, int width, int height);
-typedef void(MB_CALL_TYPE *mbAlertBoxCallback)(mbWebView webView, void* param, const utf8* msg);
-typedef BOOL(MB_CALL_TYPE *mbConfirmBoxCallback)(mbWebView webView, void* param, const utf8* msg);
-typedef mbStringPtr(MB_CALL_TYPE *mbPromptBoxCallback)(mbWebView webView, void* param, const utf8* msg, const utf8* defaultResult, BOOL* result);
-typedef BOOL(MB_CALL_TYPE *mbNavigationCallback)(mbWebView webView, void* param, mbNavigationType navigationType, const utf8* url);
-typedef mbWebView(MB_CALL_TYPE *mbCreateViewCallback)(mbWebView webView, void* param, mbNavigationType navigationType, const utf8* url, const mbWindowFeatures* windowFeatures);
-typedef void(MB_CALL_TYPE *mbDocumentReadyCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId);
-typedef void(MB_CALL_TYPE *mbLoadUrlFinishCallback)(mbWebView webView, void* param, const utf8* url, mbNetJob job, int len);
-typedef void(MB_CALL_TYPE *mbLoadUrlHeadersReceivedCallback)(mbWebView webView, void* param, const char* url, mbNetJob job);
-typedef BOOL(MB_CALL_TYPE *mbCloseCallback)(mbWebView webView, void* param, void* unuse);
-typedef BOOL(MB_CALL_TYPE *mbDestroyCallback)(mbWebView webView, void* param, void* unuse);
-typedef void(MB_CALL_TYPE *mbOnShowDevtoolsCallback)(mbWebView webView, void* param);
-typedef void(MB_CALL_TYPE *mbDidCreateScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int extensionGroup, int worldId);
-typedef BOOL(MB_CALL_TYPE *mbGetPluginListCallback)(BOOL refresh, void* pluginListBuilder, void* param);
-typedef BOOL(MB_CALL_TYPE *mbNetResponseCallback)(mbWebView webView, void* param, const utf8* url, mbNetJob job);
+typedef void(MB_CALL_TYPE* mbTitleChangedCallback)(mbWebView webView, void* param, const utf8* title);
+typedef void(MB_CALL_TYPE* mbMouseOverUrlChangedCallback)(mbWebView webView, void* param, const utf8* url);
+typedef void(MB_CALL_TYPE* mbURLChangedCallback)(mbWebView webView, void* param, const utf8* url, BOOL canGoBack, BOOL canGoForward);
+typedef void(MB_CALL_TYPE* mbURLChangedCallback2)(mbWebView webView, void* param, mbWebFrameHandle frameId, const utf8* url);
+typedef void(MB_CALL_TYPE* mbPaintUpdatedCallback)(mbWebView webView, void* param, const HDC hdc, int x, int y, int cx, int cy);
+typedef void(MB_CALL_TYPE* mbAcceleratedPaintCallback)(mbWebView webView, void* param, int type, const mbRect* dirytRects, const size_t dirytRectsSize, void* sharedHandle);
+typedef void(MB_CALL_TYPE* mbPaintBitUpdatedCallback)(mbWebView webView, void* param, const void* buffer, const mbRect* r, int width, int height);
+typedef void(MB_CALL_TYPE* mbAlertBoxCallback)(mbWebView webView, void* param, const utf8* msg);
+typedef BOOL(MB_CALL_TYPE* mbConfirmBoxCallback)(mbWebView webView, void* param, const utf8* msg);
+typedef mbStringPtr(MB_CALL_TYPE* mbPromptBoxCallback)(mbWebView webView, void* param, const utf8* msg, const utf8* defaultResult, BOOL* result);
+typedef BOOL(MB_CALL_TYPE* mbNavigationCallback)(mbWebView webView, void* param, mbNavigationType navigationType, const utf8* url);
+typedef mbWebView(MB_CALL_TYPE* mbCreateViewCallback)(mbWebView webView, void* param, mbNavigationType navigationType, const utf8* url, const mbWindowFeatures* windowFeatures);
+typedef void(MB_CALL_TYPE* mbDocumentReadyCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId);
+typedef void(MB_CALL_TYPE* mbLoadUrlFinishCallback)(mbWebView webView, void* param, const utf8* url, mbNetJob job, int len);
+typedef void(MB_CALL_TYPE* mbLoadUrlHeadersReceivedCallback)(mbWebView webView, void* param, const char* url, mbNetJob job);
+typedef BOOL(MB_CALL_TYPE* mbCloseCallback)(mbWebView webView, void* param, void* unuse);
+typedef BOOL(MB_CALL_TYPE* mbDestroyCallback)(mbWebView webView, void* param, void* unuse);
+typedef void(MB_CALL_TYPE* mbOnShowDevtoolsCallback)(mbWebView webView, void* param);
+typedef void(MB_CALL_TYPE* mbDidCreateScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int extensionGroup, int worldId);
+typedef BOOL(MB_CALL_TYPE* mbGetPluginListCallback)(BOOL refresh, void* pluginListBuilder, void* param);
+typedef BOOL(MB_CALL_TYPE* mbNetResponseCallback)(mbWebView webView, void* param, const utf8* url, mbNetJob job);
 typedef void(MB_CALL_TYPE* mbThreadCallback)(void* param1, void* param2);
 typedef void(MB_CALL_TYPE* mbNodeOnCreateProcessCallback)(mbWebView webView, void* param, const WCHAR* applicationPath, const WCHAR* arguments, STARTUPINFOW* startup);
+typedef BOOL(MB_CALL_TYPE* mbFullscreenRequestedCallback)(mbWebView webView, void* param, BOOL enter);
 
 typedef enum {
     MB_LOADING_SUCCEEDED,
@@ -493,8 +576,8 @@ typedef enum {
     MB_LOADING_CANCELED
 } mbLoadingResult;
 
-typedef void(MB_CALL_TYPE *mbLoadingFinishCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, const utf8* url, mbLoadingResult result, const utf8* failedReason);
-typedef BOOL(MB_CALL_TYPE *mbDownloadCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, const char* url, void* downloadJob);
+typedef void(MB_CALL_TYPE* mbLoadingFinishCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, const utf8* url, mbLoadingResult result, const utf8* failedReason);
+typedef BOOL(MB_CALL_TYPE* mbDownloadCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, const char* url, void* downloadJob);
 
 typedef enum {
     mbLevelDebug = 4,
@@ -505,20 +588,20 @@ typedef enum {
     mbLevelRevokedError = 6,
     mbLevelLast = mbLevelRevokedError
 } mbConsoleLevel;
-typedef void(MB_CALL_TYPE *mbConsoleCallback)(mbWebView webView, void* param, mbConsoleLevel level, const utf8* message, const utf8* sourceName, unsigned sourceLine, const utf8* stackTrace);
+typedef void(MB_CALL_TYPE* mbConsoleCallback)(mbWebView webView, void* param, mbConsoleLevel level, const utf8* message, const utf8* sourceName, unsigned sourceLine, const utf8* stackTrace);
 
-typedef void(MB_CALL_TYPE *mbOnCallUiThread)(mbWebView webView, void* paramOnInThread);
-typedef void(MB_CALL_TYPE *mbCallUiThread)(mbWebView webView, mbOnCallUiThread func, void* param);
+typedef void(MB_CALL_TYPE* mbOnCallUiThread)(mbWebView webView, void* paramOnInThread);
+typedef void(MB_CALL_TYPE* mbCallUiThread)(mbWebView webView, mbOnCallUiThread func, void* param);
 
 //mbNet--------------------------------------------------------------------------------------
-typedef BOOL(MB_CALL_TYPE *mbLoadUrlBeginCallback)(mbWebView webView, void* param, const char* url, void* job);
-typedef void(MB_CALL_TYPE *mbLoadUrlEndCallback)(mbWebView webView, void* param, const char* url, void* job, void* buf, int len);
-typedef void(MB_CALL_TYPE *mbLoadUrlFailCallback)(mbWebView webView, void* param, const char* url, void* job);
+typedef BOOL(MB_CALL_TYPE* mbLoadUrlBeginCallback)(mbWebView webView, void* param, const char* url, void* job);
+typedef void(MB_CALL_TYPE* mbLoadUrlEndCallback)(mbWebView webView, void* param, const char* url, void* job, void* buf, int len);
+typedef void(MB_CALL_TYPE* mbLoadUrlFailCallback)(mbWebView webView, void* param, const char* url, void* job);
 
-typedef void(MB_CALL_TYPE *mbDidCreateScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int extensionGroup, int worldId);
-typedef void(MB_CALL_TYPE *mbWillReleaseScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int worldId);
-typedef BOOL(MB_CALL_TYPE *mbNetResponseCallback)(mbWebView webView, void* param, const char* url, void* job);
-typedef void(MB_CALL_TYPE *mbNetGetFaviconCallback)(mbWebView webView, void* param, const utf8* url, mbMemBuf* buf);
+typedef void(MB_CALL_TYPE* mbDidCreateScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int extensionGroup, int worldId);
+typedef void(MB_CALL_TYPE* mbWillReleaseScriptContextCallback)(mbWebView webView, void* param, mbWebFrameHandle frameId, void* context, int worldId);
+typedef BOOL(MB_CALL_TYPE* mbNetResponseCallback)(mbWebView webView, void* param, const char* url, void* job);
+typedef void(MB_CALL_TYPE* mbNetGetFaviconCallback)(mbWebView webView, void* param, const utf8* url, mbMemBuf* buf);
 
 typedef enum _MbAsynRequestState {
     kMbAsynRequestStateOk = 0,
@@ -556,8 +639,8 @@ typedef enum _mbDownloadOpt {
     kMbDownloadOptCacheData,
 } mbDownloadOpt;
 
-typedef void(MB_CALL_TYPE*mbNetJobDataRecvCallback)(void* ptr, mbNetJob job, const char* data, int length);
-typedef void(MB_CALL_TYPE*mbNetJobDataFinishCallback)(void* ptr, mbNetJob job, mbLoadingResult result);
+typedef void(MB_CALL_TYPE* mbNetJobDataRecvCallback)(void* ptr, mbNetJob job, const char* data, int length);
+typedef void(MB_CALL_TYPE* mbNetJobDataFinishCallback)(void* ptr, mbNetJob job, mbLoadingResult result);
 
 typedef struct _mbNetJobDataBind {
     void* param;
@@ -565,8 +648,8 @@ typedef struct _mbNetJobDataBind {
     mbNetJobDataFinishCallback finishCallback;
 } mbNetJobDataBind;
 
-typedef void(MB_CALL_TYPE*mbPopupDialogSaveNameCallback)(void* ptr, const WCHAR* filePath);
-typedef mbStringPtr(MB_CALL_TYPE*mbNetBeginSaveCallback)(void* ptr, const char* filePath, bool isPathExists);
+typedef void(MB_CALL_TYPE* mbPopupDialogSaveNameCallback)(void* ptr, const WCHAR* filePath);
+typedef mbStringPtr(MB_CALL_TYPE* mbNetBeginSaveCallback)(void* ptr, const char* filePath, bool isPathExists);
 
 typedef struct _mbDownloadBind {
     void* param;
@@ -610,14 +693,14 @@ typedef struct _mbDownloadOptions {
     BOOL saveAsPathAndName;
 } mbDownloadOptions;
 
-typedef mbDownloadOpt(MB_CALL_TYPE*mbDownloadInBlinkThreadCallback)(
-    mbWebView webView, 
+typedef mbDownloadOpt(MB_CALL_TYPE* mbDownloadInBlinkThreadCallback)(
+    mbWebView webView,
     void* param,
     size_t expectedContentLength,
-    const char* url, 
-    const char* mime, 
-    const char* disposition, 
-    mbNetJob job, 
+    const char* url,
+    const char* mime,
+    const char* disposition,
+    mbNetJob job,
     mbNetJobDataBind* dataBind
     );
 
@@ -648,8 +731,8 @@ typedef struct _mbPostBodyElement {
     mbHttBodyElementType type;
     mbMemBuf* data;
     mbStringPtr filePath;
-    __int64 fileStart;
-    __int64 fileLength; // -1 means to the end of the file.
+    uint64_t fileStart;
+    uint64_t fileLength; // -1 means to the end of the file.
 } mbPostBodyElement;
 
 typedef struct _mbPostBodyElements {
@@ -670,14 +753,14 @@ typedef enum _mbWindowInfo {
     MB_WINDOW_INFO_SHARTD_TEXTURE_ENABLE = 1 << 16,
 } mbWindowInfo;
 
-typedef BOOL(MB_CALL_TYPE *mbWindowClosingCallback)(mbWebView webview, void* param);
-typedef void(MB_CALL_TYPE *mbWindowDestroyCallback)(mbWebView webview, void* param);
+typedef BOOL(MB_CALL_TYPE* mbWindowClosingCallback)(mbWebView webview, void* param);
+typedef void(MB_CALL_TYPE* mbWindowDestroyCallback)(mbWebView webview, void* param);
 
 typedef struct _mbDraggableRegion {
     RECT bounds;
     BOOL draggable;
 } mbDraggableRegion;
-typedef void(MB_CALL_TYPE *mbDraggableRegionsChangedCallback)(mbWebView webview, void* param, const mbDraggableRegion* rects, int rectCount);
+typedef void(MB_CALL_TYPE* mbDraggableRegionsChangedCallback)(mbWebView webview, void* param, const mbDraggableRegion* rects, int rectCount);
 
 typedef enum _mbPrintintStep {
     kPrintintStepStart,
@@ -708,9 +791,9 @@ typedef struct _mbDefaultPrinterSettings {
 #endif
 } mbDefaultPrinterSettings;
 
-typedef BOOL(MB_CALL_TYPE *mbPrintingCallback)(mbWebView webview, void* param, mbPrintintStep step, HDC hDC, const mbPrintintSettings* settings, int pageCount);
+typedef BOOL(MB_CALL_TYPE* mbPrintingCallback)(mbWebView webview, void* param, mbPrintintStep step, HDC hDC, const mbPrintintSettings* settings, int pageCount);
 
-typedef mbStringPtr(MB_CALL_TYPE *mbImageBufferToDataURLCallback)(mbWebView webView, void* param, const char* data, size_t size);
+typedef mbStringPtr(MB_CALL_TYPE* mbImageBufferToDataURLCallback)(mbWebView webView, void* param, const char* data, size_t size);
 
 typedef struct _mbWillSendRequestInfo {
     mbStringPtr url;
@@ -996,7 +1079,7 @@ ITERATOR3(void, mbNetAddHTTPHeaderFieldToUrlRequest, mbWebUrlRequestPtr request,
 ITERATOR4(int, mbNetStartUrlRequest, mbWebView webView, mbWebUrlRequestPtr request, void* param, const mbUrlRequestCallbacks* callbacks, "")\
 ITERATOR1(int, mbNetGetHttpStatusCode, mbWebUrlResponsePtr response, "")\
 ITERATOR1(mbRequestType, mbNetGetRequestMethod, mbNetJob jobPtr, "")\
-ITERATOR1(__int64, mbNetGetExpectedContentLength, mbWebUrlResponsePtr response, "")\
+ITERATOR1(int64_t, mbNetGetExpectedContentLength, mbWebUrlResponsePtr response, "")\
 ITERATOR1(const utf8*, mbNetGetResponseUrl, mbWebUrlResponsePtr response, "")\
 ITERATOR1(void, mbNetCancelWebUrlRequest, int requestId, "")\
 ITERATOR2(void, mbSetViewProxy, mbWebView webView, const mbProxy* proxy, "")\
@@ -1015,6 +1098,8 @@ ITERATOR2(void, mbSetHeadlessEnabled, mbWebView webView, BOOL b, "可以关闭�
 ITERATOR2(void, mbSetDragDropEnable, mbWebView webView, BOOL b, "可以关闭拖拽文件、文字") \
 ITERATOR2(void, mbSetDragEnable, mbWebView webView, BOOL b, "可关闭自动响应WM_DROPFILES消息让网页加载本地文件") \
 ITERATOR3(void, mbSetContextMenuItemShow, mbWebView webView, mbMenuItemId item, BOOL isShow, "设置某项menu是否显示") \
+ITERATOR3(void, mbSetContextMenuCallback, mbWebView webView, mbContextMenuPopupCallback cb, void* param, "menu弹出的时候回调，方便拦截") \
+ITERATOR2(void, mbExecuteContextMenu, mbWebView webView, mbMenuItemId id, "") \
 \
 ITERATOR2(void, mbSetHandle, mbWebView webView, HWND wnd, "") \
 ITERATOR3(void, mbSetHandleOffset, mbWebView webView, int x, int y, "") \
@@ -1071,6 +1156,7 @@ ITERATOR3(void, mbOnLoadUrlBegin, mbWebView webView, mbLoadUrlBeginCallback call
 ITERATOR3(void, mbOnLoadUrlEnd, mbWebView webView, mbLoadUrlEndCallback callback, void* callbackParam, "") \
 ITERATOR3(void, mbOnLoadUrlFail, mbWebView webView, mbLoadUrlFailCallback callback, void* callbackParam, "") \
 ITERATOR3(void, mbOnTitleChanged, mbWebView webView, mbTitleChangedCallback callback, void* callbackParam, "") \
+ITERATOR3(void, mbOnMouseOverUrlChanged, mbWebView webView, mbMouseOverUrlChangedCallback callback, void* callbackParam, "") \
 ITERATOR3(void, mbOnURLChanged, mbWebView webView, mbURLChangedCallback callback, void* callbackParam, "") \
 ITERATOR3(void, mbOnLoadingFinish, mbWebView webView, mbLoadingFinishCallback callback, void* param, "") \
 ITERATOR3(void, mbOnDownload, mbWebView webView, mbDownloadCallback callback, void* param, "") \
@@ -1122,6 +1208,8 @@ ITERATOR4(void, mbPostURL, mbWebView webView, const utf8* url, const char* postD
 \
 ITERATOR1(HDC, mbGetLockedViewDC, mbWebView webView, "") \
 ITERATOR1(void, mbUnlockViewDC, mbWebView webView, "") \
+ITERATOR3(unsigned char*, mbGetLockedViewBitmap, mbWebView webView, int* w, int* h, "") \
+ITERATOR1(void, mbUnlockViewBitmap, mbWebView webView, "") \
 \
 ITERATOR1(void, mbWake, mbWebView webView, "") \
 \
@@ -1182,6 +1270,7 @@ ITERATOR2(void, mbPluginListBuilderAddFileExtensionToLastMediaType, void* builde
 \
 ITERATOR0(void, mbEnableHighDPISupport, "") \
 ITERATOR0(void, mbRunMessageLoop, "") \
+ITERATOR0(void, mbRunMessageLoopUntilIdle, "") \
 ITERATOR0(void, mbExitMessageLoop, "") \
 ITERATOR3(void, mbOnLoadUrlFinish, mbWebView webView, mbLoadUrlFinishCallback callback, void* callbackParam, "") \
 ITERATOR3(void, mbOnLoadUrlHeadersReceived, mbWebView webView, mbLoadUrlHeadersReceivedCallback callback, void* callbackParam, "") \
@@ -1214,7 +1303,8 @@ ITERATOR2(void, mbPostToUiThread, mbOnCallUiThread callback, void* param, "") \
 ITERATOR3(void, mbPostToUiThreadDelay, mbOnCallUiThread callback, void* param, size_t millisecond, "") \
 ITERATOR2(void, mbSetEditable, mbWebView webView, bool editable, "") \
 ITERATOR2(int, mbQueryState, mbWebView webviewHandle, const char* type, "") \
-ITERATOR1(void*, mbGetProcAddr, const char* name, "")
+ITERATOR1(void*, mbGetProcAddr, const char* name, "") \
+ITERATOR3(void, mbOnFullscreenRequested, mbWebView webView, mbFullscreenRequestedCallback callback, void* param, "")    
 
 #if ENABLE_MB == 1
 // 如果是在dll\so里
@@ -1222,21 +1312,20 @@ MB_EXTERN_C MB_DLLEXPORT void MB_CALL_TYPE mbInit(const mbSettings* settings);
 
 MB_FOR_EACH_DEFINE_FUNCTION(MB_DECLARE_ITERATOR0, MB_DECLARE_ITERATOR1, MB_DECLARE_ITERATOR2, \
     MB_DECLARE_ITERATOR3, MB_DECLARE_ITERATOR4, MB_DECLARE_ITERATOR5, MB_DECLARE_ITERATOR6, MB_DECLARE_ITERATOR7, MB_DECLARE_ITERATOR8, MB_DECLARE_ITERATOR9, MB_DECLARE_ITERATOR10, MB_DECLARE_ITERATOR11)
-
 #else // ENABLE_MB
 
-#if 1 // MB_IN_EXE_H == 1 || !defined(__clang__)
-// 如果在linux exp文件或者win exe里
+#  if !defined(MB_SELECTANY_NO_DEF)
+// 有__declspec(selectany)定义的话，或者手动在cpp文件里定义，可以直接在头文件里定义全局变量
 MB_FOR_EACH_DEFINE_FUNCTION(MB_DEFINE_ITERATOR0, MB_DEFINE_ITERATOR1, MB_DEFINE_ITERATOR2, \
     MB_DEFINE_ITERATOR3, MB_DEFINE_ITERATOR4, MB_DEFINE_ITERATOR5, MB_DEFINE_ITERATOR6, MB_DEFINE_ITERATOR7, MB_DEFINE_ITERATOR8, MB_DEFINE_ITERATOR9, MB_DEFINE_ITERATOR10, MB_DEFINE_ITERATOR11)
-#else
-// 如果在linux 非exp文件
+#  else
+// 如果在老版本gcc，没有__declspec(selectany)也没有inline关键字
 MB_FOR_EACH_DEFINE_FUNCTION(MB_DECLARE_H_ITERATOR0, MB_DECLARE_H_ITERATOR1, MB_DECLARE_H_ITERATOR2, \
     MB_DECLARE_H_ITERATOR3, MB_DECLARE_H_ITERATOR4, MB_DECLARE_H_ITERATOR5, MB_DECLARE_H_ITERATOR6, MB_DECLARE_H_ITERATOR7, MB_DECLARE_H_ITERATOR8, \
     MB_DECLARE_H_ITERATOR9, MB_DECLARE_H_ITERATOR10, MB_DECLARE_H_ITERATOR11)
-#endif // MB_IN_EXE_H
+#  endif
 
-typedef void (MB_CALL_TYPE *FN_mbInit)(const mbSettings* settings);
+typedef void (MB_CALL_TYPE* FN_mbInit)(const mbSettings* settings);
 
 #if defined(WIN32)
 # ifdef _WIN64
@@ -1281,11 +1370,10 @@ inline void mbInit(const mbSettings* settings)
 
 #else // defined(WIN32)
 
-inline void mbInit(const mbSettings* settings, const char* soPath)
+inline void mbInit(const mbSettings* settings)
 {
     printf("mbInit\n");
-    //void* g_hMiniblinkMod = dlopen("/home/daniel/Desktop/wkexe/miniblink.so", RTLD_LAZY);
-    void* g_hMiniblinkMod = dlopen(soPath, RTLD_LAZY);
+    void* g_hMiniblinkMod = dlopen("./miniblink.so", RTLD_LAZY);
     printf("g_hMiniblinkMod: %p, %s \n", g_hMiniblinkMod, dlerror());
     FN_mbInit mbInitExFunc = (FN_mbInit)dlsym(g_hMiniblinkMod, "mbInit");
     printf("mbInitExFunc: %p\n", mbInitExFunc);
@@ -1293,7 +1381,19 @@ inline void mbInit(const mbSettings* settings, const char* soPath)
 
     MB_FOR_EACH_DEFINE_FUNCTION(MB_GET_PTR_ITERATOR0, MB_GET_PTR_ITERATOR1, MB_GET_PTR_ITERATOR2, MB_GET_PTR_ITERATOR3, \
         MB_GET_PTR_ITERATOR4, MB_GET_PTR_ITERATOR5, MB_GET_PTR_ITERATOR6, MB_GET_PTR_ITERATOR7, MB_GET_PTR_ITERATOR8, MB_GET_PTR_ITERATOR9, MB_GET_PTR_ITERATOR10, MB_GET_PTR_ITERATOR11);
+}
 
+inline void mbInitWithPath(const mbSettings* settings, const char* path)
+{
+    printf("mbInit\n");
+    void* g_hMiniblinkMod = dlopen(path, RTLD_LAZY);
+    printf("g_hMiniblinkMod: %p, %s \n", g_hMiniblinkMod, dlerror());
+    FN_mbInit mbInitExFunc = (FN_mbInit)dlsym(g_hMiniblinkMod, "mbInit");
+    printf("mbInitExFunc: %p\n", mbInitExFunc);
+    mbInitExFunc(settings);
+
+    MB_FOR_EACH_DEFINE_FUNCTION(MB_GET_PTR_ITERATOR0, MB_GET_PTR_ITERATOR1, MB_GET_PTR_ITERATOR2, MB_GET_PTR_ITERATOR3, \
+        MB_GET_PTR_ITERATOR4, MB_GET_PTR_ITERATOR5, MB_GET_PTR_ITERATOR6, MB_GET_PTR_ITERATOR7, MB_GET_PTR_ITERATOR8, MB_GET_PTR_ITERATOR9, MB_GET_PTR_ITERATOR10, MB_GET_PTR_ITERATOR11);
 }
 
 #endif // defined(WIN32)

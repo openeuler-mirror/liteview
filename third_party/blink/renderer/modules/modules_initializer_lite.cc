@@ -529,15 +529,20 @@ static String GetContentTypeFromFileName(const String& name, File::ContentTypeLo
 
 bool GetFileSystemUrlSize(const String& path, int64_t* file_size)
 {
-    //String path_temp = path;
-    //if (path_temp.StartsWith("file:///"))
-    //    path_temp = path_temp.Right(path_temp.length() - sizeof("file:///") + 1);
+    // linux: file:///xxx/1.txt -> /xxx/1.txt
+    // win: file:///c:/1.txt -> c:/1.txt    
+    String path_temp = path;
+    if (path_temp.StartsWith("file:///"))
+        path_temp = path_temp.Right(path_temp.length() - sizeof("file:///") + 1
+#if !defined(OS_WIN)
+            + 1
+#endif
+        );
 
-    //if (base::GetFileSize(StringToFilePath(path_temp), file_size))
-    //    return true;
-    //String path_escape = blink::DecodeURLEscapeSequences(path_temp, url::DecodeURLMode::kUTF8OrIsomorphic);
-    //return base::GetFileSize(StringToFilePath(path_escape), file_size);
-    return false;
+    if (base::GetFileSize(StringToFilePath(path_temp), file_size))
+        return true;
+    String path_escape = blink::DecodeURLEscapeSequences(path_temp, url::DecodeURLMode::kUTF8OrIsomorphic);
+    return base::GetFileSize(StringToFilePath(path_escape), file_size);
 }
 
 static std::unique_ptr<blink::BlobData> CreateBlobDataForFileSystemURL(const blink::KURL& file_system_url, absl::optional<::base::Time> expected_modification_time)
@@ -548,8 +553,9 @@ static std::unique_ptr<blink::BlobData> CreateBlobDataForFileSystemURL(const bli
     if (GetFileSystemUrlSize(path, &file_size)) {
         blob_data = base::WrapUnique(new BlobData(BlobData::FileCompositionStatus::kNoUnknownSizeFiles));
         blob_data->AppendFile(path, 0, file_size, expected_modification_time);
-    } else
+    } else {
         blob_data = BlobData::CreateForFileWithUnknownSize(path, expected_modification_time);
+    }
 
     blob_data->SetContentType(GetContentTypeFromFileName(path, File::kWellKnownContentTypes));
     //blob_data->AppendFileSystemURL(fileSystemURL, 0, metadata.length, metadata.modificationTime / msPerSecond);

@@ -12,9 +12,12 @@
 
 
 #include "content/renderer/AssociatedInterfaceProviderImpl.h"
+
 #include "content/common/CreateAndBindTempl.h"
 #include "content/renderer/ScreenOrientationImpl.h"
 #include "content/renderer/WebLocalFrameClientImpl.h"
+#include "content/renderer/BlobURLStoreImpl.h"
+#include "third_party/blink/public/web/web_local_frame.h"
 #include <windows.h>
 
 namespace content {
@@ -53,6 +56,12 @@ void AssociatedInterfaceProviderImpl::GetAssociatedInterface(const std::string& 
         createAndBindInterface<::blink::mojom::blink::BroadcastChannelProvider, BroadcastChannelProviderImpl>(receiver.PassPipe(), m_frameClient);
     } else if ("device.mojom.blink.ScreenOrientation" == name) {
         createAndBindInterface<::device::mojom::blink::ScreenOrientation, ScreenOrientationImpl>(receiver.PassPipe());
+    } else if ("blink.mojom.BlobURLStore" == name) {
+        ::scoped_refptr<const ::blink::SecurityOrigin> origin;
+        if (m_frameClient && m_frameClient->getFrame()) {
+            origin = m_frameClient->getFrame()->GetSecurityOrigin();
+        }
+        createAndBindInterface<::blink::mojom::blink::BlobURLStore, BlobURLStoreImpl>(std::move(receiver.PassPipe()), origin->ToRawString().Utf8());
     } else
         DebugBreak();
 }

@@ -42,6 +42,11 @@ def main():
                         default="x64",
                         metavar='String')
 
+    parser.add_argument('--build-thread', 
+                        help='构建线程数',
+                        default="-j4",
+                        metavar='String')
+
     args = parser.parse_args()
 
     current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -61,6 +66,7 @@ def main():
     is_debug = args.is_debug # 'true'
     target_cpu = args.target_cpu
     is_component_build = args.is_component_build
+    build_thread = args.build_thread
     custom_toolchain = '//gn/toolchain/posix:livi_x64'
 
     gn_cmd = '\"{}\" gen \"{}\" --args=\"is_debug={} is_component_build={} target_cpu=\\\"{}\\\" target_os=\\\"linux\\\" is_clang=true is_livi_custom=true custom_toolchain=\\\"{}\\\" sdkPath=\\\"{}\\\" sdkPath2=\\\"{}\\\" ndkIncludePath=\\\"{}\\\" clang_base_path=\\\"{}\\\" ar=\\\"{}\\\" ld=\\\"{}\\\"" '.format(
@@ -80,29 +86,21 @@ def main():
     result = subprocess.call(gn_cmd, shell = True)
     
     if result == 0:
-        ninja_cmd = '\"{}\" -C \"{}\"'.format(ninja, output)
+        ninja_cmd = '\"{}\" {} -C \"{}\"'.format(ninja, build_thread, output)
         print('ninja command: ' + ninja_cmd)
         result = subprocess.call(ninja_cmd, shell = True)
     
     if result == 0:
-        dst_dir_name = 'livi-browser'
+        dst_dir_name = 'livicore'
         dstdir = os.path.join(current_dir, dst_dir_name)
         shutil.rmtree(dstdir, ignore_errors=True)
         os.makedirs(dstdir)
 
         srcdir =  os.path.join(current_dir, args.output)
 
-        srcfile1 = os.path.join(srcdir, "liteview")
-        dstfile1 = os.path.join(dstdir, "liteview")
+        srcfile1 = os.path.join(srcdir, "livicore")
+        dstfile1 = os.path.join(dstdir, "livicore.so")
         shutil.copy2(srcfile1, dstfile1)
-
-        srcfile2 = os.path.join(srcdir, "livicore")
-        dstfile2 = os.path.join(dstdir, "livicore.so")
-        shutil.copy2(srcfile2, dstfile2)
-
-        srcfile3 = os.path.join(sdk_path2, "usr", "lib", "x86_64-linux-gnu/libffmpeg.so")
-        dstfile3 = os.path.join(dstdir, "libffmpeg.so")
-        shutil.copy2(srcfile3, dstfile3)
 
         return result
 

@@ -29,6 +29,7 @@
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/latency/latency_info.h"
+#include <windowsx.h>
 
 namespace content {
 
@@ -226,8 +227,8 @@ void PlatformEventHandler::fireWheelEventOnCompositorThread(
 
 LRESULT PlatformEventHandler::fireWheelEvent(HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
-    int x = LOWORD(lParam);
-    int y = HIWORD(lParam);
+    int x = GET_X_LPARAM(lParam);
+    int y = GET_Y_LPARAM(lParam);
     POINT point = { x, y };
     ::ScreenToClient(hWnd, &point);
     x = point.x;
@@ -686,6 +687,14 @@ blink::WebKeyboardEvent PlatformEventHandler::buildKeyboardEvent(blink::WebInput
     keyEvent.SetType(type);
 
     buildModifiers(&keyEvent);
+
+    if ((keyEvent.GetModifiers() | ((int)blink::WebInputEvent::kControlKey)) &&
+        keyEvent.windows_key_code >= 'a' && keyEvent.windows_key_code <= 'z') {
+        keyEvent.windows_key_code -= 'a' - 'A';
+        keyEvent.native_key_code -= 'a' - 'A';
+        keyEvent.dom_code -= 'a' - 'A';
+        keyEvent.dom_key -= 'a' - 'A';
+    }
 
     if (isKeypadEvent(wParam, keyData, type))
         keyEvent.SetModifiers(keyEvent.GetModifiers() | blink::WebInputEvent::kIsKeyPad);

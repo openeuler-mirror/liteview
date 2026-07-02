@@ -105,15 +105,9 @@ public:
     virtual void RunModalAlertDialog(const ::WTF::String& alert_message, bool disable_third_party_subframe_suppresion, 
         ::blink::mojom::blink::LocalFrameHost::RunModalAlertDialogCallback callback) override;
 
-    // Sync method. This signature is used by the client side; the service side
-    // should implement the signature with callback below.
-
     virtual bool RunModalConfirmDialog(const ::WTF::String& alert_message, bool disable_third_party_subframe_suppresion, bool* out_success) override;
 
     virtual void RunModalConfirmDialog(const ::WTF::String& alert_message, bool disable_third_party_subframe_suppresion, ::blink::mojom::blink::LocalFrameHost::RunModalConfirmDialogCallback callback) override;
-
-    // Sync method. This signature is used by the client side; the service side
-    // should implement the signature with callback below.
 
     virtual bool RunModalPromptDialog(
         const ::WTF::String& alert_message, const ::WTF::String& default_value, bool disable_third_party_subframe_suppresion, bool* out_success, ::WTF::String* out_result) override;
@@ -121,9 +115,6 @@ public:
     virtual void RunModalPromptDialog(
         const ::WTF::String& alert_message, const ::WTF::String& default_value, bool disable_third_party_subframe_suppresion, ::blink::mojom::blink::LocalFrameHost::RunModalPromptDialogCallback callback)
         override;
-
-    // Sync method. This signature is used by the client side; the service side
-    // should implement the signature with callback below.
 
     virtual bool RunBeforeUnloadConfirm(bool is_reload, bool* out_success) override;
 

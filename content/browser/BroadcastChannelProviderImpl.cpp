@@ -182,9 +182,21 @@ BroadcastChannelProviderImpl::BroadcastChannelProviderImpl(WebLocalFrameClientIm
     m_frameClient = frameClient;
 }
 
-static std::string getNameAndOrig(const WTF::String& name, WebLocalFrameClientImpl* frameClient)
+BroadcastChannelProviderImpl::BroadcastChannelProviderImpl(const std::string& origin)
+{
+    m_origin = origin;
+}
+
+static std::string getNameAndOrig(const WTF::String& name, WebLocalFrameClientImpl* frameClient, const std::string& origin)
 {
     std::string nameAndOrig = name.Utf8();
+
+    if (!origin.empty()) {
+        nameAndOrig += "_";
+        nameAndOrig += origin;
+        return nameAndOrig;
+    }
+
     if (!frameClient || !frameClient->m_frame)
         return nameAndOrig;
     blink::WebDocument doc = frameClient->m_frame->GetDocument();
@@ -203,7 +215,7 @@ void BroadcastChannelProviderImpl::ConnectToChannel(
     ::mojo::PendingAssociatedRemote<::blink::mojom::blink::BroadcastChannelClient> client,
     ::mojo::PendingAssociatedReceiver<::blink::mojom::blink::BroadcastChannelClient> connection)
 {
-    std::string nameAndOrig = getNameAndOrig(name, m_frameClient);
+    std::string nameAndOrig = getNameAndOrig(name, m_frameClient, m_origin);
 
     BroadcastChannelItem* item = new BroadcastChannelItem();
     item->m_nameAndOrig = nameAndOrig;

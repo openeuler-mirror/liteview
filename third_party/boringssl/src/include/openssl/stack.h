@@ -368,8 +368,8 @@ BSSL_NAMESPACE_END
         /* The data is actually stored as |void*| pointers, so read the pointer                                                                                                    \
          * as |void*| and then pass the corrected type into the caller-supplied                                                                                                    \
          * function, which expects |constptrtype*|. */ \
-        constptrtype a_ptr = (constptrtype)*a;                                                                                                                                       \
-        constptrtype b_ptr = (constptrtype)*b;                                                                                                                                       \
+        constptrtype a_ptr = (constptrtype) * a;                                                                                                                                     \
+        constptrtype b_ptr = (constptrtype) * b;                                                                                                                                     \
         return ((sk_##name##_cmp_func)cmp_func)(&a_ptr, &b_ptr);                                                                                                                     \
     }                                                                                                                                                                                \
                                                                                                                                                                                      \
@@ -428,7 +428,7 @@ BSSL_NAMESPACE_END
         return (ptrtype)sk_delete_ptr((_STACK*)sk, (const void*)p);                                                                                                                  \
     }                                                                                                                                                                                \
                                                                                                                                                                                      \
-    OPENSSL_INLINE int sk_##name##_find(const STACK_OF(name) * sk, size_t * out_index, constptrtype p)                                                                               \
+    OPENSSL_INLINE int sk_##name##_find(const STACK_OF(name) * sk, size_t* out_index, constptrtype p)                                                                                \
     {                                                                                                                                                                                \
         return sk_find((const _STACK*)sk, out_index, (const void*)p, sk_##name##_call_cmp_func);                                                                                     \
     }                                                                                                                                                                                \

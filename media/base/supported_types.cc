@@ -273,7 +273,7 @@ bool IsVp9ProfileSupported(const VideoType& type)
 bool IsAV1Supported(const VideoType& type)
 {
     // If the AV1 decoder is enabled, or if we're on Q or later, yes.
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     return IsColorSpaceSupported(type.color_space);
 #elif BUILDFLAG(IS_ANDROID)
     return base::android::BuildInfo::GetInstance()->sdk_int() >= base::android::SDK_VERSION_Q && IsColorSpaceSupported(type.color_space);
@@ -423,10 +423,10 @@ bool IsBuiltInVideoCodec(VideoCodec codec)
     if (codec == VideoCodec::kVP8 || codec == VideoCodec::kVP9)
         return true;
 #endif // BUILDFLAG(ENABLE_LIBVPX)
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     if (codec == VideoCodec::kAV1)
         return true;
-#endif // BUILDFLAG(ENABLE_AV1_DECODER)
+#endif // BUILDFLAG(ENABLE_AV1_DECODER)  && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     return false;
 }
 

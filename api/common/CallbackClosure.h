@@ -210,6 +210,10 @@ public:
     void* m_NetResponseParam{ nullptr }; 
     void setNetResponseCallback(mbNetResponseCallback callback, void* param) { m_NetResponseCallback = callback; m_NetResponseParam = param; };
 
+    mbContextMenuPopupCallback m_ContextMenuPopupCallback{ nullptr };
+    void* m_ContextMenuPopupParam{ nullptr };
+    void setContextMenuCallback(mbContextMenuPopupCallback callback, void* param) { m_ContextMenuPopupCallback = callback; m_ContextMenuPopupParam = param; };
+
     std::function<void(mbJsExecState es, int64_t queryId, int customMsg, const utf8* request)>* m_jsQueryClosure{ nullptr };
     void setJsQueryClosure(std::function<void(mbJsExecState es, int64_t queryId, int customMsg, const utf8* request)>* closure)
     {
@@ -225,6 +229,14 @@ public:
             delete m_jsQueryClosure2;
         m_jsQueryClosure2 = closure;
     }
+
+    mbFullscreenRequestedCallback m_fullscreenRequestedCallback { nullptr };
+    void* m_fullscreenRequestedParam { nullptr };
+    void setFullscreenRequestedCallback(mbFullscreenRequestedCallback callback, void* param)
+    {
+        m_fullscreenRequestedCallback = callback;
+        m_fullscreenRequestedParam = param;
+    };
 };
 
 }

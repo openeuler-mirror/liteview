@@ -10,9 +10,8 @@
 // See the Mulan PSL v2 for more details.
 //
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_TRIGONOMETRY_H
+#include <freetype/freetype.h>
+#include <freetype/fttrigon.h>
 
 #include <math.h>
 #include <stdio.h>

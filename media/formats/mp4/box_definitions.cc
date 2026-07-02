@@ -830,7 +830,7 @@ bool VPCodecConfigurationRecord::Parse(BoxReader* reader)
     return true;
 }
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 AV1CodecConfigurationRecord::AV1CodecConfigurationRecord()
     : profile(VIDEO_CODEC_PROFILE_UNKNOWN)
 {
@@ -901,7 +901,7 @@ bool AV1CodecConfigurationRecord::Parse(BoxReader* reader)
 
     return true;
 }
-#endif // BUILDFLAG(ENABLE_AV1_DECODER)
+#endif // BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 
 PixelAspectRatioBox::PixelAspectRatioBox()
     : h_spacing(1)
@@ -1154,7 +1154,7 @@ bool VideoSampleEntry::Parse(BoxReader* reader)
         }
         break;
     }
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     case FOURCC_AV01: {
         DVLOG(2) << __func__ << " reading AV1 configuration.";
         AV1CodecConfigurationRecord av1_config;
@@ -1226,7 +1226,7 @@ bool VideoSampleEntry::IsFormatValid() const
 #endif // BUILDFLAG(USE_PROPRIETARY_CODECS)
     case FOURCC_VP09:
         return true;
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     case FOURCC_AV01:
         return true;
 #endif

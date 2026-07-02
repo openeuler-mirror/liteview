@@ -93,7 +93,7 @@ void BlobURLStoreSet::removeBySecurityOriginToken(const std::string& securityOri
 
 //-----
 
-BlobURLStoreImpl::BlobURLStoreImpl(const ::scoped_refptr<const ::blink::SecurityOrigin>& origin)
+BlobURLStoreImpl::BlobURLStoreImpl(const std::string& origin)
     : m_origin(origin)
 {
 
@@ -101,7 +101,7 @@ BlobURLStoreImpl::BlobURLStoreImpl(const ::scoped_refptr<const ::blink::Security
 
 BlobURLStoreImpl::~BlobURLStoreImpl()
 {
-    BlobURLStoreSet::get()->removeBySecurityOriginToken(m_origin->ToString().Utf8());
+    BlobURLStoreSet::get()->removeBySecurityOriginToken(m_origin);
 }
 
 bool BlobURLStoreImpl::Register(
@@ -117,7 +117,7 @@ bool BlobURLStoreImpl::Register(
 //     urlStr += "\n";
 //     OutputDebugStringA(urlStr.c_str());
 
-    BlobURLStoreSet::get()->addUrlBlob(url.GetString().Utf8(), m_origin->ToRawString().Utf8(), std::move(blob));
+    BlobURLStoreSet::get()->addUrlBlob(url.GetString().Utf8(), m_origin, std::move(blob));
 
 //     BlobURLStoreImpl* self = this;
 //     ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [self] {
@@ -147,7 +147,7 @@ void BlobURLStoreImpl::Register(
     ::blink::mojom::blink::BlobURLStore::RegisterCallback callback)
 {
     DebugBreak();
-    BlobURLStoreSet::get()->addUrlBlob(url.GetString().Utf8(), m_origin->ToString().Utf8(), std::move(blob));
+    BlobURLStoreSet::get()->addUrlBlob(url.GetString().Utf8(), m_origin, std::move(blob));
 }
 
 void BlobURLStoreImpl::Revoke(const ::blink::KURL& url)

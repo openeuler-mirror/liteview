@@ -15,6 +15,7 @@
 #define content_renderer_WebLocalFrameClientImpl_h
 
 #include "mbnet/LoaderFactoryImpl.h"
+#include "media/base/media_observer.h"
 #include "third_party/blink/public/mojom/associated_interfaces/associated_interfaces.mojom.h"
 #include "third_party/blink/public/mojom/browser_interface_broker.mojom.h"
 #include "third_party/blink/public/mojom/loader/content_security_notifier.mojom-blink.h"
@@ -28,6 +29,7 @@
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "services/network/public/mojom/restricted_cookie_manager.mojom.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
+#include <set>
 
 namespace blink {
 class WebFrameWidget;
@@ -35,6 +37,7 @@ class WebFrameWidget;
 
 namespace content {
 class MbMediaImpl;
+class WebMediaPlayerSaver;
 class PolicyContainerHostImpl;
 class AssociatedInterfaceProviderImpl;
 class BlinkInterfaceRegistryImpl;
@@ -144,8 +147,10 @@ public:
 
     // media
     void ensureMbMedia();
-    content::MbMediaImpl* getMbMedia() const { return m_mbMediaImpl; }
-
+    MbMediaImpl* getMbMedia() const { return m_mbMediaImpl; }
+    void setAudioMuted(bool mute);
+    void addWebMediaPlayerSaver(WebMediaPlayerSaver*);
+    void removeWebMediaPlayerSaver(WebMediaPlayerSaver*);
 
     int64_t m_mbwebviewId = 0;
 
@@ -155,6 +160,8 @@ public:
 
     blink::WebLocalFrame* m_frame = nullptr;
     bool m_hidden = false;
+
+    WTF::String m_srcdoc;
 
     AssociatedInterfaceProviderImpl* m_associatedInterfaceProviderImpl = nullptr;
     mojo::AssociatedReceiver<::blink::mojom::AssociatedInterfaceProvider> m_interfaceProviderReceiver;
@@ -170,9 +177,12 @@ public:
 
     mojo::Remote<blink::mojom::blink::LocalFrame> m_localFrameRemote;
 
+    bool m_hadStartedAnyNavigation = false;
+
     blink::BrowserInterfaceBrokerProxy m_browserInterfaceBrokerProxy;
     mojo::Receiver<blink::mojom::BrowserInterfaceBroker> m_browserInterfaceBrokerProxyReceiver{ this };
-    content::MbMediaImpl* m_mbMediaImpl = nullptr;
+    MbMediaImpl* m_mbMediaImpl = nullptr;
+    std::set<WebMediaPlayerSaver*> m_webMediaPlayerSavers;
 //     mojo::Receiver<::blink::mojom::blink::ContentSecurityNotifier> m_contentSecurityNotifierImplReceiver;
 //     mojo::Receiver<::blink::mojom::blink::ReportingServiceProxy> m_reportingServiceProxyImplReceiver;
 //     mojo::Receiver<::blink::mojom::blink::FileChooser> m_fileChooserImplReceiver;

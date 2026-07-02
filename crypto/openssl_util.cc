@@ -11,10 +11,10 @@
 
 #include "base/logging.h"
 #include "base/strings/string_piece.h"
-//#include "third_party/boringssl/src/include/openssl/crypto.h"
-//#include "third_party/boringssl/src/include/openssl/err.h"
-#include "third_party/openssl/openssl/include/openssl/crypto.h"
-#include "third_party/openssl/openssl/include/openssl/err.h"
+#include "third_party/boringssl/src/include/openssl/crypto.h"
+#include "third_party/boringssl/src/include/openssl/err.h"
+// #include "third_party/openssl/openssl/include/openssl/crypto.h"
+// #include "third_party/openssl/openssl/include/openssl/err.h"
 
 namespace crypto {
 
@@ -40,7 +40,7 @@ int OpenSSLErrorCallback(const char* str, size_t len, void* context)
 void EnsureOpenSSLInit()
 {
     // CRYPTO_library_init may be safely called concurrently.
-#if 0
+#if 1
     CRYPTO_library_init();
 #else
     OPENSSL_INIT_SETTINGS* settings = OPENSSL_INIT_new();

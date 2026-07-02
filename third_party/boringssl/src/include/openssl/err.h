@@ -165,7 +165,7 @@ OPENSSL_EXPORT void ERR_free_strings(void);
 // ERR_GET_REASON returns the reason code for the error. This is one of
 // library-specific |LIB_R_*| values where |LIB| is the library (see
 // |ERR_GET_LIB|). Note that reason codes are specific to the library.
-#define ERR_GET_REASON(packed_error) ((int)((packed_error)&0xfff))
+#define ERR_GET_REASON(packed_error) ((int)((packed_error) & 0xfff))
 
 // ERR_get_error gets the packed error code for the least recent error and
 // removes that error from the queue. If there are no errors in the queue then

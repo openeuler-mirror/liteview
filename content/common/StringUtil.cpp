@@ -28,6 +28,26 @@ extern "C" size_t iconv(iconv_t, char** , size_t* , char** , size_t* );
 extern "C" int iconv_close(iconv_t);
 #endif
 
+namespace {
+/**
+ * 检查一个字节是否符合 GBK 编码规范中的首字节范围。
+ */
+bool isGbkLeadByte(unsigned char byte)
+{
+    // GBK 首字节范围: 0x81 到 0xFE
+    return byte >= 0x81 && byte <= 0xFE;
+}
+
+/**
+ * 检查一个字节是否符合 GBK 编码规范中的尾字节范围。
+ */
+bool isGbkTrailByte(unsigned char byte)
+{
+    // GBK 尾字节范围: 0x40 到 0xFE (不包括 0x7F)
+    return (byte >= 0x40 && byte <= 0x7E) || (byte >= 0x80 && byte <= 0xFE);
+}
+}
+
 extern HMODULE g_hModule;
 
 namespace content {
@@ -424,5 +444,189 @@ unsigned int hashStringA(const std::string& p)
     }
     return h % prime;
 }
+
+bool isValidUtf8(const std::string& str)
+{
+    const unsigned char* s = (const unsigned char*)str.data();
+    size_t len = str.size();
+    size_t i = 0;
+    while (i < len) {
+        unsigned char c = s[i];
+        size_t need = 0;
+
+        if (c <= 0x7F) {
+            i++;
+            continue;
+        } else if (c >= 0xC2 && c <= 0xDF)
+            need = 1;
+        else if (c >= 0xE0 && c <= 0xEF)
+            need = 2;
+        else if (c >= 0xF0 && c <= 0xF4)
+            need = 3;
+        else
+            return false;
+
+        if (i + need >= len)
+            return false;
+
+        for (size_t j = 1; j <= need; j++)
+            if ((s[i + j] & 0xC0) != 0x80)
+                return false;
+
+        i += need + 1;
+    }
+    return true;
+}
+
+bool looksLikeGbk(const std::string& str)
+{
+    const unsigned char* s = (const unsigned char*)str.data();
+    size_t len = str.size();
+    size_t i = 0;
+    bool has_gbk = false;
+
+    while (i < len) {
+        unsigned char c = s[i];
+
+        if (c <= 0x7F) { // ASCII
+            i++;
+            continue;
+        }
+
+        // GBK second byte must be 0x40–0xFE
+        if (i + 1 < len) {
+            unsigned char c2 = s[i + 1];
+            if (c >= 0x81 && c <= 0xFE && c2 >= 0x40 && c2 <= 0xFE && c2 != 0x7F) {
+                has_gbk = true;
+                i += 2;
+                continue;
+            }
+        }
+        return false; // illegal byte pattern
+    }
+    return has_gbk;
+}
+
+bool convertToUtf8(const std::string& input, const char* from_charset, std::string& output)
+{
+#ifdef _WIN32
+    // Windows API conversion
+    int cp = 0;
+    if (strcmp(from_charset, "GBK") == 0)
+        cp = 936;
+    else if (strcmp(from_charset, "GB2312") == 0)
+        cp = 936;
+    else
+        return false;
+
+    int wlen = MultiByteToWideChar(cp, 0, input.data(), input.size(), NULL, 0);
+    if (wlen <= 0)
+        return false;
+
+    std::wstring wbuf(wlen, 0);
+    MultiByteToWideChar(cp, 0, input.data(), input.size(), (LPWSTR)wbuf.data(), wlen);
+
+    int u8len = WideCharToMultiByte(CP_UTF8, 0, wbuf.data(), wbuf.size(), NULL, 0, NULL, NULL);
+    if (u8len <= 0)
+        return false;
+
+    output.resize(u8len);
+    WideCharToMultiByte(CP_UTF8, 0, wbuf.data(), wbuf.size(),
+        (LPSTR)output.data(), u8len, NULL, NULL);
+
+    return true;
+
+#else
+    // Linux / macOS - iconv
+    iconv_t cd = iconv_open("UTF-8", from_charset);
+    if (cd == (iconv_t)-1)
+        return false;
+
+    size_t in_left = input.size();
+    size_t out_left = input.size() * 4 + 10;
+
+    output.resize(out_left);
+    char* in_buf = (char*)input.data();
+    char* out_buf = (char*)output.data();
+
+    size_t res = iconv(cd, &in_buf, &in_left, &out_buf, &out_left);
+    iconv_close(cd);
+
+    if (res == (size_t)-1)
+        return false;
+
+    output.resize(output.size() - out_left);
+    return true;
+#endif
+}
+
+std::string autoGbkToUtf8(const std::string& input)
+{
+    std::string result;
+
+    // Already UTF-8?
+    if (isValidUtf8(input))
+        return input;
+
+    // Looks like GBK?
+    if (looksLikeGbk(input)) {
+        if (convertToUtf8(input, "GBK", result))
+            return result;
+    }
+
+    // Try GB2312
+    if (convertToUtf8(input, "GB2312", result))
+        return result;
+
+    // Fallback return original
+    return input;
+}
+
+/**
+ * 启发式检测函数，判断一个字节流是否可能是 GBK 编码
+ * @return 介于 0.0 到 1.0 之间的浮点数，表示合法 GBK 序列的置信度
+ */
+double detectGbkConfidence(const std::string& data)
+{
+    int totalBytes = data.length();
+    int validGbkSequences = 0;
+    int checkedBytes = 0;
+
+    for (int i = 0; i < totalBytes; ++i) {
+        unsigned char currentByte = static_cast<unsigned char>(data[i]);
+
+        // 1. 检查单字节字符 (ASCII 0x00-0x7F)
+        if (currentByte <= 0x7F) {
+            checkedBytes++;
+            continue;
+        }
+
+        // 2. 检查双字节字符
+        if (isGbkLeadByte(currentByte)) {
+            // 确保不是最后一个字节，以防越界
+            if (i + 1 < totalBytes) {
+                unsigned char nextByte = static_cast<unsigned char>(data[i + 1]);
+                if (isGbkTrailByte(nextByte)) {
+                    // 发现一个合法的 GBK 双字节序列
+                    validGbkSequences++;
+                    checkedBytes += 2;
+                    i++; // 跳过下一个字节
+                    continue;
+                }
+            }
+        }
+
+        // 如果走到这里，说明当前字节无法作为合法的 GBK 序列开始
+        // 可能是乱码、控制字符或 UTF-8 的字节
+        checkedBytes++;
+    }
+
+    // 启发式判断：如果大部分字节都能组成合法的 GBK 序列，则置信度高
+    if (checkedBytes == 0)
+        return 0.0;
+
+    return (double)validGbkSequences * 2 / totalBytes; // 乘以2因为一个序列占2个字节
+}
+
 
 }

@@ -27,6 +27,7 @@ class WebDedicatedWorker;
 namespace content {
 
 class DedicatedWorkerHostBrowserInterfaceBroker;
+class DedicatedWorkerHostImpl;
 
 class WebDedicatedWorkerHostFactoryClientImpl : public blink::WebDedicatedWorkerHostFactoryClient {
 public:
@@ -47,8 +48,9 @@ public:
 private:
     blink::WebDedicatedWorker* m_worker;
     DedicatedWorkerHostBrowserInterfaceBroker* m_browserInterfaceBrokerImpl = nullptr;
-    mojo::Receiver<::blink::mojom::BrowserInterfaceBroker> m_browserInterfaceBroker;
-    mojo::Receiver<::blink::mojom::blink::DedicatedWorkerHost> m_dedicatedWorkerHost;
+    //mojo::Receiver<::blink::mojom::BrowserInterfaceBroker> m_browserInterfaceBroker;
+    //mojo::Receiver<::blink::mojom::blink::DedicatedWorkerHost> m_dedicatedWorkerHost;
+    DedicatedWorkerHostImpl* m_dedicatedWorkerHost = nullptr;
 
     base::WeakPtrFactory<WebDedicatedWorkerHostFactoryClientImpl> m_weakFactory;
 };

@@ -54,14 +54,16 @@ public:
     static void callMediaThreadAsync(const TraceLocation& caller, std::function<void(void)>&& closure);
 
     static void runUiThreadMessageLoop(uv_loop_t* loop, v8::Platform* platform, v8::Isolate* isolate);
+    static void runUiThreadMessageLoopUntilIdle();
     static void runBlinkThreadNode(uv_loop_t* loop, v8::Isolate* isolate);
 
     template <typename Ty>
-    static void delayDestroySelf(Ty* self, scoped_refptr<base::SingleThreadTaskRunner> runner)
+    static void delayDestroySelf(Ty* self, scoped_refptr<base::SingleThreadTaskRunner> runner, int microseconds)
     {
-        runner->PostDelayedTask(FROM_HERE, base::BindOnce([](Ty* self) {
-            delete self;
-        }, base::Unretained(self)), base::Microseconds(2000));
+        if (0 == microseconds)
+            runner->PostTask(FROM_HERE, base::BindOnce([](Ty* self) { delete self; }, base::Unretained(self)));
+        else
+            runner->PostDelayedTask(FROM_HERE, base::BindOnce([](Ty* self) { delete self; }, base::Unretained(self)), base::Microseconds(microseconds));
     }
 
     static void setThreadIdle(mbThreadCallback callback, void* param1, void* param2);
@@ -94,7 +96,7 @@ public:
 
 private:
     static void callThreadSync(const TraceLocation& caller, std::function<void(void)>&& closure, scoped_refptr<base::SingleThreadTaskRunner> runner);
-    static void* waitForCallThreadAsync(TaskAsyncData* asyncData);
+    static bool waitForCallThreadAsync(TaskAsyncData* asyncData);
 
     static void onThreadIdle(uv_loop_t* loop, v8::Platform* platform, v8::Isolate* isolate);
 

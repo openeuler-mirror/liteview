@@ -289,7 +289,7 @@ void MimeUtil::AddSupportedMediaFormats()
 
     const CodecSet webm_audio_codecs { OPUS, VORBIS };
     CodecSet webm_video_codecs { VP8, VP9 };
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     webm_video_codecs.emplace(AV1);
 #endif
 
@@ -330,7 +330,7 @@ void MimeUtil::AddSupportedMediaFormats()
     mp4_video_codecs.emplace(DOLBY_VISION);
 #endif // BUILDFLAG(ENABLE_PLATFORM_DOLBY_VISION)
 #endif // BUILDFLAG(USE_PROPRIETARY_CODECS)
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     mp4_video_codecs.emplace(AV1);
 #endif
 
@@ -534,7 +534,7 @@ bool MimeUtil::IsCodecSupportedOnAndroid(Codec codec, base::StringPiece mime_typ
     // The remaining codecs may be supported depending on platform abilities.
     // ----------------------------------------------------------------------
     case AV1:
-        return BUILDFLAG(ENABLE_AV1_DECODER);
+        return BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER);
 
     case MPEG2_AAC:
         // MPEG2_AAC cannot be used in HLS (mpegurl suffix), but this is enforced
@@ -768,7 +768,7 @@ bool MimeUtil::ParseCodecHelper(base::StringPiece mime_type_lower_case, base::St
         return true;
     }
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     if (ParseAv1CodecId(codec_id, out_profile, out_level, out_color_space)) {
         out_result->codec = MimeUtil::AV1;
         return true;

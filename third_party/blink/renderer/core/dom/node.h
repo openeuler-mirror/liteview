@@ -968,7 +968,7 @@ public:
 
     String ToString() const;
 
-#if DCHECK_IS_ON()
+#if 1 // DCHECK_IS_ON()
     String ToTreeStringForThis() const;
     String ToFlatTreeStringForThis() const;
     void PrintNodePathTo(std::ostream&) const;

@@ -52,7 +52,7 @@ class MbWebView {
 public:
     MbWebView(bool isPopup);
     ~MbWebView();
-    void preDestroyOnUiThread();
+    bool preDestroyOnUiThread();
     void preDestroyOnBlinkThread();
 
     void setHostWnd(HWND hWnd);
@@ -89,6 +89,10 @@ public:
     float getZoomFactor() const;
     bool hasSetZoomFactor() const { return m_hasSetZoomFactor; }
     void propagatedZoomFactor();
+    void setAudioMuted(bool mute);
+    bool isAudioMuted() const;
+
+    base::FilePath getDownloadDirPath();
 
     scoped_refptr<mbnet::PageNetExtraData> getPageNetExtraData();
 
@@ -151,6 +155,8 @@ public:
 
     mb::CallbackClosure& getClosure() { return m_closure; }
 
+    std::string getCookie();
+    void setCookie(const std::string& ck);
     void setCookieJarFullPath(const char* path);
     void setLocalStorageFullPath(const char* path);
     base::FilePath getLocalStorageDir();
@@ -169,6 +175,8 @@ public:
 
     HDC getViewDC();
     void unlockViewDC();
+    unsigned char* getLockedViewBitmap(int* w, int* h);
+    void unlockViewBitmap();
 
     void onAllocatedSharedMemory(const gfx::Size& pixelSize, HDC dibDC, void* lock);
     void onAllocatedBitmapMemory(const gfx::Size& pixelSize, void* surface, unsigned char* bitmap, void* lock);
@@ -192,6 +200,11 @@ public:
 
     void setProxy(const mbProxy* proxy);
     const mbProxy* getProxy() const;
+
+    void enterFullscreenOnBlinkThread();
+    void exitFullscreenOnBlinkThread();
+
+    bool isDocumentReady() const { return m_hadDocumentReady; }
 
 private:
     friend class RenderWidgetHostImpl;
@@ -245,6 +258,8 @@ private:
     //int m_cursorInfoType = 0;
     bool m_isCursorInfoTypeAsynGetting = false;
     bool m_isCursorInfoTypeAsynChanged = false;
+    bool m_hadDocumentReady = false;
+    bool m_isAudioMuted = false;
 
     //CRITICAL_SECTION m_memoryCanvasLock;
     base::Lock* m_memoryCanvasLock = nullptr;
@@ -266,8 +281,6 @@ private:
     bool m_hasBackgroundColor = false;
 
     gfx::Point m_caretPos;
-
-    bool m_isAsynResizing = false;
 
     CRITICAL_SECTION m_mouseMsgQueueLock;
     struct MouseMsg {
@@ -300,8 +313,11 @@ private:
 
     mutable CRITICAL_SECTION m_clientSizeLock;
     SIZE m_clientSize;
+    SIZE m_clientSizeCache;
     bool m_clientSizeDirty = true;
     bool m_clientResizeRepaintDirty = true;
+    bool m_isAsynResizing = false;
+    bool m_updataBlinkSizeAsyn = false;
 
     bool m_isLayerWindow = false;
     POINT m_offset;

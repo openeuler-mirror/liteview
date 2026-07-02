@@ -26,6 +26,7 @@
 #include "content/common/mbchar.h"
 #include "content/renderer/RenderThreadImpl.h"
 #include "content/renderer/RendererBlinkPlatformImpl.h"
+#include "content/ui/ContextMeun.h"
 #include "mbnet/WebURLLoaderInternal.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
@@ -325,6 +326,10 @@ void __cdecl defaultOutputDebugString(const char* str)
 static uint32_t g_fontMemBaseAddr[OHOS::MIN_FONT_PSRAM_LENGTH / 4];
 #endif
 
+#if defined(OS_LINUX) && !defined(OS_OHOS)
+void initLinuxGdi();
+#endif
+
 void MB_CALL_TYPE mbInit(const mbSettings* settings)
 {
     if (content::ThreadCall::isInitUiThread())
@@ -343,6 +348,7 @@ void MB_CALL_TYPE mbInit(const mbSettings* settings)
     OHOS::GraphicStartUp::InitFontEngine(reinterpret_cast<uintptr_t>(g_fontMemBaseAddr), OHOS::MIN_FONT_PSRAM_LENGTH, VECTOR_FONT_DIR, DEFAULT_VECTOR_FONT_FILENAME);
 #else
     gtk_init(nullptr, nullptr);
+    initLinuxGdi();
 
     GtkApplication* app = gtk_application_new("org.gtk.example", G_APPLICATION_FLAGS_NONE);
     g_signal_connect(app, "activate", G_CALLBACK(onGtkActivate), NULL);
@@ -444,12 +450,108 @@ mbJsExecState MB_CALL_TYPE mbGetGlobalExecByFrame(mbWebView webviewHandle, mbWeb
     return nullptr;
 }
 
+mbCursorInfoType mojomCursorTypeToMbCursorInfo(ui::mojom::CursorType cursor_type) 
+{
+    switch (cursor_type) {
+        case ui::mojom::CursorType::kPointer:
+            return kMbCursorInfoPointer;
+        case ui::mojom::CursorType::kCross:
+            return kMbCursorInfoCross;
+        case ui::mojom::CursorType::kHand:
+            return kMbCursorInfoHand;
+        case ui::mojom::CursorType::kIBeam:
+            return kMbCursorInfoIBeam;
+        case ui::mojom::CursorType::kWait:
+            return kMbCursorInfoWait;
+        case ui::mojom::CursorType::kHelp:
+            return kMbCursorInfoHelp;
+        case ui::mojom::CursorType::kEastResize:
+            return kMbCursorInfoEastResize;
+        case ui::mojom::CursorType::kNorthResize:
+            return kMbCursorInfoNorthResize;
+        case ui::mojom::CursorType::kNorthEastResize:
+            return kMbCursorInfoNorthEastResize;
+        case ui::mojom::CursorType::kNorthWestResize:
+            return kMbCursorInfoNorthWestResize;
+        case ui::mojom::CursorType::kSouthResize:
+            return kMbCursorInfoSouthResize;
+        case ui::mojom::CursorType::kSouthEastResize:
+            return kMbCursorInfoSouthEastResize;
+        case ui::mojom::CursorType::kSouthWestResize:
+            return kMbCursorInfoSouthWestResize;
+        case ui::mojom::CursorType::kWestResize:
+            return kMbCursorInfoWestResize;
+        case ui::mojom::CursorType::kNorthSouthResize:
+            return kMbCursorInfoNorthSouthResize;
+        case ui::mojom::CursorType::kEastWestResize:
+            return kMbCursorInfoEastWestResize;
+        case ui::mojom::CursorType::kNorthEastSouthWestResize:
+            return kMbCursorInfoNorthEastSouthWestResize;
+        case ui::mojom::CursorType::kNorthWestSouthEastResize:
+            return kMbCursorInfoNorthWestSouthEastResize;
+        case ui::mojom::CursorType::kColumnResize:
+            return kMbCursorInfoColumnResize;
+        case ui::mojom::CursorType::kRowResize:
+            return kMbCursorInfoRowResize;
+        case ui::mojom::CursorType::kMiddlePanning:
+            return kMbCursorInfoMiddlePanning;
+        case ui::mojom::CursorType::kEastPanning:
+            return kMbCursorInfoEastPanning;
+        case ui::mojom::CursorType::kNorthPanning:
+            return kMbCursorInfoNorthPanning;
+        case ui::mojom::CursorType::kNorthEastPanning:
+            return kMbCursorInfoNorthEastPanning;
+        case ui::mojom::CursorType::kNorthWestPanning:
+            return kMbCursorInfoNorthWestPanning;
+        case ui::mojom::CursorType::kSouthPanning:
+            return kMbCursorInfoSouthPanning;
+        case ui::mojom::CursorType::kSouthEastPanning:
+            return kMbCursorInfoSouthEastPanning;
+        case ui::mojom::CursorType::kSouthWestPanning:
+            return kMbCursorInfoSouthWestPanning;
+        case ui::mojom::CursorType::kWestPanning:
+            return kMbCursorInfoWestPanning;
+        case ui::mojom::CursorType::kMove:
+            return kMbCursorInfoMove;
+        case ui::mojom::CursorType::kVerticalText:
+            return kMbCursorInfoVerticalText;
+        case ui::mojom::CursorType::kCell:
+            return kMbCursorInfoCell;
+        case ui::mojom::CursorType::kContextMenu:
+            return kMbCursorInfoContextMenu;
+        case ui::mojom::CursorType::kAlias:
+            return kMbCursorInfoAlias;
+        case ui::mojom::CursorType::kProgress:
+            return kMbCursorInfoProgress;
+        case ui::mojom::CursorType::kNoDrop:
+            return kMbCursorInfoNoDrop;
+        case ui::mojom::CursorType::kCopy:
+            return kMbCursorInfoCopy;
+        case ui::mojom::CursorType::kNone:
+            return kMbCursorInfoNone;
+        case ui::mojom::CursorType::kNotAllowed:
+            return kMbCursorInfoNotAllowed;
+        case ui::mojom::CursorType::kZoomIn:
+            return kMbCursorInfoZoomIn;
+        case ui::mojom::CursorType::kZoomOut:
+            return kMbCursorInfoZoomOut;
+        case ui::mojom::CursorType::kGrab:
+            return kMbCursorInfoGrab;
+        case ui::mojom::CursorType::kGrabbing:
+            return kMbCursorInfoGrabbing;
+        case ui::mojom::CursorType::kCustom:
+            return kMbCursorInfoCustom;
+        default:
+            return kMbCursorInfoPointer;
+    }
+}
+
 int MB_CALL_TYPE mbGetCursorInfoType(mbWebView webviewHandle)
 {
     content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
     if (!webview)
         return 0;
-    return webview->getCursorInfoType();
+    return mojomCursorTypeToMbCursorInfo((ui::mojom::CursorType)(webview->getCursorInfoType()));
 }
 
 int MB_CALL_TYPE mbGetContentWidth(mbWebView webviewHandle)
@@ -547,6 +649,11 @@ void MB_CALL_TYPE mbEditorUndo(mbWebView webviewHandle)
 void MB_CALL_TYPE mbRunMessageLoop()
 {
     content::ThreadCall::runUiThreadMessageLoop(nullptr, nullptr, nullptr);
+}
+
+void MB_CALL_TYPE mbRunMessageLoopUntilIdle()
+{
+    content::ThreadCall::runUiThreadMessageLoopUntilIdle();
 }
 
 void MB_CALL_TYPE mbExitMessageLoop()
@@ -718,6 +825,15 @@ void MB_CALL_TYPE mbOnPaintUpdated(mbWebView webviewHandle, mbPaintUpdatedCallba
     if (!webview)
         return;
     webview->setPaintUpdatedCallback(callback, param);
+}
+
+void MB_CALL_TYPE mbOnPaintBitUpdated(mbWebView webviewHandle, mbPaintBitUpdatedCallback callback, void* param)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return;
+    webview->getClosure().setPaintBitUpdatedCallback(callback, param);
 }
 
 BOOL mbFireKeyUpEventImpl(mbWebView webviewHandle, unsigned int virtualKeyCode, unsigned int flags, BOOL isSystemKey)
@@ -918,68 +1034,25 @@ void MB_CALL_TYPE mbSetNavigationToNewWindowEnable(mbWebView webviewHandle, BOOL
 //     });
 }
 
-namespace mbnet {
-void onNetSetData(mbNetJob jobPtr, void* buf, int len);
-void onNetSetMIMEType(mbNetJob jobPtr, const char* type);
-void onNetSetHTTPHeaderField(mbNetJob jobPtr, const utf8* key, const utf8* value, BOOL response);
-void changeRequestUrl(mbNetJob jobPtr, const char* url);
+void MB_CALL_TYPE mbNetHookRequest(mbNetJob jobPtr)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
+    job->m_isWkeNetSetDataBeSetted = false;
+    if (job->m_asynWkeNetSetData)
+        delete (job->m_asynWkeNetSetData);
+    job->m_asynWkeNetSetData = nullptr;
+    job->m_isHoldJobToAsynCommit = false;
+    job->m_isHookRequest = true;
 }
 
-void MB_CALL_TYPE mbNetSetHTTPHeaderFieldUtf8(mbNetJob jobPtr, const utf8* key, const utf8* value, BOOL response)
+void MB_CALL_TYPE mbOnLoadUrlFail(mbWebView webviewHandle, mbLoadUrlFailCallback callback, void* param)
 {
-    if (content::ThreadCall::isBlinkThread()) {
-        mbnet::onNetSetHTTPHeaderField(jobPtr, key, value, response);
-    } else {
-        std::string* keyCopy = new std::string(key);
-        std::string* valueCopy = new std::string(value);
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr, keyCopy, valueCopy, response] {
-            mbnet::onNetSetHTTPHeaderField(jobPtr, keyCopy->c_str(), valueCopy->c_str(), response);
-            delete keyCopy;
-            delete valueCopy;
-        });
-    }
-}
-
-void MB_CALL_TYPE mbNetSetMIMEType(mbNetJob jobPtr, const char* type)
-{
-    if (content::ThreadCall::isBlinkThread()) {
-        mbnet::onNetSetMIMEType(jobPtr, type);
-    } else {
-        std::string* typeCopy = new std::string(type);
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr, typeCopy] {
-            mbnet::onNetSetMIMEType(jobPtr, typeCopy->c_str());
-            delete typeCopy;
-        });
-    }
-}
-
-void MB_CALL_TYPE mbNetSetData(mbNetJob jobPtr, void* buf, int len)
-{
-    //checkThreadCallIsValid(__FUNCTION__);
-    if (content::ThreadCall::isBlinkThread()) {
-        mbnet::onNetSetData(jobPtr, buf, len);
-    } else {
-        std::vector<char>* bufferCopy = new std::vector<char>();
-        bufferCopy->resize(len);
-        memcpy(&bufferCopy->at(0), buf, len);
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr, bufferCopy] {
-            mbnet::onNetSetData(jobPtr, &bufferCopy->at(0), (int)bufferCopy->size());
-            delete bufferCopy;
-        });
-    }
-}
-
-void MB_CALL_TYPE mbNetChangeRequestUrl(mbNetJob jobPtr, const char* url)
-{
-    if (content::ThreadCall::isBlinkThread())
-        mbnet::changeRequestUrl(jobPtr, url);
-    else {
-        std::string* urlCopy = new std::string(url);
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [jobPtr, urlCopy] {
-            mbnet::changeRequestUrl(jobPtr, urlCopy->c_str());
-            delete urlCopy;
-        });
-    }
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview)
+        return;
+    webview->getClosure().setLoadUrlFailCallback(callback, param);
 }
 
 void MB_CALL_TYPE mbOnLoadUrlBegin(mbWebView webviewHandle, mbLoadUrlBeginCallback callback, void* callbackParam)
@@ -1007,6 +1080,15 @@ void MB_CALL_TYPE mbOnTitleChanged(mbWebView webviewHandle, mbTitleChangedCallba
     if (!webview)
         return;
     webview->getClosure().setTitleChangedCallback(callback, param);
+}
+
+void MB_CALL_TYPE mbOnMouseOverUrlChanged(mbWebView webviewHandle, mbTitleChangedCallback callback, void* param)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
+    if (!webview)
+        return;
+    webview->getClosure().setMouseOverUrlChangedCallback(callback, param);
 }
 
 void MB_CALL_TYPE mbOnCreateView(mbWebView webviewHandle, mbCreateViewCallback callback, void* param)
@@ -1118,15 +1200,34 @@ void MB_CALL_TYPE mbWake(mbWebView webviewHandle)
 
 void mbDestroyWebViewImpl(mbWebView webviewHandle)
 {
-    OutputDebugStringA("mbDestroyWebViewImpl-1-------------\n");
     checkThreadCallIsValid(__FUNCTION__);
 
     content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
-    if (!webview)
+    if (!webview) {
         return;
+    }
+    
+    BOOL canContinue = TRUE;
+    mbCloseCallback closingCallback = webview->getClosure().m_ClosingCallback;
+    webview->getClosure().m_ClosingCallback = nullptr;
+    if (closingCallback) {
+        if (!content::ThreadCall::isUiThread()) {
+            content::ThreadCall::callUiThreadSync(FROM_HERE, [&canContinue, webview, webviewHandle, closingCallback] {
+                canContinue = (closingCallback((mbWebView)webviewHandle, webview->getClosure().m_ClosingParam, nullptr));
+            });
+        } else {
+            canContinue = (closingCallback((mbWebView)webviewHandle, webview->getClosure().m_ClosingParam, nullptr));
+        }
+    }
 
-    webview->preDestroyOnUiThread();
-    //webview->getClosure().m_ClosingCallback = nullptr;
+    if (!canContinue) {
+        return;
+    }
+
+    if (!webview->preDestroyOnUiThread()) {
+        return;
+    }
+    webview->getClosure().m_ClosingCallback = nullptr;
 
 //     if (webview->m_destroyCallback)
 //         webview->m_destroyCallback(webviewHandle, webview->m_destroyCallbackParam, nullptr);
@@ -1136,7 +1237,6 @@ void mbDestroyWebViewImpl(mbWebView webviewHandle)
     content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webview] {
         webview->preDestroyOnBlinkThread();
     });
-    OutputDebugStringA("mbDestroyWebViewImpl-2-------------\n");
 }
 
 void MB_CALL_TYPE mbDestroyWebView(mbWebView webviewHandle)
@@ -1226,18 +1326,6 @@ mbDownloadOpt MB_CALL_TYPE mbDownloadByUtf8Path(mbWebView webviewHandle,
     return mbSimpleDownload(webviewHandle, (const WCHAR*)pathW.c_str(), nullptr, downloadOptions, expectedContentLength, url, mime, disposition, job, dataBind, callbackBind);
 }
 
-void MB_CALL_TYPE mbNetCancelRequest(mbNetJob jobPtr)
-{
-    mbnet::WebURLLoaderInternal* job = (mbnet::WebURLLoaderInternal*)jobPtr;
-    if (content::ThreadCall::isBlinkThread()) {
-        job->m_isWkeCanceled = true;
-    } else {
-        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [job] {
-            job->m_isWkeCanceled = true;
-        });
-    }
-}
-
 void MB_CALL_TYPE mbOnLoadUrlEnd(mbWebView webviewHandle, mbLoadUrlEndCallback callback, void* param)
 {
     checkThreadCallIsValid(__FUNCTION__);
@@ -1308,6 +1396,24 @@ void MB_CALL_TYPE mbUnlockViewDC(mbWebView webviewHandle)
     webview->unlockViewDC();
 }
 
+unsigned char* MB_CALL_TYPE mbGetLockedViewBitmap(mbWebView webviewHandle, int* w, int* h)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return NULL;
+    return webview->getLockedViewBitmap(w, h);
+}
+
+void MB_CALL_TYPE mbUnlockViewBitmap(mbWebView webviewHandle)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return;
+    webview->unlockViewBitmap();
+}
+
 void MB_CALL_TYPE mbSetFocus(mbWebView webviewHandle)
 {
     content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [](content::MbWebView* webview) {
@@ -1354,8 +1460,9 @@ void MB_CALL_TYPE mbSetResourceGc(mbWebView webView, int intervalSec)
 }
 
 std::vector<std::vector<char>*>* s_sharedStringBuffers = nullptr;
+std::vector<std::vector<char16_t>*>* s_sharedStringWBuffers = nullptr;
 
-static const char* createTempCharString(const char* str, size_t length)
+const char* createTempCharString(const char* str, size_t length)
 {
     if (!str || 0 == length)
         return "";
@@ -1366,6 +1473,20 @@ static const char* createTempCharString(const char* str, size_t length)
     if (!s_sharedStringBuffers)
         s_sharedStringBuffers = new std::vector<std::vector<char>*>();
     s_sharedStringBuffers->push_back(stringBuffer);
+    return &stringBuffer->at(0);
+}
+
+const char16_t* createTempCharStringW(const char16_t* str, size_t length)
+{
+    if (!str || 0 == length)
+        return u"";
+    std::vector<char16_t>* stringBuffer = new std::vector<char16_t>(length);
+    memcpy(&stringBuffer->at(0), str, length * sizeof(char16_t));
+    stringBuffer->push_back(u'\0');
+
+    if (!s_sharedStringWBuffers)
+        s_sharedStringWBuffers = new std::vector<std::vector<char16_t>*>();
+    s_sharedStringWBuffers->push_back(stringBuffer);
     return &stringBuffer->at(0);
 }
 
@@ -1454,13 +1575,12 @@ void MB_CALL_TYPE mbInsertCSSByFrame(mbWebView webviewHandle, mbWebFrameHandle f
     OutputDebugStringA("mbInsertCSSByFrame not impl\n");
 }
 
-BOOL MB_CALL_TYPE mbIsLoading(mbWebView webView)
+BOOL MB_CALL_TYPE mbIsLoading(mbWebView webviewHandle)
 {
-    OutputDebugStringA("mbIsLoading not impl\n");
-//     WKE_CHECK_WEBVIEW_AND_THREAD_IS_VALID(webView, false);
-//     return webView->isLoading();
-    DebugBreak();
-    return FALSE;
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return FALSE;
+    return webview->isDocumentReady();
 }
 
 void MB_CALL_TYPE mbStopLoading(mbWebView webView)
@@ -1554,7 +1674,7 @@ void MB_CALL_TYPE mbSetDebugConfig(mbWebView webviewHandle, const char* debugStr
     } else if (dbgStr == "setTimerHeartbeat") {
 #if OS_LINUX
         g_timeout_add(16, onTimerHeartbeat, NULL);
-#endif
+#endif      
     } else if (dbgStr == "showTotalSizeOfCommittedPages") {
         content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [](content::MbWebView* webview) {
             size_t size = WTF::Partitions::TotalSizeOfCommittedPages();
@@ -1788,6 +1908,8 @@ void MB_CALL_TYPE mbResponseQuery(mbWebView webviewHandle, int64_t queryId, int 
             v8::HandleScope handleScope(isolate);
             v8::MicrotasksScope microtasksScope(isolate, v8::MicrotasksScope::kDoNotRunMicrotasks);
             blink::WebLocalFrame* mainFrame = blink::WebLocalFrameImpl::FromFrame(blinkFrame);
+            if (!mainFrame)
+                break;
             v8::Local<v8::Context> context = mainFrame->MainWorldScriptContext();
             context->Enter();
 
@@ -1814,38 +1936,6 @@ void MB_CALL_TYPE mbResponseQuery(mbWebView webviewHandle, int64_t queryId, int 
     });
 }
 
-void MB_CALL_TYPE mbGetCookie(mbWebView webviewHandle, mbGetCookieCallback callback, void* param)
-{
-    checkThreadCallIsValid(__FUNCTION__);
-    if (!callback)
-        return;
-
-    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
-    if (!webview) {
-        callback(NULL_WEBVIEW, param, kMbAsynRequestStateFail, nullptr);
-        return;
-    }
-
-    content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, callback, param] {
-        std::string* cookie = nullptr;
-        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
-        if (webview) {
-            cookie = new std::string(webview->getCookiesForSession());
-        } else
-            cookie = new std::string("");
-
-        content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, [webviewHandle, callback, param, cookie] {
-            content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr((int64_t)webviewHandle);
-            if (!webview) {
-                callback(NULL_WEBVIEW, param, kMbAsynRequestStateFail, nullptr);
-                delete cookie;
-                return;
-            }
-            callback(webviewHandle, param, kMbAsynRequestStateOk, cookie->c_str());
-            delete cookie;
-        });
-    });
-}
 void MB_CALL_TYPE mbOnConsole(mbWebView webviewHandle, mbConsoleCallback callback, void* param)
 {
     checkThreadCallIsValid(__FUNCTION__);
@@ -2022,27 +2112,34 @@ void MB_CALL_TYPE mbSetContextMenuItemShow(mbWebView webviewHandle, mbMenuItemId
         content::g_contextMenuItemMask &= (~item);
 }
 
-void MB_CALL_TYPE mbSetCookieJarPath(mbWebView webviewHandle, const WCHAR* path)
+void MB_CALL_TYPE mbSetContextMenuCallback(mbWebView webviewHandle, mbContextMenuPopupCallback callback, void* param)
 {
-    if (!path)
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
         return;
-
-    std::u16string pathString((const char16_t*)path);
-    if (0 == pathString.size())
-        return;
-
-    if (mbu16('\\') != pathString[pathString.size() - 1])
-        pathString += (char16_t)mbu16('\\');
-    pathString += (const char16_t*)mbu16("cookies.dat");
-
-    mbSetCookieJarFullPath(webviewHandle, (const WCHAR*)pathString.c_str());
+    webview->getClosure().setContextMenuCallback(callback, param);
 }
 
-void MB_CALL_TYPE mbClearCookie(mbWebView webviewHandle)
+static void executeContextMenu(mbWebView webviewHandle, mbMenuItemId itemID)
 {
-    content::ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [](content::MbWebView* webview) {
-        webview->performCookieCommand(mbCookieCommandClearSessionCookies);
-    });
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return;
+
+    content::ContextMenu::get()->setCurrentWebview(webview);
+    content::ContextMenu::get()->onCommand((mbMenuItemId)itemID);
+}
+
+void MB_CALL_TYPE mbExecuteContextMenu(mbWebView webviewHandle, mbMenuItemId itemID)
+{
+    if (WTF::IsMainThread()) {
+        executeContextMenu(webviewHandle, itemID);
+    } else {
+        content::ThreadCall::callBlinkThreadAsync(MB_FROM_HERE, [webviewHandle, itemID] {
+            executeContextMenu(webviewHandle, itemID);
+        });
+    }
 }
 
 void MB_CALL_TYPE mbSetViewSettings(mbWebView webviewHandle, const mbViewSettings* settings)
@@ -2065,8 +2162,33 @@ void MB_CALL_TYPE mbSetViewSettings(mbWebView webviewHandle, const mbViewSetting
 //     });
 }
 
+void MB_CALL_TYPE mbSetAudioMuted(mbWebView webviewHandle, BOOL b)
+{
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return;
+    webview->setAudioMuted(b);
+}
+
+BOOL MB_CALL_TYPE mbIsAudioMuted(mbWebView webviewHandle)
+{
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return FALSE;
+    return webview->isAudioMuted();
+}
+
 void* MB_CALL_TYPE mbGetProcAddr(const char* name)
 {
     DebugBreak();
     return nullptr;
+}
+
+void MB_CALL_TYPE mbOnFullscreenRequested(mbWebView webviewHandle, mbFullscreenRequestedCallback callback, void* param)
+{
+    checkThreadCallIsValid(__FUNCTION__);
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(webviewHandle);
+    if (!webview)
+        return;
+    webview->getClosure().setFullscreenRequestedCallback(callback, param);
 }

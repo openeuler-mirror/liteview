@@ -15,6 +15,7 @@
 #include "linux/linuxgdi.h"
 #include "linux/linuxgl.h"
 #include "linux/shadergl.h"
+#include "base/cancelable_callback.h"
 #include "content/common/StringUtil.h"
 #include "content/common/ThreadCall.h"
 #include <windows.h>
@@ -27,10 +28,10 @@
 #include <gdk/gdkkeysyms-compat.h>
 #include <gtk/gtkglarea.h>
 #include <map>
-
-#include "base/strings/utf_string_conversions.h"
+#include <malloc.h>
 
 namespace {
+
 gboolean onFocusIn(GtkWidget* widget, GdkEventFocus* event, gpointer data) 
 {
     HwndLinux* self = (HwndLinux*)data;
@@ -48,7 +49,7 @@ gboolean onPreeditStart(GtkWidget* widget, GdkEventFocus* event, gpointer data)
 gboolean onImCommit(GtkWidget* widget, const gchar* str, gpointer data) 
 {
     HwndLinux* self = (HwndLinux*)data;
-    std::u16string u16Str = base::UTF8ToUTF16(str);
+    std::u16string u16Str = content::utf8ToUtf16(str);
     // todo(mb): 这里可能有 code point 问题, 比如 emoji? 不过 win 版也是这么做的
     for (char16_t ch : u16Str) {
         self->m_wndProc(self, WM_IME_CHAR, (WPARAM)ch, 0);
@@ -59,9 +60,60 @@ gboolean onImCommit(GtkWidget* widget, const gchar* str, gpointer data)
 gboolean onFocusOut(GtkWidget* widget, GdkEventFocus* event, gpointer data) 
 {
     HwndLinux* self = (HwndLinux*)data;
-    gtk_im_context_focus_out(self->m_imContext);
+    if (self->m_imContext)
+        gtk_im_context_focus_out(self->m_imContext);
     return FALSE;
 }
+
+void onWindowMap(GtkWidget* widget, gpointer user_data)
+{
+    gint x = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "win_x"));
+    gint y = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(widget), "win_y"));
+
+    gtk_window_move(GTK_WINDOW(widget), x, y);
+}
+
+class WindowMemoryShaper {
+public:
+    static WindowMemoryShaper* getInstance()
+    {
+        static WindowMemoryShaper* instance = new WindowMemoryShaper();
+        return instance;
+    }
+
+    void requestTrim()
+    {
+        CHECK(content::ThreadCall::isUiThread());
+
+        m_trimClosure.Cancel();
+        m_trimClosure.Reset(base::BindOnce(&WindowMemoryShaper::scheduleIdleTrim, base::Unretained(this)));
+
+        base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE, 
+            m_trimClosure.callback(), 
+            base::Seconds(5));
+    }
+
+private:
+    WindowMemoryShaper() = default;
+
+    static gboolean runStaticTrim(gpointer data) {
+        malloc_trim(0);
+        return G_SOURCE_REMOVE; 
+    }
+
+    void scheduleIdleTrim() {
+        g_idle_add(runStaticTrim, nullptr);
+    }
+
+    base::CancelableOnceClosure m_trimClosure;
+};
+
+void onGlAreaDestroy(GtkWidget* widget, gpointer data)
+{
+    WindowMemoryShaper::getInstance()->requestTrim();
+}
+
 }
 
 std::map<int, WNDCLASSEXW*>* HwndLinux::s_wndClassMap = nullptr;
@@ -215,6 +267,7 @@ HwndLinux::HwndLinux()
     pthread_mutexattr_init(&attr);
     pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&m_propsMutex, &attr);
+    pthread_mutex_init(&m_damageRectLock, &attr);
 }
 
 HwndLinux::~HwndLinux()
@@ -222,6 +275,10 @@ HwndLinux::~HwndLinux()
     if (m_glShader)
         delete m_glShader;
     pthread_mutex_destroy(&m_propsMutex);
+    pthread_mutex_destroy(&m_damageRectLock);
+
+    g_object_unref(m_imContext);
+    m_imContext = NULL;
 }
 
 void HwndLinux::updataPosOnScreen()
@@ -612,9 +669,9 @@ gboolean HwndLinux::onScroll(GtkWidget* widget, GdkEventScroll* event, gpointer 
 
 //////////////////////////////////////////////////////////////////////////
 
-cairo_surface_t* LinuxGdiCreateSurfaceByHwnd(HWND hwnd, int w, int h)
+cairo_surface_t* LinuxGdiCreateSurfaceByHwnd(HWND hWnd, int w, int h)
 {
-    HwndLinux* self = (HwndLinux*)hwnd;
+    HwndLinux* self = (HwndLinux*)hWnd;
     //GdkWindow* window = gtk_widget_get_window(self->m_drawingArea);
     //cairo_surface_t* surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR, w, h);
     cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
@@ -624,10 +681,10 @@ cairo_surface_t* LinuxGdiCreateSurfaceByHwnd(HWND hwnd, int w, int h)
 
 //////////////////////////////////////////////////////////////////////////
 
-LONG SetWindowLongW(HWND hwnd, int nIndex, LONG dwNewLong)
+LONG SetWindowLongW(HWND hWnd, int nIndex, LONG dwNewLong)
 {
     if (GWLP_USERDATA == nIndex) {
-        HwndLinux* self = (HwndLinux*)hwnd;
+        HwndLinux* self = (HwndLinux*)hWnd;
         //self->m_wndProc;
         self->m_userdata = (LPVOID)dwNewLong;
     } else {
@@ -636,9 +693,9 @@ LONG SetWindowLongW(HWND hwnd, int nIndex, LONG dwNewLong)
     return 0;
 }
 
-LONG GetWindowLongW(HWND hwnd, int nIndex)
+LONG GetWindowLongW(HWND hWnd, int nIndex)
 {
-    HwndLinux* self = (HwndLinux*)hwnd;
+    HwndLinux* self = (HwndLinux*)hWnd;
     if (!self)
         return 0;
 
@@ -652,13 +709,13 @@ LONG GetWindowLongW(HWND hwnd, int nIndex)
     return 0;
 }
 
-BOOL SetPropW(HWND hwnd, LPCWSTR lpString, HANDLE hData)
+BOOL SetPropW(HWND hWnd, LPCWSTR lpString, HANDLE hData)
 {
     if (!lpString)
         return FALSE;
 
     unsigned int hash = content::hashStringW(lpString);
-    HwndLinux* self = (HwndLinux*)hwnd;
+    HwndLinux* self = (HwndLinux*)hWnd;
     pthread_mutex_lock(&self->m_propsMutex);
     
     std::map<unsigned int, void *>::iterator it = self->m_props.find(hash);
@@ -672,11 +729,38 @@ BOOL SetPropW(HWND hwnd, LPCWSTR lpString, HANDLE hData)
     return TRUE;
 }
 
-HANDLE GetPropW(HWND hwnd, LPCWSTR lpString)
+HANDLE RemovePropW(HWND hWnd, LPCWSTR lpString)
+{
+    if (!lpString)
+        return NULL;
+
+    pthread_mutex_lock(&HwndLinux::s_hwndMutex);
+    HwndLinux* self = (HwndLinux*)hWnd;
+    if (HwndLinux::s_hwnds->find(hWnd) == HwndLinux::s_hwnds->end()) {
+        pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+        return NULL;
+    }
+    
+    unsigned int hash = content::hashStringW(lpString);
+    HANDLE hData = NULL;
+    pthread_mutex_lock(&self->m_propsMutex);
+
+    std::map<unsigned int, void*>::iterator it = self->m_props.find(hash);
+    if (it != self->m_props.end()) {
+        hData = it->second;
+        self->m_props.erase(it);
+    }
+    pthread_mutex_unlock(&self->m_propsMutex);
+    pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+
+    return hData;
+}
+
+HANDLE GetPropW(HWND hWnd, LPCWSTR lpString)
 {
     HANDLE ret = nullptr;
     unsigned int hash = content::hashStringW(lpString);
-    HwndLinux* self = (HwndLinux*)hwnd;
+    HwndLinux* self = (HwndLinux*)hWnd;
 
     pthread_mutex_lock(&self->m_propsMutex);
     std::map<unsigned int, void*>::iterator it = self->m_props.find(hash);
@@ -687,7 +771,7 @@ HANDLE GetPropW(HWND hwnd, LPCWSTR lpString)
     return ret;
 }
 
-LRESULT DefWindowProcW(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam)
+LRESULT DefWindowProcW(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 {
     return 0;
 }
@@ -706,6 +790,7 @@ BOOL IsLinuxOpenglDraw()
 
 gboolean onRenderGlTextures(GtkGLArea* area, GdkGLContext* context, gpointer data);
 void onRealizeGlTextures(GtkWidget* widget, gpointer data);
+void onUnrealizeGlTextures(GtkWidget* widget, gpointer data);
 
 // void on_size_changed(GtkWindow* window, gpointer data) 
 // {
@@ -739,6 +824,12 @@ int drawBoxMain();
 
 void gtkMessageBox(const char* txt);
 void gtkSimpleWin();
+
+void initLinuxGdi()
+{
+    if (!HwndLinux::s_hwnds)
+        HwndLinux::s_hwnds = new std::set<HWND>();
+}
 
 HWND CreateWindowExW(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle, int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam)
 {
@@ -826,9 +917,17 @@ HWND CreateWindowExW(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName,
         gtk_widget_set_events(self->m_glArea, gtk_widget_get_events(self->m_glArea) | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK);
         g_signal_connect(self->m_glArea, "realize", G_CALLBACK(onRealizeGlTextures), self);
         g_signal_connect(self->m_glArea, "render", G_CALLBACK(onRenderGlTextures), self);
+        g_signal_connect(self->m_glArea, "unrealize", G_CALLBACK(onUnrealizeGlTextures), self);
+        g_signal_connect(self->m_glArea, "destroy", G_CALLBACK(onGlAreaDestroy), NULL);
 
         msgGtkWidget = windowWidget;
     }
+
+    // 将坐标数据挂在 window 上
+    g_object_set_data(G_OBJECT(window), "win_x", GINT_TO_POINTER(X));
+    g_object_set_data(G_OBJECT(window), "win_y", GINT_TO_POINTER(Y));
+
+    g_signal_connect(window, "map", G_CALLBACK(onWindowMap), NULL);
 
     g_signal_connect(msgGtkWidget, "configure-event", G_CALLBACK(&HwndLinux::onConfigureEvent), self);
     g_signal_connect(msgGtkWidget, "motion-notify-event", G_CALLBACK(&HwndLinux::onMotionNotifyEvent), self);
@@ -917,6 +1016,8 @@ HWND LinuxGdiBindWindowByGtk(void* rootWindow, void* drawingArea, BOOL isGl, DWO
         //gtk_widget_set_events(self->m_glArea, gtk_widget_get_events(self->m_glArea) | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_BUTTON_RELEASE_MASK | GDK_SCROLL_MASK);
         g_signal_connect(self->m_glArea, "realize", G_CALLBACK(onRealizeGlTextures), self);
         g_signal_connect(self->m_glArea, "render", G_CALLBACK(onRenderGlTextures), self);
+        g_signal_connect(self->m_glArea, "unrealize", G_CALLBACK(onUnrealizeGlTextures), self);
+        g_signal_connect(self->m_glArea, "destroy", G_CALLBACK(onGlAreaDestroy), NULL);
     }
     printf("LinuxGdiBindWindowByGtk: %d, %d, %p\n", nWidth, nHeight, drawingArea);
 
@@ -926,8 +1027,8 @@ HWND LinuxGdiBindWindowByGtk(void* rootWindow, void* drawingArea, BOOL isGl, DWO
 
     g_signal_connect(self->m_imContext, "preedit-start", G_CALLBACK(onPreeditStart), self);
     g_signal_connect(self->m_imContext, "commit", G_CALLBACK(onImCommit), self);
-    g_signal_connect(rootWindow, "focus-in-event", G_CALLBACK(onFocusIn), self);
-    g_signal_connect(rootWindow, "focus-out-event", G_CALLBACK(onFocusOut), self);
+    //g_signal_connect(rootWindow, "focus-in-event", G_CALLBACK(onFocusIn), self);
+    //g_signal_connect(rootWindow, "focus-out-event", G_CALLBACK(onFocusOut), self);
     
     // 这种情况不需要绑定destroy事件了，因为rootWindow是最外层的窗口，而不是每个page的
     //g_signal_connect(GTK_WINDOW((GtkWidget*)rootWindow), "destroy", G_CALLBACK(&HwndLinux::onDestroy), self);
@@ -939,6 +1040,8 @@ HWND LinuxGdiBindWindowByGtk(void* rootWindow, void* drawingArea, BOOL isGl, DWO
     g_signal_connect(msgGtkWidget, "scroll-event", G_CALLBACK(&HwndLinux::onScroll), self);
     g_signal_connect(msgGtkWidget, "key-press-event", G_CALLBACK(&HwndLinux::onKeyPress), self);
     g_signal_connect(msgGtkWidget, "key-release-event", G_CALLBACK(&HwndLinux::onKeyRelease), self);
+    g_signal_connect(msgGtkWidget, "focus-in-event", G_CALLBACK(onFocusIn), self);
+    g_signal_connect(msgGtkWidget, "focus-out-event", G_CALLBACK(onFocusOut), self);
     g_signal_connect(msgGtkWidget, "focus-out-event", G_CALLBACK(&HwndLinux::onFocusOut), self);
     g_object_set(G_OBJECT(msgGtkWidget), "can-focus", TRUE, NULL);
 
@@ -961,11 +1064,91 @@ BOOL GetClassInfoExW(HINSTANCE hInstance, LPCWSTR lpszClass, LPWNDCLASSEXW lpwcx
     return FALSE;
 }
 
+static bool rectContains(const RECT& a, const RECT& rect)
+{
+    return (rect.left >= a.left && rect.right <= a.right && rect.top >= a.top && rect.bottom <= a.bottom);
+}
+
+static bool rectArea(const RECT& rect)
+{
+    return (rect.right - rect.left) * (rect.bottom - rect.top);
+}
+
+// 辅助函数：求两个整数的最大值
+static LONG maxLong(LONG a, LONG b)
+{
+    return (a > b) ? a : b;
+}
+
+// 辅助函数：求两个整数的最小值
+static LONG minLong(LONG a, LONG b)
+{
+    return (a < b) ? a : b;
+}
+
+// 计算两个矩形重叠部分的矩形区域
+static bool unionRects(const RECT* rect1, const RECT* rect2, RECT* overlapRect)
+{
+    if (rect1 == NULL || rect2 == NULL || overlapRect == NULL)
+        return false;
+
+    // 验证矩形是否有效（宽度和高度应该大于0）
+    if (rect1->left >= rect1->right || rect1->top >= rect1->bottom ||
+        rect2->left >= rect2->right || rect2->top >= rect2->bottom) {
+        return false;
+    }
+
+    // 计算重叠矩形的边界
+    overlapRect->left = maxLong(rect1->left, rect2->left);
+    overlapRect->top = maxLong(rect1->top, rect2->top);
+    overlapRect->right = minLong(rect1->right, rect2->right);
+    overlapRect->bottom = minLong(rect1->bottom, rect2->bottom);
+
+    // 检查是否存在重叠区域
+    if (overlapRect->left >= overlapRect->right || overlapRect->top >= overlapRect->bottom) {
+        return false;  // 没有重叠区域
+    }
+
+    return true;  // 成功获取重叠矩形
+}
+
+static void mergeDirtyRects(std::vector<RECT>* damageRects, const RECT& rect)
+{
+    for (size_t i = 0; i < damageRects->size(); ++i) {
+        const RECT& r = damageRects->at(i);
+        if (rectContains(r, rect))
+            return;
+        int sumOfArea = rectArea(r) + rectArea(rect);
+
+        RECT unionRect;
+        bool b = unionRects(&r, &rect, &unionRect);
+        int unionRectArea = rectArea(unionRect);
+        if (unionRectArea < sumOfArea) {
+            (*damageRects)[i] = unionRect;
+            return;
+        }
+    }
+    damageRects->push_back(rect);
+}
+
 BOOL InvalidateRect(HWND hWnd, CONST RECT* lpRect, BOOL bErase)
 {
     HwndLinux* self = (HwndLinux*)hWnd;
-    RECT* rc = new RECT(*lpRect);
-    auto cb = [self, rc]() {
+    if (!HwndLinux::s_hwnds)
+        return FALSE;
+    pthread_mutex_lock(&HwndLinux::s_hwndMutex);
+    std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find(hWnd);
+    if (it == HwndLinux::s_hwnds->end()) {
+        pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+        return FALSE;
+    }
+
+    pthread_mutex_lock(&self->m_damageRectLock);
+    ///self->m_damageRects.push_back(*lpRect);
+    mergeDirtyRects(&self->m_damageRects, *lpRect);
+    pthread_mutex_unlock(&self->m_damageRectLock);
+
+    auto cb = [self]() {
         do {
             if (!HwndLinux::s_hwnds)
                 break;
@@ -975,21 +1158,230 @@ BOOL InvalidateRect(HWND hWnd, CONST RECT* lpRect, BOOL bErase)
             if (it == HwndLinux::s_hwnds->end())
                 break;
 
-            //printf("InvalidateRect~: %p\n", self);
-            if (self->m_glArea)
-                gtk_gl_area_queue_render(GTK_GL_AREA(self->m_glArea));
-            else
-                gtk_widget_queue_draw_area(self->m_drawingArea, rc->left, rc->top, rc->right - rc->left, rc->bottom - rc->top);
-        } while (false);
+            self->m_isPostDamageRect = false;
 
-        delete rc;
+            pthread_mutex_lock(&self->m_damageRectLock);
+            std::vector<RECT> damageRects = self->m_damageRects;
+            self->m_damageRects.clear();
+            pthread_mutex_unlock(&self->m_damageRectLock);
+
+            //printf("InvalidateRect~: %p\n", self);
+            if (self->m_glArea) {
+                gtk_gl_area_queue_render(GTK_GL_AREA(self->m_glArea));
+            } else {
+                for (size_t i = 0; i < damageRects.size(); ++i) {
+                    RECT rc = damageRects[i];
+                    gtk_widget_queue_draw_area(self->m_drawingArea, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top);
+                }
+            }
+        } while (false);
     };
 
-    if (content::ThreadCall::isUiThread())
+    if (content::ThreadCall::isUiThread()) {
+        pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
         cb();
-    else
-        content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, std::move(cb));
+    } else {
+        if (!self->m_isPostDamageRect) {
+            self->m_isPostDamageRect = true;
+            content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, std::move(cb));
+        }
+    }
+    pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
     return TRUE;
+}
+
+#define MB_ICONQUESTION 0x00000020L
+#define MB_ICONEXCLAMATION 0x00000030L
+#define MB_ICONWARNING   MB_ICONEXCLAMATION
+#define MB_ICONASTERISK 0x00000040L
+#define MB_ABORTRETRYIGNORE 0x00000002L
+#define MB_YESNOCANCEL 0x00000003L
+#define MB_RETRYCANCEL 0x00000005L
+#define MB_ABORTRETRYIGNORE 0x00000002L
+#define MB_YESNOCANCEL 0x00000003L
+#define MB_YESNO 0x00000004L
+#define MB_RETRYCANCEL 0x00000005L
+#define MB_SYSTEMMODAL 0x00001000L
+#define MB_ICONINFORMATION          MB_ICONASTERISK
+#define MB_TASKMODAL 0x00002000L
+#define MB_TOPMOST 0x00040000L
+#define MB_SETFOREGROUND 0x00010000L
+#define MB_ICONHAND 0x00000010L
+#define MB_ICONERROR                MB_ICONHAND
+
+#define IDCANCEL 2
+#define IDNO 7
+#define IDCANCEL 2
+
+// 转换 Windows 消息类型到 GTK 消息类型
+static GtkMessageType convertToGtkMessageType(UINT uType)
+{
+    if (uType & MB_ICONHAND || uType & MB_ICONERROR) {
+        return GTK_MESSAGE_ERROR;
+    } else if (uType & MB_ICONQUESTION) {
+        return GTK_MESSAGE_QUESTION;
+    } else if (uType & MB_ICONEXCLAMATION || uType & MB_ICONWARNING) {
+        return GTK_MESSAGE_WARNING;
+    } else if (uType & MB_ICONASTERISK || uType & MB_ICONINFORMATION) {
+        return GTK_MESSAGE_INFO;
+    } else {
+        // 默认根据按钮类型推断
+        switch (uType & 0x0000000FL) {
+            case MB_OKCANCEL:
+            case MB_ABORTRETRYIGNORE:
+            case MB_YESNOCANCEL:
+            case MB_RETRYCANCEL:
+                return GTK_MESSAGE_QUESTION;
+            default:
+                return GTK_MESSAGE_INFO;
+        }
+    }
+}
+
+// 转换 Windows 按钮类型到 GTK 按钮类型
+static GtkButtonsType convertToGtkButtonsType(UINT uType)
+{
+    switch (uType & 0x0000000FL) {
+        case MB_OK:
+            return GTK_BUTTONS_OK;
+
+        case MB_OKCANCEL:
+            return GTK_BUTTONS_OK_CANCEL;
+
+        case MB_ABORTRETRYIGNORE:
+            // GTK 没有直接对应的按钮组合，使用自定义
+            return GTK_BUTTONS_CLOSE;
+
+        case MB_YESNOCANCEL:
+            // GTK 没有直接对应的按钮组合，使用自定义
+            return GTK_BUTTONS_CLOSE;
+
+        case MB_YESNO:
+            return GTK_BUTTONS_YES_NO;
+
+        case MB_RETRYCANCEL:
+            // GTK 没有直接对应的按钮组合，使用自定义
+            return GTK_BUTTONS_CLOSE;
+
+        default:
+            return GTK_BUTTONS_OK;
+    }
+}
+
+// 转换 GTK 响应到 Windows 返回值
+static int convertFromGtkResponse(gint response)
+{
+    switch (response) {
+        case GTK_RESPONSE_OK:
+            return IDOK;
+
+        case GTK_RESPONSE_CANCEL:
+            return IDCANCEL;
+
+        case GTK_RESPONSE_YES:
+            return IDYES;
+
+        case GTK_RESPONSE_NO:
+            return IDNO;
+
+        case GTK_RESPONSE_CLOSE:
+        case GTK_RESPONSE_DELETE_EVENT:
+            // 对于没有明确定义的按钮组合，返回取消
+            return IDCANCEL;
+
+        default:
+            return IDOK;
+    }
+}
+
+int MessageBoxImpl(HWND hWnd, std::string* lpText, std::string* lpCaption, UINT uType)
+{
+    GtkWidget* dialog = NULL;
+    GtkWindow* parent = NULL;
+    GtkMessageType msg_type;
+    GtkButtonsType buttons_type;
+    gint response;
+    int result = IDOK;
+
+    if (hWnd && HwndLinux::s_hwnds) {
+        HwndLinux* self = (HwndLinux*)hWnd;
+        pthread_mutex_lock(&HwndLinux::s_hwndMutex);
+        std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find((HWND)self);
+        pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+        if (it != HwndLinux::s_hwnds->end()) {
+            parent = GTK_WINDOW(self->m_window);
+        }
+    }
+
+    // 转换消息类型和按钮类型
+    msg_type = convertToGtkMessageType(uType);
+    buttons_type = convertToGtkButtonsType(uType);
+
+    // 创建对话框
+    dialog = gtk_message_dialog_new(parent,
+        (GtkDialogFlags)(GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT),
+        msg_type,
+        buttons_type,
+        "%s", lpCaption ? lpCaption->c_str() : "");
+    delete lpCaption;
+
+    // 设置消息文本
+    if (lpText) {
+        gtk_message_dialog_format_secondary_text(GTK_MESSAGE_DIALOG(dialog), "%s", lpText->c_str());
+        delete lpText;
+    }
+
+    // 设置窗口属性
+    if (uType & MB_SYSTEMMODAL || uType & MB_TASKMODAL) {
+        gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+        gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE);
+    }
+
+    if (uType & MB_TOPMOST) {
+        gtk_window_set_keep_above(GTK_WINDOW(dialog), TRUE);
+    }
+
+    if (uType & MB_SETFOREGROUND) {
+        gtk_window_present(GTK_WINDOW(dialog));
+    }
+
+    // 显示对话框并获取响应
+    response = gtk_dialog_run(GTK_DIALOG(dialog));
+    result = convertFromGtkResponse(response);
+
+    // 销毁对话框
+    gtk_widget_destroy(dialog);
+
+    return result;
+}
+
+int MessageBoxW(HWND hWnd, LPCWSTR lpText, LPCWSTR lpCaption, UINT uType)
+{
+    return MessageBoxA(hWnd, 
+        lpText ? content::utf16ToUtf8(lpText).c_str() : "",
+        lpCaption ? content::utf16ToUtf8(lpCaption).c_str() : "", uType);
+}
+
+int WINAPI MessageBoxA(HWND hWnd, LPCSTR lpText, LPCSTR lpCaption, UINT uType)
+{
+    int ret = -1111;
+    int* retPtr = &ret;
+    std::string* textStr = new std::string(lpText ? lpText : "");
+    std::string* captionStr = new std::string(lpCaption ? lpCaption : "");
+
+    auto cb = [retPtr, hWnd, textStr, captionStr, uType]() {
+        *retPtr = MessageBoxImpl(hWnd, textStr, captionStr, uType);
+    };
+
+    if (content::ThreadCall::isUiThread()) {
+        cb();
+    } else {
+        content::ThreadCall::callUiThreadAsync(MB_FROM_HERE, std::move(cb));
+        while (ret == -1111) {
+            usleep(100);
+        }
+    }
+    return ret;
 }
 
 BOOL GetMessageW(MSG* lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
@@ -1031,6 +1423,8 @@ BOOL EndPaint(HWND hWnd, CONST PAINTSTRUCT* lpPaint)
 BOOL ShowWindow(HWND hWnd, int nCmdShow)
 {
     HwndLinux* self = (HwndLinux*)hWnd;
+    if (!self)
+        return FALSE;
     CHECK(content::ThreadCall::isUiThread());
 
     if (SW_SHOW == nCmdShow || SW_SHOWNORMAL == nCmdShow || SW_SHOWNOACTIVATE == nCmdShow || SW_MAXIMIZE == nCmdShow) {
@@ -1217,6 +1611,41 @@ BOOL ClientToScreen(HWND hWnd, POINT* lpPoint)
     return TRUE;
 }
 
+// todo(mb): select 的定位具有特殊性, 该函数后续应该换个位置
+BOOL ClientToScreenForSelect(HWND hWnd, POINT* lpPoint)
+{
+    pthread_mutex_lock(&HwndLinux::s_hwndMutex);
+
+    HwndLinux* self = (HwndLinux*)hWnd;
+
+    std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find(hWnd);
+    bool b = it != HwndLinux::s_hwnds->end();
+    if (!b) {
+        pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+        return FALSE;
+    }
+
+    if (content::ThreadCall::isUiThread()) {
+        gint x, y;
+        // 与 Windows 不同, 在 Linux 下, mb 不是一个窗口, 而是一个 gtk widget
+        // 这里计算坐标需要两步, 首先计算 mb 绘制区域相对于外部窗口的坐标, 再加上外部窗口相当于屏幕的坐标
+        if (gtk_widget_translate_coordinates(self->getDrawingAreaOrGl(), self->m_window, 0, 0, &x, &y)) {
+            gint winX, winY;
+            gdk_window_get_origin(gtk_widget_get_window(self->m_window), &winX, &winY);
+
+            self->m_rootX = x + winX;
+            self->m_rootY = y + winY;
+        }
+    }
+
+    lpPoint->x += self->m_rootX;
+    lpPoint->y += self->m_rootY;
+
+    pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
+
+    return TRUE;
+}
+
 void HwndLinux::destroy(HWND hWnd, bool forceDelete)
 {
     pthread_mutex_lock(&HwndLinux::s_hwndMutex);
@@ -1229,18 +1658,24 @@ void HwndLinux::destroy(HWND hWnd, bool forceDelete)
     }
 
     GtkWidget* window = self->m_window;
+    bool autoHandleClose = self->m_autoHandleClose;
     // 如果是外部接管gtk窗口的生命周期，那这里要手动析构
-    if (self->m_autoHandleClose || forceDelete) {
-        delete self;
-    } else {
-        self->m_isDestroying = true;
-    }
+    //if (self->m_autoHandleClose || forceDelete) {
+    //    delete self;
+    //} else {
+    //    self->m_isDestroying = true;
+    //}
+    // 目前外部的使用方式, 创建是 mbCreateWebViewBindGtkWindow
+    // 销毁是 mbDestroyWebView + gtk_window_close, 
+    // 此时只会设置 self->m_isDestroying = true, 无法销毁 HwndLinux 自身
+    delete self;
+
     HwndLinux::s_hwnds->erase(it);
     pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
 
     // m_autoHandleClose是非LinuxGdiBindWindowByGtk模式才有。在LinuxGdiBindWindowByGtk模式下，外部exe来关闭窗口
-    if (window && self->m_autoHandleClose) {
-        OutputDebugStringA("HwndLinux::destroy ok\n");
+    if (window && autoHandleClose) {
+        printf("HwndLinux::destroy ok: %p\n", window);
         //gtk_window_close(GTK_WINDOW(window));
         gtk_widget_destroy(window);
     }
@@ -1329,14 +1764,14 @@ HCURSOR LoadCursorW(HINSTANCE hInstance, LPCWSTR lpCursorName)
     return NULL;
 }
 
-void* HwndToGtkWindow(HWND hwnd)
+void* HwndToGtkWindow(HWND hWnd)
 {
-    if (!HwndLinux::s_hwnds || !hwnd)
+    if (!HwndLinux::s_hwnds || !hWnd)
         return nullptr;
-    HwndLinux* self = (HwndLinux*)hwnd;
+    HwndLinux* self = (HwndLinux*)hWnd;
 
     pthread_mutex_lock(&HwndLinux::s_hwndMutex);
-    std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find(hwnd);
+    std::set<HWND>::const_iterator it = HwndLinux::s_hwnds->find(hWnd);
     if (it == HwndLinux::s_hwnds->end()) {
         pthread_mutex_unlock(&HwndLinux::s_hwndMutex);
         return nullptr;

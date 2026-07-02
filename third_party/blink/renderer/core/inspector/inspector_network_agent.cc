@@ -101,8 +101,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
-//#include "third_party/boringssl/src/include/openssl/ssl.h"
-#include "third_party/openssl/openssl/include/openssl/ssl.h"
+#include "third_party/boringssl/src/include/openssl/ssl.h"
+//#include "third_party/openssl/openssl/include/openssl/ssl.h"
 #include "third_party/inspector_protocol/crdtp/json.h"
 
 using crdtp::SpanFrom;

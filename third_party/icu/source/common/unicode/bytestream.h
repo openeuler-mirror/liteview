@@ -56,9 +56,8 @@ public:
      * Default constructor.
      * @stable ICU 4.2
      */
-    ByteSink()
-    {
-    }
+    ByteSink();
+
     /**
      * Virtual destructor.
      * @stable ICU 4.2

@@ -14,8 +14,8 @@
 #include "base/containers/span.h"
 #include "third_party/blink/public/platform/web_crypto_algorithm.h"
 #include "third_party/blink/public/platform/web_crypto_key.h"
-//#include "third_party/boringssl/src/include/openssl/base.h"
-#include "third_party/openssl/openssl/include/openssl/base.h"
+#include "third_party/boringssl/src/include/openssl/base.h"
+//#include "third_party/openssl/openssl/include/openssl/base.h"
 
 // This file contains miscellaneous helpers that don't belong in any of the
 // other *_util.h

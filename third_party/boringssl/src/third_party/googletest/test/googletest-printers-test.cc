@@ -744,7 +744,7 @@ public:
 TEST(PrintPointerTest, MemberVariablePointer)
 {
     EXPECT_TRUE(HasPrefix(Print(&Foo::value), Print(sizeof(&Foo::value)) + "-byte object "));
-    int Foo::*p = NULL; // NOLINT
+    int Foo::* p = NULL; // NOLINT
     EXPECT_TRUE(HasPrefix(Print(p), Print(sizeof(p)) + "-byte object "));
 }
 
@@ -1447,7 +1447,7 @@ TEST(PrintReferenceTest, HandlesMemberFunctionPointer)
 // passed by reference.
 TEST(PrintReferenceTest, HandlesMemberVariablePointer)
 {
-    int Foo::*p = &Foo::value; // NOLINT
+    int Foo::* p = &Foo::value; // NOLINT
     EXPECT_TRUE(HasPrefix(PrintByRef(p), "@" + PrintPointer(&p) + " " + Print(sizeof(p)) + "-byte object "));
 }
 

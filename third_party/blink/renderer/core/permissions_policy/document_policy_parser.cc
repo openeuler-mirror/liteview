@@ -197,7 +197,8 @@ absl::optional<DocumentPolicy::ParsedDocumentPolicy> DocumentPolicyParser::Parse
     const DocumentPolicyNameFeatureMap& name_feature_map, const DocumentPolicyFeatureInfoMap& feature_info_map,
     const DocumentPolicyFeatureSet& available_features, PolicyParserMessageBuffer& logger)
 {
-    *(int*)1 = 1;
+    //*(int*)1 = 1;
+    printf("DocumentPolicyParser::ParseInternal not impl\n");
     return absl::nullopt;
 
     //   auto root = net::structured_headers::ParseDictionary(policy_string.Ascii());

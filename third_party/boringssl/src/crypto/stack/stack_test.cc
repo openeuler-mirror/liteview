@@ -167,8 +167,8 @@ TEST(StackTest, Basic)
     ExpectStackEquals(sk.get(), { kNull, 1, 2, 4, 5, 7 });
 
     // Test both deep and shallow copies.
-    bssl::UniquePtr<STACK_OF(TEST_INT)> copy(sk_TEST_INT_deep_copy(
-        sk.get(), [](TEST_INT* x) -> TEST_INT* { return x == nullptr ? nullptr : TEST_INT_new(*x).release(); }, TEST_INT_free));
+    bssl::UniquePtr<STACK_OF(TEST_INT)> copy(
+        sk_TEST_INT_deep_copy(sk.get(), [](TEST_INT* x) -> TEST_INT* { return x == nullptr ? nullptr : TEST_INT_new(*x).release(); }, TEST_INT_free));
     ASSERT_TRUE(copy);
     ExpectStackEquals(copy.get(), { kNull, 1, 2, 4, 5, 7 });
 
@@ -272,8 +272,8 @@ TEST(StackTest, Sorted)
         EXPECT_EQ(3u, index);
 
         // Copies preserve comparison and sorted information.
-        bssl::UniquePtr<STACK_OF(TEST_INT)> copy(sk_TEST_INT_deep_copy(
-            sk.get(), [](TEST_INT* x) -> TEST_INT* { return TEST_INT_new(*x).release(); }, TEST_INT_free));
+        bssl::UniquePtr<STACK_OF(TEST_INT)> copy(
+            sk_TEST_INT_deep_copy(sk.get(), [](TEST_INT* x) -> TEST_INT* { return TEST_INT_new(*x).release(); }, TEST_INT_free));
         ASSERT_TRUE(copy);
         EXPECT_TRUE(sk_TEST_INT_is_sorted(copy.get()));
         ASSERT_TRUE(sk_TEST_INT_find(copy.get(), &index, three.get()));

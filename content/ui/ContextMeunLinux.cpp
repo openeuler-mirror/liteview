@@ -18,60 +18,19 @@
 #include <array>
 #include <atomic>
 
-namespace content {
-uint32_t g_contextMenuItemMask = kMbMenuSelectedTextId | kMbMenuPasteId;
-}
-
 namespace {
-using content::ContextMenu;
-using content::ThreadCall;
 
 struct CallbackContext {
-    ContextMenu* instance;
+    content::ContextMenu* instance;
     int action;
 };
 
-constexpr std::array<std::pair<int, const char*>, 2> k_menuItems = {
-    { { kMbMenuSelectedTextId, "复制" }, { kMbMenuPasteId, "粘贴" } }
-};
-
-void asyncCallUiThread(std::function<void()>&& func)
-{
-    ThreadCall::callUiThreadAsync(MB_FROM_HERE, std::move(func));
-}
-
-int calcBlinkSupportedFlag(const blink::UntrustworthyContextMenuParams& data)
-{
-    int flag = 0;
-    if ((!data.selection_text.empty())) {
-        flag |= kMbMenuSelectedTextId;
-    }
-
-    if (data.is_editable) {
-        flag |= kMbMenuPasteId;
-    }
-
-    return flag;
-}
-
-bool canShowItem(int blinkSupportedFlag, int id)
-{
-    return (blinkSupportedFlag & id) && (content::g_contextMenuItemMask & id);
-}
 }
 
 namespace content {
 
-void clearMbWebViewInContextMenuIfNeeded(MbWebView* webview)
+ContextMenu::ContextMenu()
 {
-    if (ContextMenu::get()->getCurrentWebview() == webview) {
-        ContextMenu::get()->setCurrentWebview(nullptr);
-    }
-}
-
-ContextMenu* ContextMenu::getInstance()
-{
-    return base::Singleton<ContextMenu>::get();
 }
 
 void ContextMenu::onMenuItemClick(GtkWidget* widget, gpointer data)
@@ -104,10 +63,9 @@ GtkWidget* ContextMenu::createGTKmenu(int blinkSupportedFlag)
 {
     GtkWidget* menu = gtk_menu_new();
 
-    for (const auto& [id, label] : k_menuItems) {
-        if (!canShowItem(blinkSupportedFlag, id)) {
+    for (const auto& [id, label] : kMenuItems) {
+        if (!canShowItem(blinkSupportedFlag, (mbMenuItemId)id))
             continue;
-        }
 
         GtkWidget* item = gtk_menu_item_new_with_label(label);
         const CallbackContext* ctx = new CallbackContext { this, id };
@@ -119,14 +77,24 @@ GtkWidget* ContextMenu::createGTKmenu(int blinkSupportedFlag)
     return menu;
 }
 
-void ContextMenu::showMenuOnUiThread(int blinkSupportedFlag)
+void ContextMenu::showMenuOnUiThread(UINT blinkSupportedFlag)
 {
+    blinkSupportedFlag = blinkSupportedFlag | kMbMenuGoForwardId | kMbMenuGoBackId | kMbMenuReloadId;
     CHECK(ThreadCall::isUiThread());
+    if (!m_webview)
+        return;
+
+    if (!dispatchMbCallback(blinkSupportedFlag))
+        return;
 
     const HWND hWnd = m_webview->getHostWnd();
+    GdkWindow* gdkWindow = nullptr;
+    if (!hWnd)
+        return;
+    
     HwndLinux* window = (HwndLinux*)hWnd;
     GtkWidget* windowWidget = window->getRootWindow();
-    GdkWindow* gdkWindow = gtk_widget_get_window(windowWidget);
+    gdkWindow = gtk_widget_get_window(windowWidget);
 
     POINT screenPt = { 0 };
     ::GetCursorPos(&screenPt);
@@ -137,6 +105,23 @@ void ContextMenu::showMenuOnUiThread(int blinkSupportedFlag)
     const GdkRectangle rect = { clientPt.x, clientPt.y, 1, 1 };
 
     GtkWidget* menu = createGTKmenu(blinkSupportedFlag);
+    GdkEvent* triggerEvent = HwndLinux::getLastMousePressEvent();
+    bool isEventNew = false;
+    if (!triggerEvent) {
+        isEventNew = true;
+        GdkDisplay* display = gdk_display_get_default();
+        GdkSeat* seat = gdk_display_get_default_seat(display);
+        GdkDevice* pointer = gdk_seat_get_pointer(seat);
+        GdkWindow* rootWin = gdk_display_get_default_group(display);
+        gdkWindow = rootWin;
+
+        triggerEvent = gdk_event_new(GDK_BUTTON_PRESS);
+        triggerEvent->button.device = pointer; // 解决 GdkSeat 报错
+        triggerEvent->button.window = rootWin;
+        triggerEvent->button.button = 3; // 右键
+        triggerEvent->button.x_root = clientPt.x;
+        triggerEvent->button.y_root = clientPt.y;
+    }
 
     gtk_menu_popup_at_rect(
         GTK_MENU(menu),
@@ -144,7 +129,10 @@ void ContextMenu::showMenuOnUiThread(int blinkSupportedFlag)
         &rect,
         GDK_GRAVITY_SOUTH_WEST,
         GDK_GRAVITY_NORTH_WEST,
-        window->getLastMousePressEvent());
+        triggerEvent);
+
+    if (isEventNew)
+        gdk_event_free(triggerEvent);
 }
 
 void ContextMenu::show(const blink::UntrustworthyContextMenuParams& data, int64_t frameId)
@@ -152,11 +140,11 @@ void ContextMenu::show(const blink::UntrustworthyContextMenuParams& data, int64_
     if (!m_webview || !m_webview->isContextMenuEnable())
         return;
 
-    const int blinkSupportedFlag = calcBlinkSupportedFlag(data);
+    if (data.has_image_contents) {
+        m_imagePos = gfx::Point(data.x, data.y);
+    }
 
-    if (0 == blinkSupportedFlag)
-        return;
-
+    const UINT blinkSupportedFlag = calcBlinkSupportedFlag(data);
     bool expected = false;
     if (!m_isOpening.compare_exchange_strong(expected, true))
         return;

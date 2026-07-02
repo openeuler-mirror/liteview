@@ -60,23 +60,23 @@
 
 #include "internal.h"
 
-
-int ASN1_PRINTABLE_type(const unsigned char *s, int len) {
-  if (len < 0) {
-    len = strlen((const char *)s);
-  }
-
-  int printable = 1;
-  for (int i = 0; i < len; i++) {
-    unsigned char c = s[i];
-    if (c & 0x80) {
-      // No need to continue iterating.
-      return V_ASN1_T61STRING;
+int ASN1_PRINTABLE_type(const unsigned char* s, int len)
+{
+    if (len < 0) {
+        len = strlen((const char*)s);
     }
-    if (!asn1_is_printable(c)) {
-      printable = 0;
-    }
-  }
 
-  return printable ? V_ASN1_PRINTABLESTRING : V_ASN1_IA5STRING;
+    int printable = 1;
+    for (int i = 0; i < len; i++) {
+        unsigned char c = s[i];
+        if (c & 0x80) {
+            // No need to continue iterating.
+            return V_ASN1_T61STRING;
+        }
+        if (!asn1_is_printable(c)) {
+            printable = 0;
+        }
+    }
+
+    return printable ? V_ASN1_PRINTABLESTRING : V_ASN1_IA5STRING;
 }

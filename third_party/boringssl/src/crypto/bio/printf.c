@@ -63,41 +63,42 @@
 #include <openssl/err.h>
 #include <openssl/mem.h>
 
-int BIO_printf(BIO *bio, const char *format, ...) {
-  va_list args;
-  char buf[256], *out, out_malloced = 0;
-  int out_len, ret;
+int BIO_printf(BIO* bio, const char* format, ...)
+{
+    va_list args;
+    char buf[256], *out, out_malloced = 0;
+    int out_len, ret;
 
-  va_start(args, format);
-  out_len = vsnprintf(buf, sizeof(buf), format, args);
-  va_end(args);
-  if (out_len < 0) {
-    return -1;
-  }
-
-  if ((size_t) out_len >= sizeof(buf)) {
-    const int requested_len = out_len;
-    // The output was truncated. Note that vsnprintf's return value
-    // does not include a trailing NUL, but the buffer must be sized
-    // for it.
-    out = OPENSSL_malloc(requested_len + 1);
-    out_malloced = 1;
-    if (out == NULL) {
-      OPENSSL_PUT_ERROR(BIO, ERR_R_MALLOC_FAILURE);
-      return -1;
-    }
     va_start(args, format);
-    out_len = vsnprintf(out, requested_len + 1, format, args);
+    out_len = vsnprintf(buf, sizeof(buf), format, args);
     va_end(args);
-    assert(out_len == requested_len);
-  } else {
-    out = buf;
-  }
+    if (out_len < 0) {
+        return -1;
+    }
 
-  ret = BIO_write(bio, out, out_len);
-  if (out_malloced) {
-    OPENSSL_free(out);
-  }
+    if ((size_t)out_len >= sizeof(buf)) {
+        const int requested_len = out_len;
+        // The output was truncated. Note that vsnprintf's return value
+        // does not include a trailing NUL, but the buffer must be sized
+        // for it.
+        out = OPENSSL_malloc(requested_len + 1);
+        out_malloced = 1;
+        if (out == NULL) {
+            OPENSSL_PUT_ERROR(BIO, ERR_R_MALLOC_FAILURE);
+            return -1;
+        }
+        va_start(args, format);
+        out_len = vsnprintf(out, requested_len + 1, format, args);
+        va_end(args);
+        assert(out_len == requested_len);
+    } else {
+        out = buf;
+    }
 
-  return ret;
+    ret = BIO_write(bio, out, out_len);
+    if (out_malloced) {
+        OPENSSL_free(out);
+    }
+
+    return ret;
 }

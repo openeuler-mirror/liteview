@@ -74,7 +74,7 @@ base::FilePath getDefaultLocalStorageDir()
 
     std::string str = "getDefaultLocalStorageDir:";
     str += kDefaultLocalStorageDir->AsUTF8Unsafe();
-    str += "---\n";
+    str += "\n";
 
     OutputDebugStringA(str.c_str());
 #endif

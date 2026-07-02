@@ -17,6 +17,6 @@
 #include "../config/win/x86/config_dav1d_x86.h"
 #endif
 
-#else
-
+#elif defined(OS_LINUX)
+#include "../config/linux/x86/config.h"
 #endif

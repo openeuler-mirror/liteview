@@ -220,8 +220,8 @@ int64_t File::Seek(Whence whence, int64_t offset)
 #if !defined(OS_OHOS)
     static_assert(sizeof(int64_t) == sizeof(off_t), "off_t must be 64 bits");
 #endif
-    printf("File::Seek not impl\n");
-    *(int*)1 = 1;
+    // printf("File::Seek not impl\n");
+    // *(int*)1 = 1;
     return lseek(file_.get(), static_cast<off_t>(offset), static_cast<int>(whence));
 #endif
 }
@@ -630,7 +630,7 @@ int File::Stat(const char* path, stat_wrapper_t* sb)
     ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
     int ret = stat64(path, sb);
     // https://chromium.googlesource.com/chromium/src/+/ce0c35e60e14eb2e8aeb2d8374e054559ab664fe 谷歌新版本不用stat64了
-    if (-1 == ret && path[0] == '/' && path[1] == '\0') {
+    if (-1 == ret /*&& path[0] == '/' && path[1] == '\0'*/) {
         struct stat st;
         ret = stat(path, &st);
         sb->st_dev = st.st_dev;

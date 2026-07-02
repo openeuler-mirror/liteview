@@ -90,13 +90,13 @@ static const CodecInfo kVP9CodecInfo = { "vp09.*", CodecInfo::VIDEO, nullptr, Co
 static const CodecInfo kVorbisCodecInfo = { "vorbis", CodecInfo::AUDIO, nullptr, CodecInfo::HISTOGRAM_VORBIS };
 static const CodecInfo kOpusCodecInfo = { "opus", CodecInfo::AUDIO, nullptr, CodecInfo::HISTOGRAM_OPUS };
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
 // Note: Validation of the codec string is handled by the caller.
 static const CodecInfo kAV1CodecInfo = { "av01.*", CodecInfo::VIDEO, nullptr, CodecInfo::HISTOGRAM_AV1 };
 #endif
 
 static const CodecInfo* const kVideoWebMCodecs[] = { &kVP8CodecInfo, &kLegacyVP9CodecInfo, &kVP9CodecInfo, &kVorbisCodecInfo, &kOpusCodecInfo,
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     &kAV1CodecInfo,
 #endif
     nullptr };
@@ -228,7 +228,7 @@ static const CodecInfo* const kVideoMP4Codecs[] = { &kMPEG4FLACCodecInfo, &kOpus
     &kMpegHAudioCodecInfo1, &kMpegHAudioCodecInfo2,
 #endif
 #endif // BUILDFLAG(USE_PROPRIETARY_CODECS)
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_AV1_DECODER) && BUILDFLAG(ENABLE_MB_AV1_VIDEO_DECODER)
     &kAV1CodecInfo,
 #endif
     nullptr };

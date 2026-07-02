@@ -17,8 +17,8 @@
 #include "build/build_config.h"
 
 #if !BUILDFLAG(IS_NACL)
-//#include "third_party/boringssl/src/include/openssl/rand.h"
-#include "third_party/openssl/openssl/include/openssl/rand.h"
+#include "third_party/boringssl/src/include/openssl/rand.h"
+//#include "third_party/openssl/openssl/include/openssl/rand.h"
 #endif
 
 #undef min

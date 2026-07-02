@@ -16,6 +16,7 @@
 
 #include "third_party/blink/public/mojom/broadcastchannel/broadcast_channel.mojom-blink.h"
 #include "content/common/common.h"
+#include <string>
 
 namespace content {
 
@@ -24,6 +25,7 @@ class WebLocalFrameClientImpl;
 class BroadcastChannelProviderImpl : public ::blink::mojom::blink::BroadcastChannelProvider {
 public:
     BroadcastChannelProviderImpl(WebLocalFrameClientImpl* frameClient);
+    BroadcastChannelProviderImpl(const std::string& origin);
     ~BroadcastChannelProviderImpl();
    
     void ConnectToChannel(
@@ -32,6 +34,7 @@ public:
         ::mojo::PendingAssociatedReceiver<::blink::mojom::blink::BroadcastChannelClient> connection) override;
 private:
     WebLocalFrameClientImpl* m_frameClient = nullptr;
+    std::string m_origin;
 };
 
 }

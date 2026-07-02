@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=LiteView
+Exec=/opt/liteview/LiteViewLauncher
+Icon=/opt/liteview/images/icon.png
+Type=Application
+

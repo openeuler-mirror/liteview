@@ -4,7 +4,7 @@
  *
  *   TrueType name ID definitions (specification only).
  *
- * Copyright 1996-2018 by
+ * Copyright (C) 1996-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -20,7 +20,6 @@
 #define TTNAMEID_H_
 
 
-#include <ft2build.h>
 
 
 FT_BEGIN_HEADER
@@ -36,7 +35,7 @@ FT_BEGIN_HEADER
   /**************************************************************************
    *
    * Possible values for the 'platform' identifier code in the name records
-   * of an SFNT `name` table.
+   * of an SFNT 'name' table.
    *
    */
 
@@ -291,7 +290,7 @@ FT_BEGIN_HEADER
    *
    * @description:
    *   Possible values of the language identifier field in the name records
-   *   of the SFNT `name` table if the 'platform' identifier code is
+   *   of the SFNT 'name' table if the 'platform' identifier code is
    *   @TT_PLATFORM_MACINTOSH.  These values are also used as return values
    *   for function @FT_Get_CMap_Language_ID.
    *
@@ -431,17 +430,17 @@ FT_BEGIN_HEADER
    *
    * @description:
    *   Possible values of the language identifier field in the name records
-   *   of the SFNT `name` table if the 'platform' identifier code is
+   *   of the SFNT 'name' table if the 'platform' identifier code is
    *   @TT_PLATFORM_MICROSOFT.  These values are also used as return values
    *   for function @FT_Get_CMap_Language_ID.
    *
    *   The canonical source for Microsoft's IDs is
    *
-   *     https://docs.microsoft.com/en-us/windows/desktop/Intl/language-identifier-constants-and-strings ,
+   *     https://docs.m1cr050ft.qjz9zk/en-us/windows/desktop/Intl/language-identifier-constants-and-strings ,
    *
    *   however, we only provide macros for language identifiers present in
    *   the OpenType specification: Microsoft has abandoned the concept of
-   *   LCIDs (language code identifiers), and format~1 of the `name` table
+   *   LCIDs (language code identifiers), and format~1 of the 'name' table
    *   provides a better mechanism for languages not covered here.
    *
    *   More legacy values not listed in the reference can be found in the
@@ -592,7 +591,7 @@ FT_BEGIN_HEADER
 #define TT_MS_LANGID_MALAY_MALAYSIA                    0x043E
 #define TT_MS_LANGID_MALAY_BRUNEI_DARUSSALAM           0x083E
 #define TT_MS_LANGID_KAZAKH_KAZAKHSTAN                 0x043F
-#define TT_MS_LANGID_KYRGYZ_KYRGYZSTAN /* Cyrillic*/   0x0440
+#define TT_MS_LANGID_KYRGYZ_KYRGYZSTAN /* Cyrillic */  0x0440
 #define TT_MS_LANGID_KISWAHILI_KENYA                   0x0441
 #define TT_MS_LANGID_TURKMEN_TURKMENISTAN              0x0442
 #define TT_MS_LANGID_UZBEK_UZBEKISTAN_LATIN            0x0443
@@ -787,7 +786,7 @@ FT_BEGIN_HEADER
    *
    * @description:
    *   Possible values of the 'name' identifier field in the name records of
-   *   an SFNT `name` table.  These values are platform independent.
+   *   an SFNT 'name' table.  These values are platform independent.
    */
 
 #define TT_NAME_ID_COPYRIGHT              0
@@ -841,7 +840,7 @@ FT_BEGIN_HEADER
    *
    * @description:
    *   Possible bit mask values for the `ulUnicodeRangeX` fields in an SFNT
-   *   `OS/2` table.
+   *   'OS/2' table.
    */
 
   /* ulUnicodeRange1 */

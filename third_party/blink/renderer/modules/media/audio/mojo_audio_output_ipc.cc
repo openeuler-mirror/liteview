@@ -170,7 +170,7 @@ namespace blink {
                         base::DoNothing(),
                         audio::OutputController::ManagedDeviceOutputStreamCreateCallback(),
                         stream.InitWithNewPipeAndPassReceiver(), std::move(observer), std::move(log),
-                        self->m_audioManager->Get(), "", params, &self->m_coordinator, self->m_groupId);
+                        self->m_audioManager.get(), "", params, &self->m_coordinator, self->m_groupId);
                 }, base::Unretained(this), params));
             }
 

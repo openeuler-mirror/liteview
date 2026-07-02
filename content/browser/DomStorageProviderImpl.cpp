@@ -66,6 +66,7 @@ public:
     static StorageAreaImplMgr* get();
 
     StorageAreaImpl* findOrCreateByStorageKey(bool isLocal, const ::blink::BlinkStorageKey& storageKey);
+    void clearAll(int isLocal);
 
 private:
     static String buildFileName(const ::blink::BlinkStorageKey& storageKey)
@@ -133,6 +134,27 @@ public:
         ThreadCall::callBlinkThreadDelayed(FROM_HERE, [self] { delete self; }, 5000);
     }
 
+    void clearAll()
+    {
+        if (m_areaMap) {
+            WTF::Vector<String> keys;
+            const unsigned length = m_areaMap->GetLength();
+            for (size_t i = 0; i < length; ++i) {
+                String key = m_areaMap->GetKey(i);
+                keys.push_back(key);
+            }
+
+            for (size_t i = 0; i < length; ++i) {
+                String oldValue;
+                m_areaMap->RemoveItem(keys[i], &oldValue);
+            }
+        }
+
+        if (!m_localPath.empty()) {
+            base::DeleteFile(m_localPath);
+        }
+    }
+
     void toSave()
     {
         if (m_isSaving || m_isDestroying)
@@ -164,7 +186,7 @@ public:
     }
 
     // look: CachedStorageArea::Uint8VectorToString
-    static void StringToUint8Vector(WTF::Vector<uint8_t>* buf)
+    static void stringToUint8Vector(WTF::Vector<uint8_t>* buf)
     {
         //const char* src, size_t src_len, std::u16string* output
         std::u16string output;
@@ -235,8 +257,8 @@ private:
                     value.clear();
 
                 if (0 != key.size()) {
-                    StringToUint8Vector(&key);
-                    StringToUint8Vector(&value);
+                    stringToUint8Vector(&key);
+                    stringToUint8Vector(&value);
                     ::blink::mojom::blink::KeyValuePtr keyValue = ::blink::mojom::blink::KeyValue::New(key, value);
                     outData->push_back(std::move(keyValue));
                 }
@@ -294,8 +316,9 @@ private:
         if (!base::DirectoryExists(dir)) {
             base::File::Error error;
             bool b = base::CreateDirectoryAndGetError(dir, &error);
-            if (!b)
+            if (!base::DirectoryExists(dir)) {
                 return;
+            }
         }
         if (buffer.size() == 0) {
             base::DeleteFile(m_localPath);
@@ -330,6 +353,23 @@ StorageAreaImpl* StorageAreaImplMgr::findOrCreateByStorageKey(bool isLocal, cons
     StorageAreaImpl* result = new StorageAreaImpl(isLocal, storageKey);
     m_areas.insert(key, result);
     return result;
+}
+
+void clearStorageImpl(MbWebView* mbView, int isLocal)
+{
+    StorageAreaImplMgr::get()->clearAll(isLocal);
+}
+
+void StorageAreaImplMgr::clearAll(int isLocal)
+{
+    WTF::HashMap<String, StorageAreaImpl*>::iterator it = m_areas.begin();
+    for (; it != m_areas.end(); ++it) {
+        if (isLocal == 2) {
+            it->value->clearAll();
+        } else if (it->value->isLocal() == isLocal) {
+            it->value->clearAll();
+        }
+    }
 }
 
 static base::FilePath getLocalStorageDirByLocalFrameToken(const ::blink::LocalFrameToken& localFrameToken)

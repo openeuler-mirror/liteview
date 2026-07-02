@@ -56,10 +56,7 @@ public:
         printFuncName(__FUNCTION__, true, false);
     }
 
-    virtual void UpdateTargetURL(const ::blink::KURL& url, UpdateTargetURLCallback callback) override
-    {
-        printFuncName(__FUNCTION__, true, false);
-    }
+    virtual void UpdateTargetURL(const ::blink::KURL& url, UpdateTargetURLCallback callback) override;
 
     virtual void RequestClose() override;
 

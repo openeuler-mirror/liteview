@@ -13,6 +13,8 @@
 #include "third_party/liburlpattern/tokenize.h"
 #include "third_party/liburlpattern/utils.h"
 
+#include "base/strings/stringprintf.h"
+
 // The following code is a translation from the path-to-regexp typescript at:
 //
 //  https://github.com/pillarjs/path-to-regexp/blob/125c43e6481f68cc771a5af22b914acdb8c5ba1f/src/index.ts#L126-L232
@@ -47,14 +49,6 @@ bool FormatArgImpl::Dispatch<unsigned int>(FormatArgImpl::Data, FormatConversion
     *(int*)1 = 1;
     return false;
 }
-
-template<>
-bool FormatArgImpl::Dispatch<absl::string_view>(FormatArgImpl::Data, FormatConversionSpecImpl, void*)
-{
-    *(int*)1 = 1;
-    return false;
-}
-
 #endif
 
 template<>
@@ -66,6 +60,13 @@ bool FormatArgImpl::Dispatch<char const*>(FormatArgImpl::Data, FormatConversionS
 
 template<>
 bool FormatArgImpl::Dispatch<std::string>(FormatArgImpl::Data, FormatConversionSpecImpl, void*)
+{
+    *(int*)1 = 1;
+    return false;
+}
+
+template<>
+bool FormatArgImpl::Dispatch<absl::string_view>(FormatArgImpl::Data, FormatConversionSpecImpl, void*)
 {
     *(int*)1 = 1;
     return false;
@@ -117,10 +118,88 @@ std::string& AppendPack(std::string*,
     return *str;
 }
 
+char const* ConsumeUnboundConversion(char const*, char const*, UnboundConversion*, int*)
+{
+    *(int*)1 = 1;
+    return "";
+}
+
+std::string FlagsToString(enum Flags)
+{
+    *(int*)1 = 1;
+    return "";
+}
+
+using CC = FormatConversionCharInternal;
+using LM = LengthMod;
+
+// Abbreviations to fit in the table below.
+constexpr auto f_sign = Flags::kSignCol;
+constexpr auto f_alt = Flags::kAlt;
+constexpr auto f_pos = Flags::kShowPos;
+constexpr auto f_left = Flags::kLeft;
+constexpr auto f_zero = Flags::kZero;
+
+ABSL_CONST_INIT const ConvTag kTags[256] = {
+    {}, {}, {}, {}, {}, {}, {}, {}, // 00-07
+    {}, {}, {}, {}, {}, {}, {}, {}, // 08-0f
+    {}, {}, {}, {}, {}, {}, {}, {}, // 10-17
+    {}, {}, {}, {}, {}, {}, {}, {}, // 18-1f
+    f_sign, {}, {}, f_alt, {}, {}, {}, {}, //  !"#$%&'
+    {}, {}, {}, f_pos, {}, f_left, {}, {}, // ()*+,-./
+    f_zero, {}, {}, {}, {}, {}, {}, {}, // 01234567
+    {}, {}, {}, {}, {}, {}, {}, {}, // 89:;<=>?
+    {}, CC::A, {}, {}, {}, CC::E, CC::F, CC::G, // @ABCDEFG
+    {}, {}, {}, {}, LM::L, {}, {}, {}, // HIJKLMNO
+    {}, {}, {}, {}, {}, {}, {}, {}, // PQRSTUVW
+    CC::X, {}, {}, {}, {}, {}, {}, {}, // XYZ[\]^_
+    {}, CC::a, {}, CC::c, CC::d, CC::e, CC::f, CC::g, // `abcdefg
+    LM::h, CC::i, LM::j, {}, LM::l, {}, CC::n, CC::o, // hijklmno
+    CC::p, LM::q, {}, CC::s, LM::t, CC::u, CC::v, {}, // pqrstuvw
+    CC::x, {}, LM::z, {}, {}, {}, {}, {}, // xyz{|}!
+    {}, {}, {}, {}, {}, {}, {}, {}, // 80-87
+    {}, {}, {}, {}, {}, {}, {}, {}, // 88-8f
+    {}, {}, {}, {}, {}, {}, {}, {}, // 90-97
+    {}, {}, {}, {}, {}, {}, {}, {}, // 98-9f
+    {}, {}, {}, {}, {}, {}, {}, {}, // a0-a7
+    {}, {}, {}, {}, {}, {}, {}, {}, // a8-af
+    {}, {}, {}, {}, {}, {}, {}, {}, // b0-b7
+    {}, {}, {}, {}, {}, {}, {}, {}, // b8-bf
+    {}, {}, {}, {}, {}, {}, {}, {}, // c0-c7
+    {}, {}, {}, {}, {}, {}, {}, {}, // c8-cf
+    {}, {}, {}, {}, {}, {}, {}, {}, // d0-d7
+    {}, {}, {}, {}, {}, {}, {}, {}, // d8-df
+    {}, {}, {}, {}, {}, {}, {}, {}, // e0-e7
+    {}, {}, {}, {}, {}, {}, {}, {}, // e8-ef
+    {}, {}, {}, {}, {}, {}, {}, {}, // f0-f7
+    {}, {}, {}, {}, {}, {}, {}, {}, // f8-ff
+};
+
+void FILERawSink::Write(absl::string_view)
+{
+    *(int*)1 = 1;
+}
+
+void BufferRawSink::Write(absl::string_view)
+{
+    *(int*)1 = 1;
+}
 
 ABSL_INTERNAL_FORMAT_DISPATCH_OVERLOADS_EXPAND_(extern);
+
+} // str_format_internal 
+
+ABSL_MUST_USE_RESULT std::string StrFormat(const char* format, const std::string& arg)
+{
+    return base::StringPrintf(format, arg.c_str());
 }
+
+ABSL_MUST_USE_RESULT std::string StrFormat(const char* format, int arg)
+{
+    return base::StringPrintf(format, arg);
 }
+
+} // absl
 
 void absl::base_internal::ThrowStdOutOfRange(char const*)
 {
@@ -135,8 +214,11 @@ std::basic_ostream<char, std::char_traits<char> >& absl::operator<<(std::basic_o
 
 absl::string_view::size_type absl::string_view::find(char c, absl::string_view::size_type pos) const noexcept
 {
-    *(int*)1 = 1;
-    return 0;
+    for (size_t i = pos; i < length_; ++i) {
+        if (ptr_[i] == c)
+            return i;
+    }
+    return std::string::npos;
 }
 
 namespace liburlpattern {

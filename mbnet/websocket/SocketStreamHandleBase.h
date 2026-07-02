@@ -34,6 +34,7 @@
 
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "mbnet/websocket/StreamBuffer.h"
+#include "mbnet/ProxyInfo.h"
 
 namespace mbnet {
 
@@ -58,13 +59,14 @@ public:
     void setClient(SocketStreamHandleClient*);
 
 protected:
-    SocketStreamHandleBase(const blink::KURL&, SocketStreamHandleClient*);
+    SocketStreamHandleBase(const blink::KURL&, const ProxyInfo& proxy, SocketStreamHandleClient*);
 
     bool sendPendingData();
     virtual int platformSend(const char* data, int length) = 0;
     virtual void platformClose() = 0;
 
     blink::KURL m_url;
+    ProxyInfo m_proxy;
     SocketStreamHandleClient* m_client;
     int64_t m_clientId;
     StreamBuffer<char, 1024 * 1024> m_buffer;

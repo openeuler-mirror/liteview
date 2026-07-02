@@ -50,6 +50,74 @@
 #include "base/hash/hash.h"
 #include <windows.h>
 
+namespace {
+// 只支持 UTF-16 和 UTF-8 的 char input
+template<typename CharType> std::string charToGBK(const CharType* characters, wtf_size_t length)
+{
+#if defined(OS_WIN)
+    std::wstring wide;
+    if constexpr (sizeof(CharType) == 2) { // UTF-16 input
+        wide.assign(reinterpret_cast<const wchar_t*>(characters), length);
+    } else if constexpr (sizeof(CharType) == 1) { // UTF-8 input
+        int wideLen = MultiByteToWideChar(CP_UTF8, 0,
+            reinterpret_cast<const char*>(characters),
+            static_cast<int>(length), nullptr, 0);
+        if (wideLen <= 0)
+            return {};
+        wide.resize(wideLen);
+        MultiByteToWideChar(CP_UTF8, 0, reinterpret_cast<const char*>(characters),
+            static_cast<int>(length), &wide[0], wideLen);
+    } else {
+        return "";
+    }
+
+    constexpr int gbkPage = 936;
+
+    int outLen = WideCharToMultiByte(gbkPage, 0, wide.data(),
+        static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
+    if (outLen <= 0)
+        return "";
+
+    std::string output(outLen, 0);
+    WideCharToMultiByte(gbkPage, 0, wide.data(),
+        static_cast<int>(wide.size()), &output[0], outLen, nullptr, nullptr);
+    return output;
+
+#else
+    if (sizeof(CharType) != 1 && sizeof(CharType) != 2) 
+        return "";
+
+    iconv_t cd = iconv_open("GBK", sizeof(CharType) == 2 ? "UTF-16LE" : "UTF-8");
+    if (cd == (iconv_t)-1)
+        return "";
+
+    const char* inbuf = reinterpret_cast<const char*>(characters);
+    size_t inbytesleft = length * sizeof(CharType);
+
+    std::vector<char> outbufVec(length * 2 + 16); // GBK output
+    char* outbuf = outbufVec.data();
+    size_t outbytesleft = outbufVec.size();
+
+    while (inbytesleft > 0) {
+        size_t ret = iconv(cd, const_cast<char**>(&inbuf), &inbytesleft, &outbuf, &outbytesleft);
+        if (ret == (size_t)-1) {
+            if (errno == E2BIG) {
+                size_t used = outbuf - outbufVec.data();
+                outbufVec.resize(outbufVec.size() * 2);
+                outbuf = outbufVec.data() + used;
+                outbytesleft = outbufVec.size() - used;
+            } else {
+                break;
+            }
+        }
+    }
+
+    iconv_close(cd);
+    return std::string(outbufVec.data(), outbufVec.size() - outbytesleft);
+#endif
+}
+}
+
 namespace WTF {
 
 const size_t kConversionBufferSize = 16384;
@@ -989,8 +1057,13 @@ template <typename CharType> std::string TextCodecICU::EncodeCommon(const CharTy
 
     if (!converter_icu_)
         CreateICUConverter();
-    if (!converter_icu_)
-        return std::string();
+    if (!converter_icu_) { // 如果有, 优先使用 icu 转换器
+        // 判断方法来在之前的 decode, 唯一区别是去掉了 gb18030, 因为 gb18030 是 GBK 的超集, 2312 是子集
+        if (0 == strcasecmp(encoding_.GetName(), "gb2312") || 0 == strcasecmp(encoding_.GetName(), "GBK") || 0 == strcasecmp(encoding_.GetName(), "gb_2312")) {
+            return charToGBK<CharType>(characters, length);
+        }
+        return "";
+    }
 
     TextCodecInput input(encoding_, characters, length);
     return EncodeInternal(input, handling);

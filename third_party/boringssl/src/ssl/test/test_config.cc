@@ -48,7 +48,7 @@ struct Flag {
     std::function<bool(TestConfig* config, const char* param)> set_param;
 };
 
-Flag BoolFlag(const char* name, bool TestConfig::*field)
+Flag BoolFlag(const char* name, bool TestConfig::* field)
 {
     return Flag { name, false, [=](TestConfig* config, const char*) -> bool {
                      config->*field = true;
@@ -87,12 +87,12 @@ template <typename T> bool StringToInt(T* out, const char* str)
     return errno != ERANGE && *end == '\0';
 }
 
-template <typename T> Flag IntFlag(const char* name, T TestConfig::*field)
+template <typename T> Flag IntFlag(const char* name, T TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool { return StringToInt(&(config->*field), param); } };
 }
 
-template <typename T> Flag IntVectorFlag(const char* name, std::vector<T> TestConfig::*field)
+template <typename T> Flag IntVectorFlag(const char* name, std::vector<T> TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool {
                      T value;
@@ -104,7 +104,7 @@ template <typename T> Flag IntVectorFlag(const char* name, std::vector<T> TestCo
                  } };
 }
 
-Flag StringFlag(const char* name, std::string TestConfig::*field)
+Flag StringFlag(const char* name, std::string TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool {
                      config->*field = param;
@@ -114,7 +114,7 @@ Flag StringFlag(const char* name, std::string TestConfig::*field)
 
 // TODO(davidben): When we can depend on C++17 or Abseil, switch this to
 // std::optional or absl::optional.
-Flag OptionalStringFlag(const char* name, std::unique_ptr<std::string> TestConfig::*field)
+Flag OptionalStringFlag(const char* name, std::unique_ptr<std::string> TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool {
                      (config->*field).reset(new std::string(param));
@@ -138,12 +138,12 @@ bool DecodeBase64(std::string* out, const std::string& in)
     return true;
 }
 
-Flag Base64Flag(const char* name, std::string TestConfig::*field)
+Flag Base64Flag(const char* name, std::string TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool { return DecodeBase64(&(config->*field), param); } };
 }
 
-Flag Base64VectorFlag(const char* name, std::vector<std::string> TestConfig::*field)
+Flag Base64VectorFlag(const char* name, std::vector<std::string> TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool {
                      std::string value;
@@ -155,7 +155,7 @@ Flag Base64VectorFlag(const char* name, std::vector<std::string> TestConfig::*fi
                  } };
 }
 
-Flag StringPairVectorFlag(const char* name, std::vector<std::pair<std::string, std::string>> TestConfig::*field)
+Flag StringPairVectorFlag(const char* name, std::vector<std::pair<std::string, std::string>> TestConfig::* field)
 {
     return Flag { name, true, [=](TestConfig* config, const char* param) -> bool {
                      const char* comma = strchr(param, ',');

@@ -4,7 +4,7 @@
  *
  *   FreeType API for accessing BDF-specific strings (specification).
  *
- * Copyright 2002-2018 by
+ * Copyright (C) 2002-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -19,8 +19,7 @@
 #ifndef FTBDF_H_
 #define FTBDF_H_
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
 
 #ifdef FREETYPE_H
 #error "freetype.h of FreeType 1 has been loaded!"
@@ -106,8 +105,8 @@ FT_BEGIN_HEADER
    *      The property type.
    *
    *    u.atom ::
-   *      The atom string, if type is @BDF_PROPERTY_TYPE_ATOM.  May be NULL,
-   *      indicating an empty string.
+   *      The atom string, if type is @BDF_PROPERTY_TYPE_ATOM.  May be
+   *      `NULL`, indicating an empty string.
    *
    *    u.integer ::
    *      A signed integer, if type is @BDF_PROPERTY_TYPE_INTEGER.

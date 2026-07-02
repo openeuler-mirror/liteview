@@ -157,16 +157,16 @@ size_t GetThreadCount()
 // we cannot detect it.
 size_t GetThreadCount()
 {
-    int mib[]
-        = { CTL_KERN,
-              KERN_PROC,
-              KERN_PROC_PID,
-              getpid(),
+    int mib[] = {
+        CTL_KERN,
+        KERN_PROC,
+        KERN_PROC_PID,
+        getpid(),
 #if GTEST_OS_NETBSD
-              sizeof(struct kinfo_proc),
-              1,
+        sizeof(struct kinfo_proc),
+        1,
 #endif
-          };
+    };
     u_int miblen = sizeof(mib) / sizeof(mib[0]);
     struct kinfo_proc info;
     size_t size = sizeof(info);
@@ -328,9 +328,9 @@ bool AutoHandle::IsCloseable() const
 
 Notification::Notification()
     : event_(::CreateEvent(nullptr, // Default security attributes.
-        TRUE, // Do not reset automatically.
-        FALSE, // Initially unset.
-        nullptr))
+          TRUE, // Do not reset automatically.
+          FALSE, // Initially unset.
+          nullptr))
 { // Anonymous event.
     GTEST_CHECK_(event_.Get() != nullptr);
 }

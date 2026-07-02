@@ -43,7 +43,7 @@ https://docs.openeuler.openatom.cn/zh/docs/25.09/devstation/devstation/calamares
 
 3、登录到系统中，执行如下命令
 ```
-sudo dnf install git gn ninja-build clang lld libev-devel gtk3-devel sqlite-devel
+sudo dnf install -y make gcc gcc-c++ cmake gn ninja-build clang llvm lld nasm qt5-qtbase-devel
 ```
 
 
@@ -51,20 +51,21 @@ sudo dnf install git gn ninja-build clang lld libev-devel gtk3-devel sqlite-deve
 
 1、源码下载
 ```
-git clone https://gitee.com/openeuler/liteview.git
+git clone https://atomgit.com/openeuler/liteview.git
 ```
 
 2、进入源码目录，并执行如下命令进行构建
 ```
-python3 build_liteview.py
+./livi_releases.sh
 ```
 
 备注：编译构建需要一定时间，硬件条件不同，时间也有所不同，在使用32核的设备中，大约需要30分钟可以构建完成。
 
 3、构建成功后，LiteView浏览器位置位于 livi-browser 目录中，执行如下命令，打开LiteView浏览器
+
 ```
 cd livi-browser
-./liteview
+./LiteViewLauncher
 ```
 
 

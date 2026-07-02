@@ -43,7 +43,8 @@ static_library("media") {
     "//gen/blink/bindings/core/v8",
     "//gpu",
     "//third_party/libyuv/include",
-    "//third_party/openssl/openssl/include",
+    # "//third_party/openssl/openssl/include",
+    "//third_party/boringssl/src/include",
     "//third_party/khronos",
     "//third_party/libxml/src/include",
     "//third_party/libxml/win32/include",
@@ -84,20 +85,19 @@ static_library("media") {
     "-DANGLE_ENABLE_GLSL=1",
     "-DMEDIA_IMPLEMENTATION=1",
     "-DSK_SUPPORT_LEGACY_DRAWLOOPER",
-
-
+    
     #  audio
     "-DUSE_ALSA",
 
     #  media
     "-DENABLE_MB_MEDIA=1",
-
+    
     #  gtk:
     # "-DSK_B32_SHIFT=0",
     # "-DSK_G32_SHIFT=8",
     # "-DSK_R32_SHIFT=16",
     # "-DSK_A32_SHIFT=24",
-
+    
     #  opengl
     # "-DSK_B32_SHIFT=16",
     # "-DSK_G32_SHIFT=8",
@@ -546,7 +546,7 @@ static_library("media") {
     "//media/mb/batching_media_log.cc",
     "//media/mb/MbMediaImpl.cpp",
     "//media/mb/renderer_webmediaplayer_delegate.cc",
-    "//media/media_empty.cc",
+    # "//media/media_empty.cc",
     "//media/renderers/audio_renderer_impl.cc",
     "//media/renderers/decrypting_renderer.cc",
     "//media/renderers/decrypting_renderer_factory.cc",

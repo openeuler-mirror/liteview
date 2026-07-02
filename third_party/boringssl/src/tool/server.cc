@@ -379,8 +379,7 @@ bool Server(const std::vector<std::string>& args)
 
     if (args_map.count("-require-any-client-cert") != 0) {
         SSL_CTX_set_verify(ctx.get(), SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, nullptr);
-        SSL_CTX_set_cert_verify_callback(
-            ctx.get(), [](X509_STORE_CTX* store, void* arg) -> int { return 1; }, nullptr);
+        SSL_CTX_set_cert_verify_callback(ctx.get(), [](X509_STORE_CTX* store, void* arg) -> int { return 1; }, nullptr);
     }
 
     Listener listener;

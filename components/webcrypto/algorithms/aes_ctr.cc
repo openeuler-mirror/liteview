@@ -20,10 +20,10 @@
 #include "crypto/openssl_util.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/blink/public/platform/web_crypto_algorithm_params.h"
-// #include "third_party/boringssl/src/include/openssl/aes.h"
-// #include "third_party/boringssl/src/include/openssl/cipher.h"
-#include "third_party/openssl/openssl/include/openssl/aes.h"
-#include "third_party/openssl/openssl/include/openssl/cipher.h"
+#include "third_party/boringssl/src/include/openssl/aes.h"
+#include "third_party/boringssl/src/include/openssl/cipher.h"
+// #include "third_party/openssl/openssl/include/openssl/aes.h"
+// #include "third_party/openssl/openssl/include/openssl/cipher.h"
 
 namespace webcrypto {
 

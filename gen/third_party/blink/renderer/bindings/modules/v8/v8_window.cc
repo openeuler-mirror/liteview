@@ -8161,13 +8161,13 @@ void EventCountsExposedConstructCallback(v8::Local<v8::Name> v8_property_name, c
     bindings::V8SetReturnValue(info, V8EventCounts::GetWrapperTypeInfo(), bindings::V8ReturnValue::kInterfaceObject);
 }
 
-// void EventSourceExposedConstructCallback(v8::Local<v8::Name> v8_property_name, const v8::PropertyCallbackInfo<v8::Value>& info)
-// {
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_DOMWindow_EventSource_ConstructorGetterCallback");
-//     BLINK_BINDINGS_TRACE_EVENT("Window.EventSource");
-// 
-//     bindings::V8SetReturnValue(info, V8EventSource::GetWrapperTypeInfo(), bindings::V8ReturnValue::kInterfaceObject);
-// }
+void EventSourceExposedConstructCallback(v8::Local<v8::Name> v8_property_name, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_DOMWindow_EventSource_ConstructorGetterCallback");
+    BLINK_BINDINGS_TRACE_EVENT("Window.EventSource");
+
+    bindings::V8SetReturnValue(info, V8EventSource::GetWrapperTypeInfo(), bindings::V8ReturnValue::kInterfaceObject);
+}
 
 void EventTargetExposedConstructCallback(v8::Local<v8::Name> v8_property_name, const v8::PropertyCallbackInfo<v8::Value>& info)
 {
@@ -13857,72 +13857,72 @@ void WebkitURLLegacyWindowAliasCallback(v8::Local<v8::Name> v8_property_name, co
 
     bindings::V8SetReturnValue(info, V8URL::GetWrapperTypeInfo(), bindings::V8ReturnValue::kInterfaceObject);
 }
-// 
-// void AudioNamedConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
-// {
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_HTMLAudioElement_Audio");
-//     BLINK_BINDINGS_TRACE_EVENT("HTMLAudioElement.Audio");
-// 
-//     v8::Isolate* isolate = info.GetIsolate();
-//     if (!info.IsConstructCall()) {
-//         const ExceptionState::ContextType exception_state_context_type = ExceptionContext::Context::kConstructorOperationInvoke;
-//         ExceptionState exception_state(isolate, exception_state_context_type, "Audio");
-//         exception_state.ThrowTypeError(ExceptionMessages::ConstructorCalledAsFunction());
-//         return;
-//     }
-// 
-//     HTMLAudioElement* return_value;
-//     do { // Dummy loop for use of 'break'.
-//         const int non_undefined_argument_length = bindings::NonUndefinedArgumentLength(info);
-//         v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
-//         ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
-//         ExecutionContext* execution_context = current_execution_context;
-//         if (non_undefined_argument_length <= 0) {
-//             return_value = HTMLAudioElement::CreateForJSConstructor(*bindings::ToDocumentFromExecutionContext(execution_context));
-//             break;
-//         }
-//         const ExceptionState::ContextType exception_state_context_type = ExceptionContext::Context::kConstructorOperationInvoke;
-//         ExceptionState exception_state(isolate, exception_state_context_type, "Audio");
-//         auto&& arg1_src = NativeValueTraits<IDLString>::ArgumentValue(isolate, 0, info[0], exception_state);
-//         if (UNLIKELY(exception_state.HadException())) {
-//             return;
-//         }
-//         return_value = HTMLAudioElement::CreateForJSConstructor(*bindings::ToDocumentFromExecutionContext(execution_context), arg1_src);
-//     } while (false);
-//     v8::Local<v8::Object> v8_receiver = info.This();
-//     v8::Local<v8::Object> v8_wrapper = return_value->AssociateWithWrapper(isolate, V8HTMLAudioElement::GetWrapperTypeInfo(), v8_receiver);
-//     bindings::V8SetReturnValue(info, v8_wrapper);
-// }
-// 
-// void AudioNamedConstructorPropertyCallback(v8::Local<v8::Name> v8_property_name, const v8::PropertyCallbackInfo<v8::Value>& info)
-// {
-//     RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_DOMWindow_Audio_ConstructorGetterCallback");
-//     BLINK_BINDINGS_TRACE_EVENT("Window.Audio");
-// 
-//     v8::Isolate* isolate = info.GetIsolate();
-//     v8::Local<v8::Object> v8_receiver = info.Holder();
-//     static const V8PrivateProperty::SymbolKey kPrivatePropertyNamedConstructor;
-//     auto&& v8_private_named_constructor = V8PrivateProperty::GetSymbol(isolate, kPrivatePropertyNamedConstructor);
-//     v8::Local<v8::Value> v8_named_constructor;
-//     if (!v8_private_named_constructor.GetOrUndefined(v8_receiver).ToLocal(&v8_named_constructor)) {
-//         return;
-//     }
-//     if (!v8_named_constructor->IsUndefined()) {
-//         bindings::V8SetReturnValue(info, v8_named_constructor);
-//         return;
-//     }
-// 
-//     v8::Local<v8::Context> receiver_context = v8_receiver->GetCreationContextChecked();
-//     ScriptState* receiver_script_state = ScriptState::From(receiver_context);
-//     ScriptState* script_state = receiver_script_state;
-//     v8::Local<v8::Value> v8_value;
-//     if (!bindings::CreateNamedConstructorFunction(script_state, AudioNamedConstructorCallback, "Audio", 0, V8HTMLAudioElement::GetWrapperTypeInfo()).ToLocal(&v8_value)) {
-//         return;
-//     }
-//     bindings::V8SetReturnValue(info, v8_value);
-// 
-//     v8_private_named_constructor.Set(v8_receiver, v8_value);
-// }
+
+void AudioNamedConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
+{
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_HTMLAudioElement_Audio");
+    BLINK_BINDINGS_TRACE_EVENT("HTMLAudioElement.Audio");
+
+    v8::Isolate* isolate = info.GetIsolate();
+    if (!info.IsConstructCall()) {
+        const ExceptionState::ContextType exception_state_context_type = ExceptionContext::Context::kConstructorOperationInvoke;
+        ExceptionState exception_state(isolate, exception_state_context_type, "Audio");
+        exception_state.ThrowTypeError(ExceptionMessages::ConstructorCalledAsFunction());
+        return;
+    }
+
+    HTMLAudioElement* return_value;
+    do { // Dummy loop for use of 'break'.
+        const int non_undefined_argument_length = bindings::NonUndefinedArgumentLength(info);
+        v8::Local<v8::Context> current_context = isolate->GetCurrentContext();
+        ExecutionContext* current_execution_context = ExecutionContext::From(current_context);
+        ExecutionContext* execution_context = current_execution_context;
+        if (non_undefined_argument_length <= 0) {
+            return_value = HTMLAudioElement::CreateForJSConstructor(*bindings::ToDocumentFromExecutionContext(execution_context));
+            break;
+        }
+        const ExceptionState::ContextType exception_state_context_type = ExceptionContext::Context::kConstructorOperationInvoke;
+        ExceptionState exception_state(isolate, exception_state_context_type, "Audio");
+        auto&& arg1_src = NativeValueTraits<IDLString>::ArgumentValue(isolate, 0, info[0], exception_state);
+        if (UNLIKELY(exception_state.HadException())) {
+            return;
+        }
+        return_value = HTMLAudioElement::CreateForJSConstructor(*bindings::ToDocumentFromExecutionContext(execution_context), arg1_src);
+    } while (false);
+    v8::Local<v8::Object> v8_receiver = info.This();
+    v8::Local<v8::Object> v8_wrapper = return_value->AssociateWithWrapper(isolate, V8HTMLAudioElement::GetWrapperTypeInfo(), v8_receiver);
+    bindings::V8SetReturnValue(info, v8_wrapper);
+}
+
+void AudioNamedConstructorPropertyCallback(v8::Local<v8::Name> v8_property_name, const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+    RUNTIME_CALL_TIMER_SCOPE_DISABLED_BY_DEFAULT(info.GetIsolate(), "Blink_DOMWindow_Audio_ConstructorGetterCallback");
+    BLINK_BINDINGS_TRACE_EVENT("Window.Audio");
+
+    v8::Isolate* isolate = info.GetIsolate();
+    v8::Local<v8::Object> v8_receiver = info.Holder();
+    static const V8PrivateProperty::SymbolKey kPrivatePropertyNamedConstructor;
+    auto&& v8_private_named_constructor = V8PrivateProperty::GetSymbol(isolate, kPrivatePropertyNamedConstructor);
+    v8::Local<v8::Value> v8_named_constructor;
+    if (!v8_private_named_constructor.GetOrUndefined(v8_receiver).ToLocal(&v8_named_constructor)) {
+        return;
+    }
+    if (!v8_named_constructor->IsUndefined()) {
+        bindings::V8SetReturnValue(info, v8_named_constructor);
+        return;
+    }
+
+    v8::Local<v8::Context> receiver_context = v8_receiver->GetCreationContextChecked();
+    ScriptState* receiver_script_state = ScriptState::From(receiver_context);
+    ScriptState* script_state = receiver_script_state;
+    v8::Local<v8::Value> v8_value;
+    if (!bindings::CreateNamedConstructorFunction(script_state, AudioNamedConstructorCallback, "Audio", 0, V8HTMLAudioElement::GetWrapperTypeInfo()).ToLocal(&v8_value)) {
+        return;
+    }
+    bindings::V8SetReturnValue(info, v8_value);
+
+    v8_private_named_constructor.Set(v8_receiver, v8_value);
+}
 
 void ImageNamedConstructorCallback(const v8::FunctionCallbackInfo<v8::Value>& info)
 {
@@ -17879,7 +17879,7 @@ void V8Window::Impl::InstallUnconditionalProperties(v8::Isolate* isolate, const 
             { "ErrorEvent", ErrorEventExposedConstructCallback },
             { "Event", EventExposedConstructCallback },
             { "EventCounts", EventCountsExposedConstructCallback },
-            //{ "EventSource", EventSourceExposedConstructCallback },
+            { "EventSource", EventSourceExposedConstructCallback },
             { "EventTarget", EventTargetExposedConstructCallback },
             { "External", ExternalExposedConstructCallback },
             { "FeaturePolicy", FeaturePolicyExposedConstructCallback },
@@ -18298,7 +18298,7 @@ void V8Window::Impl::InstallUnconditionalProperties(v8::Isolate* isolate, const 
 //             { "webkitMediaStream", WebkitMediaStreamLegacyWindowAliasCallback },
 //             { "webkitRTCPeerConnection", WebkitRTCPeerConnectionLegacyWindowAliasCallback },
             { "webkitURL", WebkitURLLegacyWindowAliasCallback },
-            //{ "Audio", AudioNamedConstructorPropertyCallback },
+            { "Audio", AudioNamedConstructorPropertyCallback },
             { "Image", ImageNamedConstructorPropertyCallback },
             { "Option", OptionNamedConstructorPropertyCallback },
         };
@@ -20562,7 +20562,7 @@ base::span<const intptr_t> GetRefTableOfV8Window()
         reinterpret_cast<intptr_t>(ErrorEventExposedConstructCallback),
         reinterpret_cast<intptr_t>(EventExposedConstructCallback),
         reinterpret_cast<intptr_t>(EventCountsExposedConstructCallback),
-        //reinterpret_cast<intptr_t>(EventSourceExposedConstructCallback),
+        reinterpret_cast<intptr_t>(EventSourceExposedConstructCallback),
         reinterpret_cast<intptr_t>(EventTargetExposedConstructCallback),
         reinterpret_cast<intptr_t>(ExternalExposedConstructCallback),
         reinterpret_cast<intptr_t>(FeaturePolicyExposedConstructCallback),

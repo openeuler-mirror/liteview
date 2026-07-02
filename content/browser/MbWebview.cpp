@@ -29,10 +29,12 @@
 #include "content/viz/VizHost.h"
 #include "mbnet/PageNetExtraData.h"
 #include "mbnet/WebURLLoaderManager.h"
+#include "mbnet/ProxyInfo.h"
 #include "mbnet/cookies/WebCookieJarCurlImpl.h"
 #include "api/core/MbJsValue.h"
 #include "api/core/MbInternalApi.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
+#include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/platform/scheduler/public/compositor_thread_scheduler.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/public/web/web_navigation_control.h"
@@ -63,7 +65,35 @@
 // test
 #include "content/common/Util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/files/file_util.h"
 #include <shellapi.h>
+#include <windowsx.h>
+#include <unordered_set>
+
+namespace {
+std::string getScheme(const std::string& url)
+{
+    // ���û�����û��Э�����ַʱ, �ж�ʹ������Э���ǱȽϸ��ӵ�
+    // ������ַ�� HSTS �л�ǿ�� https, localhost Ĭ��ʹ�� http, ��ʷ��¼���� http ���ʼ�¼��ʹ�� http
+    // ������ https ����ʧ���ֲ����ض�����(����֤�����)ʱ, ���� http
+
+    // cnr.cn �����ֱַ������ https ��ֱ�ӱ���, Ҳû��ʲô�ض���֮�����Ϊ
+    // todo(mb): ������Ҫ������Щ�߼�, �������Ի���, �������⻯
+    static const std::unordered_set<std::string> httpOnlyHosts = {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+
+        // temp
+        "cnr.cn",
+    };
+
+    std::string urlTemp = "https://" + url; // �� KURL ���� host, ��ʱ��һ��, KURL Ҫ�������Э��
+    blink::KURL kurl(WTF::String::FromUTF8(urlTemp.c_str()));
+
+    return httpOnlyHosts.count(kurl.Host().Utf8()) ? "http://" : "https://";
+}
+}
 
 namespace mbnet {
 extern std::vector<char>* s_htmlData;
@@ -108,6 +138,11 @@ MbWebView::MbWebView(bool isPopup)
 // ��������blink�߳�
 MbWebView::~MbWebView()
 {
+    char* output = (char*)malloc(0x100);
+    sprintf(output, "MbWebView::~MbWebView: %p, %d\n", this, (int)m_id);
+    OutputDebugStringA(output);
+    free(output);
+
     m_renderWidgetHostImpl.reset();
 }
 
@@ -148,7 +183,7 @@ void MbWebView::preDestroyOnBlinkThread()
         if (0 != *aysnCount)
             return;
         //self->destroy();
-        ThreadCall::delayDestroySelf(self, RenderThreadImpl::get()->getTaskRunner());
+        ThreadCall::delayDestroySelf(self, RenderThreadImpl::get()->getTaskRunner(), 2000);
         free(aysnCount);
     };
     
@@ -161,6 +196,8 @@ void MbWebView::preDestroyOnBlinkThread()
     m_service->destroy(destroyCb);
     m_service.release(); // TODO:
 
+    clearUiHwnd(m_hWnd, (UINT_PTR)this);
+
     int count = 0;
     while (m_hWnd && ::IsWindow(m_hWnd)) {
         ++count;
@@ -171,10 +208,8 @@ void MbWebView::preDestroyOnBlinkThread()
 #endif // DEBUG
     }
 
-    if (!ThreadCall::isBlinkThread())
-        DebugBreak();
+    CHECK(ThreadCall::isBlinkThread());
 
-    clearUiHwnd(m_hWnd, (UINT_PTR)this);
     m_hWnd = nullptr;
 #if defined(OS_WIN)
     if (m_memoryBMP)
@@ -193,29 +228,23 @@ void MbWebView::preDestroyOnBlinkThread()
     //if (m_surface)
     //   cairo_surface_destroy((cairo_surface_t*)m_surface); // ~OffscreenWindowUpdater����ͷ����m_surface
 #endif
-    //::DeleteCriticalSection(&m_memoryCanvasLock);
     ::DeleteCriticalSection(&m_mouseMsgQueueLock);
     ::DeleteCriticalSection(&m_dirtyRectLock);
     ::DeleteCriticalSection(&m_clientSizeLock);
-    ::DeleteCriticalSection(&m_userKeyValuesLock);
-
-    //     content::postTaskToMainThread(FROM_HERE, [webView] {
-    //         destroyWebViewAsyn(webView);
-    //     });    
+    ::DeleteCriticalSection(&m_userKeyValuesLock);  
 }
 
-void MbWebView::preDestroyOnUiThread()
+bool MbWebView::preDestroyOnUiThread()
 {
     char* output = (char*)malloc(0x100);
-    sprintf(output, "MbWebView::preDestroy: %p, %d\n", this, (int)m_id);
+    sprintf(output, "MbWebView::preDestroyOnUiThread: %p, %d, %d\n", this, (int)m_id, m_state);
     OutputDebugStringA(output);
     free(output);
 
-    clearMbWebViewInContextMenuIfNeeded(this);
+    if (m_state >= kPageDestroying)
+        return false;
 
-    //m_renderWidgetHostImpl->destroy();
-    //m_host->destroy();
-    //m_service.reset();
+    clearMbWebViewInContextMenuIfNeeded(this);
 
     common::LiveIdDetect::getMbWebviewIds()->deconstructed(m_id);
     m_state = kPageDestroying;
@@ -227,6 +256,7 @@ void MbWebView::preDestroyOnUiThread()
     // ��linux�£����ھ���п�����LinuxGdiBindWindowByGtk�����ģ���ʱ���ղ������ڹرյ���Ϣ����Ϊ�ⲿ�ֶ��ر��ˣ�������Ҫ�ֶ���һ��
     ::DestroyWindow(m_hWnd);
 #endif
+    return true;
 }
 
 // ��������webkit�߳�
@@ -457,8 +487,6 @@ blink::WebView* MbWebView::initializeViewInBlinkThread(blink::WebView* opener, b
     m_renderWidgetHostImpl->m_webWiew = webWiew;
     m_renderWidgetHostImpl->m_mbWebView = this;
 
-    setDefaultPreferences((blink::WebViewImpl*)webWiew);
-
     blink::DocumentLoader::DisableCodeCacheForTesting();
 
     //constexpr viz::FrameSinkId root_frame_sink_id(0xdead, 0xbeef);
@@ -478,6 +506,8 @@ blink::WebView* MbWebView::initializeViewInBlinkThread(blink::WebView* opener, b
         *m_renderWidgetHostImpl->m_agentGroupScheduler, createFrameWidgetParams->visualProperties.screen_infos, /*settings=*/nullptr);
 
     m_renderWidgetHostImpl->m_webFrameWidget = webFrameWidget;
+
+    setDefaultPreferences((blink::WebViewImpl*)webWiew);
 
     webWiew->DidAttachLocalMainFrame();
     
@@ -547,6 +577,12 @@ void MbWebView::setBackgroundColor(COLORREF c)
 
 void MbWebView::setDefaultPreferences(blink::WebViewImpl* webWiew)
 {
+    blink::web_pref::WebPreferences webPreferences = webWiew->GetWebPreferences();
+    webPreferences.touch_event_feature_detection_enabled = false; // ����治�ṩontouchstart��document
+    webPreferences.allow_universal_access_from_file_urls = true;
+    webPreferences.allow_file_access_from_file_urls = true;
+    webWiew->SetWebPreferences(webPreferences);
+
     blink::WebSettings* websettings = webWiew->GetSettings();
     websettings->SetDefaultFontSize(16);
     websettings->SetDefaultFixedFontSize(16);
@@ -625,6 +661,28 @@ void MbWebView::propagatedZoomFactor()
 //     pageScaleCons.maximum_scale = 5;
 //     webWiew->GetPageScaleConstraintsSet().SetUserAgentConstraints(pageScaleCons);
     webWiew->SetZoomFactorForDeviceScaleFactor(zoom);
+}
+
+void MbWebView::setAudioMuted(bool mute)
+{
+    if (m_isAudioMuted == mute)
+        return;
+    m_isAudioMuted = mute;
+
+    if (m_frameClient)
+        m_frameClient->setAudioMuted(mute);
+}
+
+bool MbWebView::isAudioMuted() const
+{
+    return m_isAudioMuted;
+}
+
+base::FilePath MbWebView::getDownloadDirPath()
+{
+    if (!m_pageNetExtraData)
+        m_pageNetExtraData = new mbnet::PageNetExtraData();
+    return m_pageNetExtraData->getDownloadDirPath();
 }
 
 void MbWebView::createWebWindowInUiThread(mbWindowType type, HWND parent, int x, int y, int width, int height)
@@ -839,8 +897,8 @@ LRESULT MbWebView::windowProcImpl(HWND hWnd, UINT message, WPARAM wParam, LPARAM
     case WM_MOUSEWHEEL:
     {
         POINT pt;
-        pt.x = LOWORD(lParam);
-        pt.y = HIWORD(lParam);
+        pt.x = GET_X_LPARAM(lParam);
+        pt.y = GET_Y_LPARAM(lParam);
         ::ScreenToClient(hWnd, &pt);
 
         int delta = GET_WHEEL_DELTA_WPARAM(wParam);
@@ -970,7 +1028,8 @@ void MbWebView::debugShowDomNode()
     blink::WebLocalFrame* frame = (blink::WebLocalFrame*)(m_renderWidgetHostImpl->m_webWiew->MainFrame());
     if (!frame)
         return;
-    blink::WebDocument doc = frame->GetDocument();
+    blink::WebLocalFrame* frame2 = (blink::WebLocalFrame*)frame->FirstChild();
+    blink::WebDocument doc = frame2->GetDocument();
     blink::Document* document = (doc);
     std::string out = "debugShowDomNode: " + document->ToTreeStringForThis().Utf8();
     out += "\n";
@@ -995,24 +1054,6 @@ void MbWebView::draggableRegionsChanged(blink::WebVector<blink::WebDraggableRegi
 
 void MbWebView::onPaintUpdatedInUiThread(const HDC hdc, int x, int y, int cx, int cy)
 {
-    //SIZE clientSize = getClientSizeLocked();
-
-    //::EnterCriticalSection(&m_memoryCanvasLock);
-
-//     if (m_hWnd && m_isAutoDrawToHwnd) {
-// #if defined(OS_WIN)
-//         HDC hdcScreen = ::GetDC(m_hWnd);
-//         if (!m_isTransparent) {
-//             ::BitBlt(hdcScreen, x + m_offset.x, y + m_offset.y, cx, cy, m_memoryDC, x, y, SRCCOPY);
-//         } else
-//             drawLayeredWindow(m_hWnd, hdcScreen, m_memoryDC, m_offset);
-// 
-//         ::ReleaseDC(m_hWnd, hdcScreen);
-// #else
-//         ;
-// #endif
-//     }
-
 #if defined(OS_WIN)
     mbPaintUpdatedCallback paintUpdatedCallback = getClosure().m_PaintUpdatedCallback;
     if (paintUpdatedCallback) {
@@ -1020,34 +1061,48 @@ void MbWebView::onPaintUpdatedInUiThread(const HDC hdc, int x, int y, int cx, in
     }
 #endif
 
-#if 0 // defined(OS_WIN)
+#if 1 // defined(OS_WIN)
     mbPaintBitUpdatedCallback paintBitUpdatedCallback = getClosure().m_PaintBitUpdatedCallback;
     if (paintBitUpdatedCallback) {
         mbRect r = { x, y, cx, cy };
-        paintBitUpdatedCallback(getWebviewHandle(), getClosure().m_PaintBitUpdatedParam, m_bits, &r, clientSize.cx, clientSize.cy);
+        paintBitUpdatedCallback(getWebviewHandle(), getClosure().m_PaintBitUpdatedParam, m_bitmapByte, &r, m_bitmapByteSize.width(), m_bitmapByteSize.height());
     }
 #endif
-    //::LeaveCriticalSection(&m_memoryCanvasLock);
 
     ::EnterCriticalSection(&m_clientSizeLock);
     m_clientSizeDirty = false;
+    m_isAsynResizing = false;
+    bool sizeChange = !(m_clientSizeCache.cx == m_clientSize.cx && m_clientSizeCache.cy == m_clientSize.cy);
     ::LeaveCriticalSection(&m_clientSizeLock);
+
+    if (sizeChange) // ����ϴ�resize��ʱ��ûPaint��Ϣ���ͻ�ȱһ��resize
+        updataBlinkSize();
 }
 
 void MbWebView::updataBlinkSize()
 {
     mbWebView webviewHandle = (mbWebView)m_id;
-    if (m_isAsynResizing)
+    if (m_updataBlinkSizeAsyn || m_isAsynResizing)
         return;
-    m_isAsynResizing = true;
+    m_updataBlinkSizeAsyn = true;
 
-    ThreadCall::callBlinkThreadAsyncWithValidDelayed(MB_FROM_HERE, webviewHandle, 600, [](MbWebView* self) {
-        self->m_isAsynResizing = false;
+    ThreadCall::callBlinkThreadAsyncWithValid(MB_FROM_HERE, webviewHandle, [](MbWebView* self) {
         SIZE clientSize = self->getClientSizeLocked();
-        if (self->m_host && self->m_renderWidgetHostImpl && self->m_renderWidgetHostImpl->isSinkReady() && self->m_renderWidgetHostImpl/*m_host*/->isAllowResize()) {
-            self->m_renderWidgetHostImpl->resizeOnBlinkThread(clientSize.cx, clientSize.cy);
-        } else
+        self->m_updataBlinkSizeAsyn = false;
+
+        if (self->m_host && self->m_renderWidgetHostImpl && self->m_renderWidgetHostImpl->isSinkReady()) {
+            //RenderFrameMetadataObserverClientImpl::OnRenderFrameMetadataChangedû�ߵ�ʱ��isAllowResizeΪfalse
+            if (self->m_renderWidgetHostImpl->isAllowResize()) {
+                ::EnterCriticalSection(&self->m_clientSizeLock);
+                self->m_clientSizeCache = clientSize;
+                self->m_isAsynResizing = true; // һ֡������������resize
+                ::LeaveCriticalSection(&self->m_clientSizeLock);
+
+                self->m_renderWidgetHostImpl->resizeOnBlinkThread(clientSize.cx, clientSize.cy);
+            }
+        } else {
             self->updataBlinkSize();
+        }
     });
 }
 
@@ -1425,7 +1480,6 @@ int MbWebView::getCursorInfoType() const
 
 HDC MbWebView::getViewDC()
 {
-#if 1 // defined(OS_WIN)
     if (!m_memoryCanvasLock)
         return nullptr;
 
@@ -1434,19 +1488,34 @@ HDC MbWebView::getViewDC()
     m_memoryCanvasLockCount++;
     m_memoryCanvasLock->Acquire();
     return (HDC)m_surface;
-#else
-    return nullptr;
-#endif
 }
 
 void MbWebView::unlockViewDC()
 {
-#if 1 // defined(OS_WIN)
     if (m_memoryCanvasLock) {
         --m_memoryCanvasLockCount;
         m_memoryCanvasLock->Release();
     }
-#endif
+}
+
+unsigned char* MbWebView::getLockedViewBitmap(int* w, int* h)
+{
+    if (!m_memoryCanvasLock)
+        return nullptr;
+
+    if (m_memoryCanvasLockCount > 0)
+        MessageBoxA(0, "MbWebView::getViewDC lock is not matching", 0, 0);
+    m_memoryCanvasLockCount++;
+    m_memoryCanvasLock->Acquire();
+
+    *w = m_bitmapByteSize.width();
+    *h = m_bitmapByteSize.height();
+    return m_bitmapByte;
+}
+
+void MbWebView::unlockViewBitmap()
+{
+    unlockViewDC();
 }
 
 void MbWebView::onAllocatedBitmapMemory(const gfx::Size& pixelSize, void* surface, unsigned char* bitmap, void* lock)
@@ -1500,7 +1569,7 @@ void MbWebView::onPaint(HWND hWnd, WPARAM wParam)
     if (0 != width && 0 != height) {
 #if defined(OS_WIN)
         if (m_clientResizeRepaintDirty) {
-            ::FillRect(hdc, &ps.rcPaint, (HBRUSH)::GetStockObject(LTGRAY_BRUSH)); // resize��ʱ���������
+            //::FillRect(hdc, &ps.rcPaint, (HBRUSH)::GetStockObject(LTGRAY_BRUSH)); // resize��ʱ���������
             m_clientResizeRepaintDirty = false;
         }
 
@@ -1615,21 +1684,21 @@ void MbWebView::setShow(int nCmdShow/*, bool isActivate*/)
 static void setWindowTitleDalay(content::MbWebView* webview, int count)
 {
     int64_t id = webview->getId();
-    base::SequencedTaskRunner::GetCurrentDefault()->PostNonNestableDelayedTask(MB_FROM_HERE, base::BindOnce(
-            [](int64_t id, int count) {
-                count++;
-    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(id);
-    if (!webview || count > 3)
-        return;
+    base::SequencedTaskRunner::GetCurrentDefault()->PostNonNestableDelayedTask(MB_FROM_HERE, 
+        base::BindOnce([](int64_t id, int count) {
+        count++;
+        content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(id);
+        if (!webview || count > 3)
+            return;
 
-    if (webview->getHostWnd()) {
-        std::u16string titleW = utf8ToUtf16(webview->getWindowTitle());
-        ::SetWindowTextW(webview->getHostWnd(), (LPCWSTR)titleW.c_str());
-        return;
-    }
-    setWindowTitleDalay(webview, count);
-            }, id, count),
-        base::Microseconds(1000));
+        if (webview->getHostWnd()) {
+            std::u16string titleW = utf8ToUtf16(webview->getWindowTitle());
+            ::SetWindowTextW(webview->getHostWnd(), (LPCWSTR)titleW.c_str());
+            return;
+        }
+        setWindowTitleDalay(webview, count);
+    }, id, count),
+    base::Microseconds(1000));
 }
 
 bool MbWebView::setWindowTitle(const std::string& title)
@@ -1678,9 +1747,11 @@ void MbWebView::loadUrl(const char* urlStr)
         String protocol = url.Protocol();
         if (protocol.empty() && protocol != "about:blank") {
             std::string urlTemp = urlStr;
-            urlTemp = "http://" + urlTemp;
+            urlTemp = getScheme(urlStr) + urlTemp;
             url = blink::KURL(WTF::String::FromUTF8(urlTemp.c_str()));
         }
+    } else {
+        mbnet::WebURLLoaderManager::sharedInstance()->cancelAllJobsOfWebview(m_id);
     }
 
     blink::WebNavigationInfo info;
@@ -1717,6 +1788,7 @@ void MbWebView::reload(bool force)
 {
     if (!m_renderWidgetHostImpl || !m_renderWidgetHostImpl->m_mainFrame)
         return;
+    mbnet::WebURLLoaderManager::sharedInstance()->cancelAllJobsOfWebview(m_id);
     m_renderWidgetHostImpl->m_mainFrame->StartReload(force ? blink::WebFrameLoadType::kReload : blink::WebFrameLoadType::kReloadBypassingCache);
 }
 
@@ -1738,7 +1810,7 @@ std::string MbWebView::getCookiesForSession()
 
     mbnet::WebCookieJarImpl* cookieJar = getWebCookieJarImpl();
     const blink::Document* doc = webDocument.ConstUnwrap<blink::Document>();
-    return cookieJar->getCookiesForSession(blink::KURL(), doc->CookieURL(), true);
+    return cookieJar->getCookiesForSession(doc->CookieURL(), true);
 }
 
 mbnet::WebCookieJarImpl* MbWebView::getWebCookieJarImpl()
@@ -1749,6 +1821,42 @@ mbnet::WebCookieJarImpl* MbWebView::getWebCookieJarImpl()
     if (ret)
         return ret;
     return mbnet::WebURLLoaderManager::sharedInstance()->getShareCookieJar();
+}
+
+std::string MbWebView::getCookie()
+{
+    blink::WebLocalFrame* frame = (blink::WebLocalFrame*)(m_renderWidgetHostImpl->m_webWiew->MainFrame());
+    if (!frame)
+        return "";
+
+    blink::WebDocument webDocument = frame->GetDocument();
+    if (webDocument.IsNull())
+        return "";
+
+    mbnet::WebCookieJarImpl* cookieJar = getWebCookieJarImpl();
+    if (!cookieJar)
+        return "";
+
+    const blink::Document* doc = webDocument.ConstUnwrap<blink::Document>();
+    return cookieJar->getCookiesForSession(doc->CookieURL(), true);
+}
+
+void MbWebView::setCookie(const std::string& ck)
+{
+    blink::WebLocalFrame* frame = (blink::WebLocalFrame*)(m_renderWidgetHostImpl->m_webWiew->MainFrame());
+    if (!frame)
+        return;
+
+    blink::WebDocument webDocument = frame->GetDocument();
+    if (webDocument.IsNull())
+        return;
+
+    mbnet::WebCookieJarImpl* cookieJar = getWebCookieJarImpl();
+    if (!cookieJar)
+        return;
+
+    const blink::Document* doc = webDocument.ConstUnwrap<blink::Document>();
+    return cookieJar->setCookiesFromDOM(blink::KURL(), /*doc->CookieURL()*/blink::KURL(), ck);
 }
 
 void MbWebView::setCookieJarFullPath(const char* path)
@@ -2036,6 +2144,84 @@ const mbProxy* MbWebView::getProxy() const
     if (!m_pageNetExtraData)
         return nullptr;
     return m_pageNetExtraData->getProxy();
+}
+
+bool getProxyInfoFromWebviewId(int64_t id, mbnet::ProxyInfo* proxyOut)
+{
+    content::MbWebView* webview = (content::MbWebView*)common::LiveIdDetect::getMbWebviewIds()->getPtr(id);
+    if (!webview || !webview->getProxy())
+        return false;
+    const mbProxy* proxy = webview->getProxy();
+    char buf[101] = { 0 };
+
+    memcpy(buf, proxy->hostname, 100);
+    std::string hostname = buf;
+
+    memset(buf, 0, 101);
+    memcpy(buf, proxy->username, 50);
+    std::string username = buf;
+
+    memset(buf, 0, 101);
+    memcpy(buf, proxy->password, 50);
+    std::string password = buf;
+
+    std::string userPass;
+    if (username.length() || password.length())
+        userPass = username + ":" + password;
+
+    proxyOut->proxy = hostname + ":" + base::NumberToString(proxy->port);
+    proxyOut->proxyUserNamePassword = userPass;
+    if (proxy->type == MB_PROXY_HTTP) {
+        proxyOut->proxyType = mbnet::kProxyTypeHTTP;
+    } else if (proxy->type == MB_PROXY_SOCKS4) {
+        proxyOut->proxyType = mbnet::kProxyTypeSocks4;
+    } else if (proxy->type == MB_PROXY_SOCKS5) {
+        proxyOut->proxyType = mbnet::kProxyTypeSocks5;
+    } else if (proxy->type == MB_PROXY_SOCKS5HOSTNAME) {
+        proxyOut->proxyType = mbnet::kProxyTypeSocks5Hostname;
+    }
+    return true;
+}
+
+bool getProxyFromExecutionContext(blink::ExecutionContext* context, mbnet::ProxyInfo* proxyOut)
+{
+    if (!context->IsWindow())
+        return false;
+
+    blink::LocalDOMWindow* dw = (blink::LocalDOMWindow*)context;
+    blink::Document* doc = dw->document();
+    if (!doc)
+        return false;
+
+    blink::LocalFrame* frame = doc->GetFrame();
+    if (!frame)
+        return false;
+
+    blink::LocalFrameClient* localClient = frame->Client();
+    if (!localClient)
+        return false;
+    blink::WebLocalFrame* localFrame = localClient->GetWebFrame();
+    if (!localFrame)
+        return false;
+    content::WebLocalFrameClientImpl* client = (content::WebLocalFrameClientImpl*)localFrame->Client();
+    int64_t id = client->getMbwebviewId();
+
+    return getProxyInfoFromWebviewId(id, proxyOut);
+}
+
+void MbWebView::enterFullscreenOnBlinkThread()
+{
+    CHECK(ThreadCall::isBlinkThread());
+
+    m_renderWidgetHostImpl->m_visualProperties.is_fullscreen_granted = true;
+    updataBlinkSize();
+}
+void MbWebView::exitFullscreenOnBlinkThread()
+{
+    CHECK(ThreadCall::isBlinkThread());
+
+    m_renderWidgetHostImpl->m_visualProperties.is_fullscreen_granted = false;
+    updataBlinkSize();
 }
 
 }

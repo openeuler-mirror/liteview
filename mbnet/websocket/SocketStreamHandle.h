@@ -33,6 +33,7 @@
 #define mbnet_SocketStreamHandle_h
 
 #include "mbnet/websocket/SocketStreamHandleBase.h"
+#include "mbnet/ProxyInfo.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "third_party/blink/renderer/platform/wtf/threading_primitives.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
@@ -50,9 +51,9 @@ class SocketStreamHandleClient;
 
 class SocketStreamHandle : public ThreadSafeRefCounted<SocketStreamHandle>, public SocketStreamHandleBase {
 public:
-    static scoped_refptr<SocketStreamHandle> create(const blink::KURL& url, SocketStreamHandleClient* client)
+    static scoped_refptr<SocketStreamHandle> create(const blink::KURL& url, const ProxyInfo& proxy, SocketStreamHandleClient* client)
     { 
-        scoped_refptr<SocketStreamHandle> result = base::AdoptRef(new SocketStreamHandle(url, client));
+        scoped_refptr<SocketStreamHandle> result = base::AdoptRef(new SocketStreamHandle(url, proxy, client));
         result->startThread();
         return result;
     }
@@ -67,7 +68,7 @@ public:
     int64_t getId() const { return m_id; }
 
 private:
-    SocketStreamHandle(const blink::KURL&, SocketStreamHandleClient*);
+    SocketStreamHandle(const blink::KURL&, const ProxyInfo& proxy, SocketStreamHandleClient*);
 
     int platformSend(const char* data, int length) override;
     void platformClose() override;

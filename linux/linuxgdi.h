@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <map>
 #include <set>
+#include <vector>
 #include <pthread.h>
 #include "windows.h"
 
@@ -52,6 +53,10 @@ public:
     DWORD m_styleex;
 
     DWORD m_threadId;
+
+    bool m_isPostDamageRect = false;
+    pthread_mutex_t m_damageRectLock;
+    std::vector<RECT> m_damageRects;
 
     HwndLinux();
     ~HwndLinux();

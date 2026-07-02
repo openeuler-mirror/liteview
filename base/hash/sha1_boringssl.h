@@ -7,8 +7,8 @@
 
 #include <stdint.h>
 
-//#include "third_party/boringssl/src/include/openssl/sha.h"
-#include "third_party/openssl/openssl/include/openssl/sha.h"
+#include "third_party/boringssl/src/include/openssl/sha.h"
+//#include "third_party/openssl/openssl/include/openssl/sha.h"
 
 namespace base {
 // Used for storing intermediate data during an SHA1 computation. Callers

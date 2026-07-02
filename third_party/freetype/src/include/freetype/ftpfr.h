@@ -4,7 +4,7 @@
  *
  *   FreeType API for accessing PFR-specific data (specification only).
  *
- * Copyright 2002-2018 by
+ * Copyright (C) 2002-2024 by
  * David Turner, Robert Wilhelm, and Werner Lemberg.
  *
  * This file is part of the FreeType project, and may only be used,
@@ -19,8 +19,7 @@
 #ifndef FTPFR_H_
 #define FTPFR_H_
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <freetype/freetype.h>
 
 #ifdef FREETYPE_H
 #error "freetype.h of FreeType 1 has been loaded!"
@@ -64,21 +63,21 @@ FT_BEGIN_HEADER
    * @output:
    *    aoutline_resolution ::
    *      Outline resolution.  This is equivalent to `face->units_per_EM` for
-   *      non-PFR fonts.  Optional (parameter can be NULL).
+   *      non-PFR fonts.  Optional (parameter can be `NULL`).
    *
    *    ametrics_resolution ::
    *      Metrics resolution.  This is equivalent to `outline_resolution` for
-   *      non-PFR fonts.  Optional (parameter can be NULL).
+   *      non-PFR fonts.  Optional (parameter can be `NULL`).
    *
    *    ametrics_x_scale ::
    *      A 16.16 fixed-point number used to scale distance expressed in
    *      metrics units to device subpixels.  This is equivalent to
    *      `face->size->x_scale`, but for metrics only.  Optional (parameter
-   *      can be NULL).
+   *      can be `NULL`).
    *
    *    ametrics_y_scale ::
    *      Same as `ametrics_x_scale` but for the vertical direction.
-   *      optional (parameter can be NULL).
+   *      optional (parameter can be `NULL`).
    *
    * @return:
    *    FreeType error code.  0~means success.
@@ -162,7 +161,7 @@ FT_BEGIN_HEADER
    *
    * @note:
    *    You can use the `x_scale` or `y_scale` results of @FT_Get_PFR_Metrics
-   *    to convert the advance to device subpixels (i.e., 1/64th of pixels).
+   *    to convert the advance to device subpixels (i.e., 1/64 of pixels).
    */
   FT_EXPORT( FT_Error )
   FT_Get_PFR_Advance( FT_Face   face,
